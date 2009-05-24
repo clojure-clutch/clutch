@@ -175,12 +175,12 @@
                       (str "_design/" design-document "/_view/" (name view-key)
                            (utils/map-to-query-str query-params-map)))))
 
-(defn adhoc-view
+(defn ad-hoc-view
   "One-off queries (i.e. views you don't want to save in the CouchDB database). Ad-hoc
    views are only good during development. Also takes an optional map for querying
    options (see: http://bit.ly/gxObh)."
   ([map-reduce-fns-map]
-     (adhoc-view map-reduce-fns-map {}))
+     (ad-hoc-view map-reduce-fns-map {}))
   ([map-reduce-fns-map query-params-map]
      (couchdb-request config :post 
                       (str "_temp_view" (utils/map-to-query-str query-params-map))

@@ -3,7 +3,7 @@
         (clojure.contrib [test-is :as test-is])))
 
 
-(set-couchdb-config! {:username "twansit" :password "twansit" :language "clojure"})
+(set-couchdb-config! {:language "clojure"})
 
 (def test-database "clutch_test_db")
 
@@ -107,24 +107,24 @@
                 (fn [keys values _] (apply + values))))
   (is (= 302 (-> (get-view "scores" :sum-of-all-scores) :rows first :value))))
 
-(defdbtest use-adhoc-view
+(defdbtest use-ad-hoc-view
   (create-document test-doc-1)
   (create-document test-doc-2)
   (create-document test-doc-3)
   (create-document test-doc-4)
   (is (= #{"robert.jones@example.com" "sarah.parker@example.com"}
-         (set (map :value (:rows (adhoc-view 
+         (set (map :value (:rows (ad-hoc-view 
                                   (with-clj-view-server
                                    (fn [doc] (if (re-find #"example\.com$" (:email doc))
                                               [nil (:email doc)]))))))))))
 
-(defdbtest use-adhoc-view-with-javascript-view-server
+(defdbtest use-ad-hoc-view-with-javascript-view-server
   (create-document test-doc-1)
   (create-document test-doc-2)
   (create-document test-doc-3)
   (create-document test-doc-4)
   (is (= #{"john.smith@test.com" "jane.thompson@test.com"}
-         (set (map :value (:rows (adhoc-view
+         (set (map :value (:rows (ad-hoc-view
                                   {:language "javascript"
                                    :map      "function(doc){if(doc.email.indexOf('test.com')>0)emit(null,doc.email);}"})))))))
 

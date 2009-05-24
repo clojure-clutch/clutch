@@ -5,7 +5,7 @@ h1. Clutch
     (:use com.ashafa.clutch))
   
   ;; switch from the default javascript view server to clojure
-  (set-couchdb-config! {:language "clojure"})
+  (!set-couchdb-config {:language "clojure"})
 
   (create-database "clutch_test")
  
@@ -14,18 +14,20 @@ h1. Clutch
            (bulk-insert-update [{:test-grade 10}
                                 {:test-grade 20}
                                 {:test-grade 30}])
-           ;; create temporary or permanent views using clojure 
-           (ad-hoc-view
+           ;; create temproary or permanent views using clojure 
+           (adhoc-view
              (with-clj-view-server
                 (fn [doc] [nil (:test-grade doc)])       ; map
                 (fn [keys values _] (apply + values))))) ; reduce
 </pre>
 
-Clutch is a Clojure library for "Apache CouchDB":http://couchdb.apache.org/. Although it's in a very early stage of development, Clutch supports most of the basic Apache CouchDB API. To get a sense of where Clutch is at, please view the included tests.
+Clutch is a Clojure library for "Apache CouchDB":http://couchdb.apache.org/ . Although it's in a  very early stage of development, Clutch supports most of the basic Apache CouchDB API. To get a sense of where Clutch is at, please view 
+the included tests.
 
 h2. Clutch (Clojure) View Server
 
-In order to use Clojure for views, you must add the following to the 'local.ini' file of your Apache CouchDB installation (replacing &lt;path ...&gt; with the appropiate paths).
+In order to use Clojure for views, you must add the following to the 'local.ini' file of your 
+Apache CouchDB installation (replacing <path ...> with the appropiate paths).
 
 <pre>
   [query_servers]
@@ -44,5 +46,4 @@ h3. TODOs
 
 * Revisions
 * Attachments
-* More robust tests
 * Performance tests
