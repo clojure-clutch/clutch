@@ -157,7 +157,7 @@
 
 (defn create-view
   "Create a design document used for database queries."
-  [#^String design-document-name #^Keyword view-key #^Map view-server-map]
+  [design-document-name view-key view-server-map]
      (let [design-doc-id (str "_design/" design-document-name)]
        (if-let [design-doc (get-doc design-doc-id)]
          (update-document design-doc #(assoc % view-key view-server-map) [:views])
@@ -189,9 +189,8 @@
                         map-reduce-fns-map))))
 
 (defn bulk-insert-update
-  "Takes a vector of documents (maps) and inserts or updates (if \"_id\" key  and a
-   current value of the \"_rev\" key are provided in a document all into the binded
-   database with a single CouchDB request."
+  "Takes a vector of documents (maps) and inserts or updates (if \"_id\" and \"_rev\" keys
+   are supplied in a document) them with a single CouchDB request."
   ([documents-vector]
      (bulk-insert-update documents-vector nil nil))
   ([documents-vector update-map]
