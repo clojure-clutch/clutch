@@ -62,7 +62,7 @@
   "Takes one or two functions and returns a map-reduce map (with the functions
    serialized as strings) used by the Clojure view server."
   ([map-form]
-     `(with-clj-map-reduce ~(pr-str map-form) nil))
+     `(with-clj-view-server ~(pr-str map-form) nil))
   ([map-form reduce-form]
      (let [map-reduce-map {:map (if (string? map-form) map-form (pr-str map-form))}]
        (if reduce-form
@@ -159,7 +159,7 @@
   "Create a design document used for database queries."
   [design-document-name view-key view-server-map]
      (let [design-doc-id (str "_design/" design-document-name)]
-       (if-let [design-doc (get-doc design-doc-id)]
+       (if-let [design-doc (get-document design-doc-id)]
          (update-document design-doc #(assoc % view-key view-server-map) [:views])
          (create-document design-doc-id
                              {:language (config :language)

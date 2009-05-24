@@ -2,7 +2,10 @@
   (:use com.ashafa.clutch
         (clojure.contrib [test-is :as test-is])))
 
-(set-couchdb-config! {:language "clojure"})
+
+(set-couchdb-config! {:username "twansit" :password "twansit" :language "clojure"})
+
+(def test-database "clutch_test_db")
 
 (def test-doc-1 {:name  "John Smith"
                  :email "john.smith@test.com"
@@ -23,24 +26,19 @@
 (defmacro defdbtest [name & body]
   `(deftest ~name
     (try
-     (create-database "test_db")
-     (with-db "test_db" ~@body)
+     (create-database test-database)
+     (with-db test-database ~@body)
      (finally
-      (delete-database "test_db")))))
+      (delete-database test-database)))))
 
 (deftest check-couchdb-connection
   (is (= "Welcome" (:couchdb (couchdb-info)))))
 
-(deftest create-list-and-delete-databases
-  (are (= {:ok true} _)
-       (create-database "test_db_1")
-       (create-database "test_db_2")
-       (create-database "test_db_3"))
-  (is (= #{"test_db_1" "test_db_2" "test_db_3"} (set (all-databases))))
-  (are (= {:ok true} _)
-       (delete-database "test_db_3")
-       (delete-database "test_db_2")
-       (delete-database "test_db_1")))
+(deftest create-list-check-and-delete-database
+  (is (= {:ok true} (create-database test-database)))
+  (is ((set (all-databases)) test-database))
+  (is (= test-database (:db_name (database-info test-database))))
+  (is (= {:ok true} (delete-database test-database))))
 
 (defdbtest create-a-document
   (is (contains? (create-document test-doc-1) :id)))
@@ -61,6 +59,11 @@
   (let [id (:id (create-document test-doc-4))]
     (update-document (get-document id) (partial + 4) [:score])
     (is (= 63 (:score (get-document id))))))
+
+(defdbtest delete-a-document
+  (create-document "my_id" test-doc-2)
+  (is (true? (:ok (delete-document (get-document "my_id")))))
+  (is (nil? (get-document "my_id"))))
 
 (defdbtest get-all-documents-meta
   (create-document test-doc-1)
@@ -111,7 +114,7 @@
   (create-document test-doc-4)
   (is (= #{"robert.jones@example.com" "sarah.parker@example.com"}
          (set (map :value (:rows (adhoc-view 
-                                  (with-clj-map-reduce
+                                  (with-clj-view-server
                                    (fn [doc] (if (re-find #"example\.com$" (:email doc))
                                               [nil (:email doc)]))))))))))
 
