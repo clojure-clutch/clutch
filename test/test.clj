@@ -54,7 +54,7 @@
 
 (defdbtest update-a-document
   (let [id (:id (create-document test-doc-4))]
-    (update-document (get-doc id) {:email "test@example.com"})
+    (update-document (get-document id) {:email "test@example.com"})
     (is (= "test@example.com" (:email (get-document id))))))
 
 (defdbtest update-a-document-with-a-function
