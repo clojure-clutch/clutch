@@ -27,7 +27,7 @@ the included tests.
 h2. Clutch (Clojure) View Server
 
 In order to use Clojure for views, you must add the following to the 'local.ini' file of your 
-Apache CouchDB installation (replacing \<path ...\> with the appropiate paths).
+Apache CouchDB installation (replacing &lt;path ...&gt; with the appropiate paths).
 
 <pre>
   [query_servers]
