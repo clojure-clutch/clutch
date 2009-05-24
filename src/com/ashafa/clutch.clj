@@ -37,8 +37,7 @@
                         :language "javascript"}))
 
 (defn set-couchdb-config!
-  "Takes a map with a custom CouchDB configuration 
-   as follows: 
+  "Takes a map with a custom CouchDB configuration as follows: 
         {:host     <ip (defaults to \"localhost\")>
          :port     <port (defaults to 5984)>
          :language <language view server to use (see: README)>
@@ -61,7 +60,7 @@
 
 (defmacro with-clj-view-server
   "Takes one or two functions and returns a map-reduce map (with the functions
-   serialized as strings) used by the clutch clojure view server."
+   serialized as strings) used by the Clojure view server."
   ([map-form]
      `(with-clj-map-reduce ~(pr-str map-form) nil))
   ([map-form reduce-form]
@@ -71,7 +70,8 @@
           map-reduce-map))))
 
 (defmacro with-db
-  "Takes a database name as a string and forms."
+  "Takes a string (database name) and forms. It binds the database name to config 
+   and then executes the body."
   [database & body]
   `(binding [config (assoc @*config* :database ~database)]
      (do ~@body)))
@@ -87,12 +87,12 @@
   (couchdb-request @*config* :get "_all_dbs"))
 
 (defn create-database 
-  "Takes a string and creates a database using the string as a name."
+  "Takes a string and creates a database using the string as the name."
   [name]
   (couchdb-request @*config* :put name))
 
 (defn delete-database
-  "Takes a database name and deletes the coresponding database."
+  "Takes a database name and deletes the corresponding database."
   [name]
   (couchdb-request @*config* :delete name))
 
@@ -102,21 +102,21 @@
   (couchdb-request @*config* :get name))
 
 (defn create-document
-  "Takes a map and creates a document with an auto generated id in the bound
-   database, returns the id and revision in a map."
+  "Takes a map and creates a document with an auto generated id, returns the id
+   and revision in a map."
   ([document-map]
      (couchdb-request config :post nil document-map))
   ([id document-map]
      (couchdb-request config :put id document-map)))
 
-(defn get-document 
-  "Takes a string and returns the document (as a map) with the string as an id."
+(defn get-document
+  "Takes an argument and returns a document (as a map) with that id."
   [id]
   (if (and id (not (empty? id))) (couchdb-request config :get id)))
 
 (defn delete-document 
   "Takes a document (a map with :_id and :_rev keywords) and deletes it from the
-   bound database."
+   database."
   [document]
   (check-and-use-document document
     (couchdb-request config :delete)))
@@ -124,14 +124,14 @@
 (defmulti update-document
   "Takes document (a map with :_id and :_rev keywords) and a map and merges it
    with the original. When a function and a vector of keys are supplied as the
-   second and third argument, the value of the keys supplied  are upadated with
+   second and third argument, the value of the keys supplied are upadated with
    the result of the function of their values (see: #'clojure.core/update-in)."
   (fn [& args] 
     (let [targ (second args)]
-      (cond (fn? targ) :update-fn
+      (cond (fn? targ)  :update-fn
             (map? targ) :merge-map
             :else (throw (IllegalArgumentException. 
-                          "Map or function needed to update a document."))))))
+                          "A map or function is needed to update a document."))))))
 
 (defmethod update-document :update-fn 
   [document update-fn update-keys]
@@ -146,8 +146,8 @@
 
 (defn get-all-documents
   "Returns the meta (_id and _rev) of all documents in a database. By adding 
-   {:include_docs true} to the map for the optional querying options argument
-   you can also get the documents, not just their meta. Also takes an optional
+   {:include_docs true} to the map for optional querying options argument
+   you can also get the documents data, not just their meta. Also takes an optional
     map for querying options (see: http://bit.ly/gxObh)."
   ([]
      (get-all-documents {}))
