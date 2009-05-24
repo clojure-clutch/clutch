@@ -5,7 +5,7 @@ h1. Clutch
     (:use com.ashafa.clutch))
   
   ;; switch from the default javascript view server to clojure
-  (!set-couchdb-config {:language "clojure"})
+  (set-couchdb-config! {:language "clojure"})
 
   (create-database "clutch_test")
  
