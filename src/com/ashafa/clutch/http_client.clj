@@ -87,7 +87,7 @@
    setting the headers, and if required post data."
   (let [command   (if (first cmd-data) (str "/" (first cmd-data)))
         data      (if (> (count cmd-data) 1) (second cmd-data))
-        database  (if (config :database) (str "/" (config :database)))
+        database  (if (config :name) (str "/" (config :name)))
         url       (str "http://" (config :host) ":" (config :port) database command)
         json-data (if data (json-write/json-str data))
         headers   {"Content-Length" (str (count json-data))

@@ -31,20 +31,20 @@
 
 (declare config)
 
-;;; Default Clutch configuration...
-(defonce *config* (ref {:host "localhost"
-                        :port 5984
-                        :language "javascript"}))
+;;; default Clutch configuration...
+(defonce *defaults* (ref {:host "localhost"
+                          :port 5984
+                          :language "javascript"}))
 
-(defn set-couchdb-config!
-  "Takes a map with a custom CouchDB configuration as follows: 
+(defn set-clutch-defaults!
+  "Sets Clutch default configuration:
         {:host     <ip (defaults to \"localhost\")>
          :port     <port (defaults to 5984)>
-         :language <language view server to use (see: README)>
+         :language <language the view server uses (see: README)>
          :username <username (if http authentication is enabled)>
-         :password <password (if http authentication is enabled)>}."
-  [config-map]
-  (dosync (alter *config* merge config-map)))
+         :password <password (if http authentication is enabled)>}"
+  [configuration-map]
+  (dosync (alter *defaults* merge configuration-map)))
 
 (defmacro #^{:private true} check-and-use-document
   "Private macro for apis that deal with the current revision of
@@ -52,8 +52,8 @@
   [doc & body]
   `(if-let [id# (~doc :_id)]
      (binding [config 
-               (assoc config :database 
-                   (str (config :database) "/" id# "?rev=" (:_rev ~doc)))]
+               (assoc config :name 
+                   (str (config :name) "/" id# "?rev=" (:_rev ~doc)))]
        (do ~@body))
      (throw 
       (IllegalArgumentException. "A valid document is required."))))
@@ -72,34 +72,74 @@
 (defmacro with-db
   "Takes a string (database name) and forms. It binds the database name to config 
    and then executes the body."
-  [database & body]
-  `(binding [config (assoc @*config* :database ~database)]
+  [database-meta & body]
+  `(binding [config (merge @*defaults* ~database-meta)]
      (do ~@body)))
 
 (defn couchdb-info
   "Returns the CouchDB version info."
-  []
-  (couchdb-request @*config* :get))
+  ([]
+     (couchdb-info nil))
+  ([database]
+     (couchdb-request (dissoc (merge @*defaults* database) :name) :get)))
 
-(defn all-databases
+(defn all-couchdb-databases
   "Returns a list of all databases on the CouchDB server."
-  []
-  (couchdb-request @*config* :get "_all_dbs"))
+  ([]
+     (all-couchdb-databases nil))
+  ([database-meta]
+     (couchdb-request (dissoc (merge @*defaults* database-meta) :name) :get "_all_dbs")))
 
-(defn create-database 
-  "Takes a string and creates a database using the string as the name."
-  [name]
-  (couchdb-request @*config* :put name))
+(defn- database-arg-type [arg]
+    (cond (string? arg) :name
+          (and (map? arg) (contains? arg :name)) :meta
+          :else (throw 
+                 (IllegalArgumentException. 
+                  "Either a string or a map with a ':name' key is required."))))
 
-(defn delete-database
+(defmulti create-database
+  "Takes a map or string and creates a database."
+  database-arg-type)
+
+(defmethod create-database :name
+  [database-name]
+  (create-database (assoc @*defaults* :name database-name)))
+
+(defmethod create-database :meta
+  [database-meta]
+  (merge database-meta
+         (couchdb-request 
+          (dissoc (merge @*defaults* database-meta) :name) 
+          :put (:name database-meta))))
+
+
+(defmulti delete-database
   "Takes a database name and deletes the corresponding database."
-  [name]
-  (couchdb-request @*config* :delete name))
+  database-arg-type)
 
-(defn database-info
+(defmethod delete-database :name
+  [database-name]
+  (delete-database (assoc @*defaults* :name database-name)))
+
+(defmethod delete-database :meta
+  [database-meta]
+  (couchdb-request
+   (dissoc (merge @*defaults* database-meta) :name) 
+   :delete (:name database-meta)))
+
+(defmulti database-info
   "Takes a database name and returns the meta information about the database."
-  [name]
-  (couchdb-request @*config* :get name))
+  database-arg-type)
+
+(defmethod database-info :name
+  [database-name]
+  (database-info (assoc @*defaults* :name database-name)))
+
+(defmethod database-info :meta
+  [database-meta]
+  (couchdb-request
+   (dissoc (merge @*defaults* database-meta) :name) 
+   :get (:name database-meta)))
 
 (defn create-document
   "Takes a map and creates a document with an auto generated id, returns the id

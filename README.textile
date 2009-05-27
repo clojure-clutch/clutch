@@ -3,13 +3,12 @@ h1. Clutch
 <pre>
   (ns clutch
     (:use com.ashafa.clutch))
-  
-  ;; switch from the default javascript view server to clojure
-  (set-couchdb-config! {:language "clojure"})
 
-  (create-database "clutch_test")
+  (def clutch-test-db
+    (create-database {:name     "clutch_test_db"
+                      :language "clojure"}))     ; switch from default javascript view server to clojure
  
-  (with-db "clutch_test"
+  (with-db clutch-test-db
            ;; insert or update multiple documents
            (bulk-insert-update [{:test-grade 10}
                                 {:test-grade 20}
@@ -21,7 +20,7 @@ h1. Clutch
                 (fn [keys values _] (apply + values))))) ; reduce
 </pre>
 
-Clutch is a Clojure library for "Apache CouchDB":http://couchdb.apache.org/. Although it's in a very early stage of development, Clutch supports most of the basic Apache CouchDB API. To get a sense of where Clutch is at, please view the included tests.
+Clutch is a "Clojure":http://clojure.org library for "Apache CouchDB":http://couchdb.apache.org/. Although it's in a very early stage of development, Clutch supports most of the basic Apache CouchDB API. To get a sense of where Clutch is at, please view the included tests.
 
 h2. Clutch (Clojure) View Server
 

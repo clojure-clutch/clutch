@@ -2,10 +2,7 @@
   (:use com.ashafa.clutch
         (clojure.contrib [test-is :as test-is])))
 
-
-(set-couchdb-config! {:language "clojure"})
-
-(def test-database "clutch_test_db")
+(set-clutch-defaults! {:language "clojure"})
 
 (def test-doc-1 {:name  "John Smith"
                  :email "john.smith@test.com"
@@ -25,20 +22,21 @@
 
 (defmacro defdbtest [name & body]
   `(deftest ~name
-    (try
-     (create-database test-database)
-     (with-db test-database ~@body)
-     (finally
-      (delete-database test-database)))))
+     (let [test-database# (create-database {:name "clutch_test_db"})]
+       (try
+        (with-db test-database# ~@body)
+        (finally
+         (delete-database test-database#))))))
 
 (deftest check-couchdb-connection
   (is (= "Welcome" (:couchdb (couchdb-info)))))
 
 (deftest create-list-check-and-delete-database
-  (is (= {:ok true} (create-database test-database)))
-  (is ((set (all-databases)) test-database))
-  (is (= test-database (:db_name (database-info test-database))))
-  (is (= {:ok true} (delete-database test-database))))
+  (let [test-database (create-database {:name "clutch_test_db"})]
+    (is (= true (:ok test-database)))
+    (is ((set (all-couchdb-databases)) (:name test-database)))
+    (is (= (:name test-database) (:db_name (database-info test-database))))
+    (is (= {:ok true} (delete-database test-database)))))
 
 (defdbtest create-a-document
   (is (contains? (create-document test-doc-1) :id)))
