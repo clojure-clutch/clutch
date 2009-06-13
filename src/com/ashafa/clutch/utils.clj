@@ -42,3 +42,32 @@
   (if (nth options 0)
     (apply (partial assoc init) options) 
     init))
+
+(defn get-database-url
+  [db-meta]
+  (str "http://"
+       (if (:username db-meta)
+         (str (:username db-meta) ":" (:password db-meta) "@"))
+       (:host db-meta) ":" (:port db-meta) "/" (:name db-meta)))
+
+(defn get-mime-type
+  [file]
+  (.getContentType
+   (javax.activation.MimetypesFileTypeMap.) file))
+
+(defn convert-input-to-bytes
+  [input]
+  (let [barr (make-array Byte/TYPE 1024)
+        out  (java.io.ByteArrayOutputStream.)]
+    (loop [r (.read input barr)]
+      (if (> r 0)
+        (do
+          (.write out barr 0 r)
+          (recur (.read input barr)))))
+    (.toByteArray out)))
+
+(defn encode-bytes-to-base64
+  [bytes]
+  (.replaceAll
+   (.encode (sun.misc.BASE64Encoder.) bytes) "\n" ""))
+    

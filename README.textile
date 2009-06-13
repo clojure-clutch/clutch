@@ -4,10 +4,14 @@ h1. Clutch
   (ns clutch
     (:use com.ashafa.clutch))
 
-  (def clutch-test-db
+  (def clutch-test-database
     (create-database {:name     "clutch_test_db"
-                      :language "clojure"}))     ; switch from default javascript view server to clojure
- 
+                      :language "clojure"}))     ; use Clutch (Clojure) view server with database
+
+  (def backup-database 
+    (create-database {:name     "backup_db"
+                      :host     "10.1.192.23"})) ; remote CouchDB server
+                      
   (with-db clutch-test-db
            ;; insert or update multiple documents
            (bulk-insert-update [{:test-grade 10}
@@ -18,13 +22,15 @@ h1. Clutch
              (with-clj-view-server
                 (fn [doc] [nil (:test-grade doc)])       ; map
                 (fn [keys values _] (apply + values))))) ; reduce
+
+  (replicate-database clutch-test-database backup-database) ; backup 'cluth_test_db' to 'backup_db' on CouchDB server at 10.1.192.23
 </pre>
 
-Clutch is a "Clojure":http://clojure.org library for "Apache CouchDB":http://couchdb.apache.org/. Although it's in a very early stage of development, Clutch supports most of the basic Apache CouchDB API. To get a sense of where Clutch is at, please view the included tests.
+Clutch is a "Clojure":http://clojure.org library for "Apache CouchDB":http://couchdb.apache.org/. Although it's in a very early stage of development (Clutch API subject to change), Clutch supports most of the basic Apache CouchDB API. To get a sense of where Clutch is at, please view the included tests. 
 
 h2. Clutch (Clojure) View Server
 
-In order to use Clojure for views, you must add the following to the 'local.ini' file of your Apache CouchDB installation (replacing &lt;path ...&gt; with the appropiate paths).
+In order to use Clojure for views, you must add the following to the 'local.ini' file of your Apache CouchDB installation (replacing &lt;path to...&gt; with the appropiate paths).
 
 <pre>
   [query_servers]
@@ -41,7 +47,8 @@ Clutch requires:
 
 h3. TODOs
 
+* Clustering
+* Sharding
 * Revisions
-* Attachments
+* Documentation
 * More robust tests
-* Performance tests

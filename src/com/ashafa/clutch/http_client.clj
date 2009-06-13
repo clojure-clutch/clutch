@@ -25,80 +25,87 @@
 
 (ns com.ashafa.clutch.http-client
   (:require [clojure.contrib.json.read :as json-read]
-            [clojure.contrib.json.write :as json-write])
-  (:import  (java.io Reader InputStreamReader PushbackReader
-                     OutputStreamWriter)
+            [clojure.contrib.json.write :as json-write]
+            [clojure.contrib.duck-streams :as duck-streams :only [spit]]
+            [com.ashafa.clutch.utils :as utils]) 
+  (:import  (java.io InputStreamReader PushbackReader FileInputStream)
             (java.net URL MalformedURLException)
             (sun.misc BASE64Encoder)))
 
 
 (def *version* "0.0")
 (def *encoding* "UTF-8")
-(def *config-defaults* {:read-timeout 10000
-                        :connect-timeout 5000
-                        :use-caches true
-                        :follow-redirects false})
+(def *default-data-type* "application/json")
+(def *configuration-defaults* {:read-timeout 10000
+                               :connect-timeout 5000
+                               :use-caches false
+                               :follow-redirects false})
 
-(defn- response [status-code message stream]
-  "Returns CouchDB response (JSON) as a clojure map if the status
-   code returned indicates a successful request, else throw an 
-   exception." 
-  (cond (< status-code 400)
-        (with-open [reader (PushbackReader. (InputStreamReader. stream *encoding*))]
-          (binding [json-read/*json-keyword-keys* true]
-            (json-read/read-json reader)))
-        (= status-code 404) nil
-        :else (throw
-               (Exception.
-                (str "CouchDB Response Error: " status-code " " message)))))
+(defn- send-body
+  [connection data]
+  (with-open [output (.getOutputStream connection)]
+    (if (string? data)
+      (duck-streams/spit output data)
+      (let [stream (FileInputStream. data)
+            bytes  (make-array Byte/TYPE 1024)]
+        (loop [bytes-read (.read stream bytes)]
+          (when (pos? bytes-read)
+            (.write output bytes 0 bytes-read)
+            (recur (.read stream bytes))))))))
 
-(defn- connect [url method headers json-data]
-  "Sets the response headers and creates a URL connection to server."
- (try
-   (let [conn (.openConnection (URL. url))
-         conf (merge *config-defaults* headers)]
-     (doto conn
-       (.setRequestMethod method)
-       (.setUseCaches (conf :use-caches))
-       (.setConnectTimeout (conf :connect-timeout))
-       (.setReadTimeout (conf :read-timeout))
-       (.setInstanceFollowRedirects (conf :follow-redirects)))
-     (doseq [kw (keys (conf :headers))]
-       (.setRequestProperty conn kw ((conf :headers) kw)))
-     (when (and json-data (or (= method "POST") (= method "PUT")))
-       (.setDoOutput conn true)
-       (with-open [out (OutputStreamWriter. (.getOutputStream conn) *encoding*)]
-         (doto out
-           (.write json-data)
-           (.flush))))
-     (let [code    (.getResponseCode conn)
-           message (.getResponseMessage conn)]
-       (try
-        (response code message (.getInputStream conn))
-        (catch Exception e
-          (response code message nil))
-        (finally
-         (.disconnect conn)))))
-   (catch MalformedURLException e
-     (throw (IllegalArgumentException. "A valid URL is required.")))))
- 
-(defn couchdb-request [config method & cmd-data]
-  "Prepare request for CouchDB server by forming the required url, 
-   setting the headers, and if required post data."
-  (let [command   (if (first cmd-data) (str "/" (first cmd-data)))
-        data      (if (> (count cmd-data) 1) (second cmd-data))
+(defn- get-response
+  [connection]
+  (let [response-code (.getResponseCode connection)]
+    (cond (< response-code 400)
+          (with-open [input (.getInputStream connection)]
+            (binding [json-read/*json-keyword-keys* true]
+              (json-read/read-json (PushbackReader. (InputStreamReader. input *encoding*)))))
+          (= response-code 404) nil
+          :else (throw
+                 (Exception.
+                  (str "CouchDB Response Error: " response-code " " (.getResponseMessage connection)))))))
+
+(defn- connect
+  [url method headers data]
+  (let [connection    (.openConnection (URL. url))
+        configuration (merge *configuration-defaults* headers)]
+    (doto connection
+      (.setRequestMethod method)
+      (.setUseCaches (configuration :use-caches))
+      (.setConnectTimeout (configuration :connect-timeout))
+      (.setReadTimeout (configuration :read-timeout))
+      (.setInstanceFollowRedirects (configuration :follow-redirects)))
+    (doseq [key-words (keys (configuration :headers))]
+      (.setRequestProperty connection key-words ((configuration :headers) key-words)))
+    (if data
+      (do (.setDoOutput connection true) (send-body connection data))
+      (.connect connection))    
+    (get-response connection)))
+
+(defn couchdb-request
+  "Prepare request for CouchDB server by forming the required url, setting headers, and
+   if required, the post/put body and its mime type."
+  [config method & cmd-data-type]
+  (let [command   (if (first cmd-data-type) (str "/" (first cmd-data-type)))
+        raw-data  (nth cmd-data-type 1 nil)
+        data-type (nth cmd-data-type 2 *default-data-type*)
         database  (if (config :name) (str "/" (config :name)))
-        url       (str "http://" (config :host) ":" (config :port) database command)
-        json-data (if data (json-write/json-str data))
-        headers   {"Content-Length" (str (count json-data))
-                   "Content-Type" "application/json"
+        url       (str "http://" (config :host) ":" (config :port) 
+                       (if (and database (re-find #"\?" database))
+                         (.replace database "?" (str command "?"))
+                         (str database command)))
+        data      (if (map? raw-data) (json-write/json-str raw-data) raw-data)
+        d-headers {"Content-Length" (str (cond (string? data) (count data)
+                                               (instance? java.io.File data) (.length data)
+                                               :else 0))
+                   "Content-Type" data-type
                    "User-Agent" (str "clutch.http-client/" *version*)}
         headers   (if (:username config)
-                    (assoc headers
+                    (assoc d-headers
                       "Authorization"
                       (str "Basic "
                            (.encode (BASE64Encoder.)
                                     (.getBytes (str (config :username) ":" (:password config))))))
-                    headers)
+                    d-headers)
         method    (.toUpperCase (if (keyword? method) (name method) method))]
-    (connect url method {:headers headers} json-data)))
+    (connect url method {:headers headers} data)))
