@@ -14,9 +14,9 @@ h1. Clutch
                       
   (with-db clutch-test-db
            ;; insert or update multiple documents
-           (bulk-insert-update [{:test-grade 10}
-                                {:test-grade 20}
-                                {:test-grade 30}])
+           (bulk-update [{:test-grade 10}
+                         {:test-grade 20}
+                         {:test-grade 30}])
            ;; create temporary or permanent views using clojure 
            (ad-hoc-view
              (with-clj-view-server
