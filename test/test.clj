@@ -94,11 +94,15 @@
   (create-document test-document-2)
   (create-document test-document-3)
   (create-document test-document-4)
-  (create-view "users" :names-with-score-over-70
+  (create-view "users" :names-with-score-over-70-sorted-by-score
                (with-clj-view-server
-                #(if (> (:score %) 70) [nil (:name %)])))
-  (is (= #{"Robert Jones" "Jane Thompson"}
-         (set (map :value (:rows (get-view "users" :names-with-score-over-70)))))))
+                #(if (> (:score %) 70) [(:score %) (:name %)])))
+  (is (= ["Robert Jones" "Jane Thompson"]
+         (map :value (:rows (get-view "users" :names-with-score-over-70-sorted-by-score)))))
+  (create-document {:name "Test User 1" :score 55})
+  (create-document {:name "Test User 2" :score 78})
+  (is (= ["Test User 2" "Robert Jones" "Jane Thompson"]
+         (map :value (:rows (get-view "users" :names-with-score-over-70-sorted-by-score))))))
 
 (defdbtest use-a-design-view-with-both-map-and-reduce
   (create-document test-document-1)
@@ -109,7 +113,10 @@
                (with-clj-view-server
                 (fn [doc] [nil (:score doc)])
                 (fn [keys values _] (apply + values))))
-  (is (= 302 (-> (get-view "scores" :sum-of-all-scores) :rows first :value))))
+  (is (= 302 (-> (get-view "scores" :sum-of-all-scores) :rows first :value)))
+  (create-document {:score 55})
+  (is (= 357 (-> (get-view "scores" :sum-of-all-scores) :rows first :value))))
+
 
 (defdbtest use-ad-hoc-view
   (create-document test-document-1)

@@ -59,12 +59,12 @@
      (reduce-values entire-command false))
   ([[function-string & arguments-container] rereduce?]
      (try
-      (let [arguments        (first arguments-container)
-            reduce-functions (map #(load-string %) function-string)
-            [keys values]    (if rereduce?
-                               [nil arguments]
-                               (partition (count arguments) (apply interleave arguments)))]
-        [true (reduce #(conj %1 (%2 keys values rereduce?)) [] reduce-functions)])
+      (let [arguments       (first arguments-container)
+            reduce-function (map #(load-string %) function-string)
+            [keys values]   (if rereduce?
+                              [nil arguments]
+                              (partition (count arguments) (apply interleave arguments)))]
+        [true (reduce #(conj %1 (%2 keys values rereduce?)) [] reduce-function)])
       (catch Exception error
         {:error {:id "reduce_compilation_error" :reason (.getMessage error)}}))))
 
