@@ -55,16 +55,19 @@
   (reduce #(conj %1 [(try (or (%2 document) []) (catch Exception error []))]) [] @functions))
 
 (defn reduce-values
-  ([[function-string & arguments-container :as entire-command]]
+  ([[function-string & arguments-array :as entire-command]]
      (reduce-values entire-command false))
-  ([[function-string & arguments-container] rereduce?]
+  ([[function-string & arguments-array] rereduce?]
      (try
-      (let [arguments       (first arguments-container)
-            reduce-function (map #(load-string %) function-string)
-            [keys values]   (if rereduce?
-                              [nil arguments]
-                              (partition (count arguments) (apply interleave arguments)))]
-        [true (reduce #(conj %1 (%2 keys values rereduce?)) [] reduce-function)])
+      (let [arguments        (first arguments-array)
+            argument-count   (count arguments)
+            reduce-functions (map #(load-string %) function-string)
+            [keys values]    (if rereduce?
+                               [nil arguments]
+                               (if (> argument-count 1)
+                                 (partition argument-count (apply interleave arguments))
+                                 arguments))]
+        [true (reduce #(conj %1 (%2 keys values rereduce?)) [] reduce-functions)])
       (catch Exception error
         {:error {:id "reduce_compilation_error" :reason (.getMessage error)}}))))
 

@@ -117,7 +117,6 @@
   (create-document {:score 55})
   (is (= 357 (-> (get-view "scores" :sum-of-all-scores) :rows first :value))))
 
-
 (defdbtest use-ad-hoc-view
   (create-document test-document-1)
   (create-document test-document-2)
