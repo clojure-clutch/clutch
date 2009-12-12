@@ -1,0 +1,8 @@
+# emacs + vi backup files
+*~
+.*.sw*
+
+# build artifacts
+build
+target
+
