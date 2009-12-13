@@ -25,6 +25,7 @@
 
 
 (ns com.ashafa.clutch.view-server
+  (:gen-class)
   (:require [clojure.contrib.json.read :as json-read]
             [clojure.contrib.json.write :as json-write]))
 
@@ -93,4 +94,9 @@
    (catch Exception e (System/exit 1)))
   (recur))
 
-(run)
+(defn -main
+  [& args]
+  (run))
+
+(when *command-line-args*
+  (apply -main *command-line-args*))
