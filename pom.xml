@@ -9,16 +9,11 @@
 
     <properties>
         <clojure.version>1.1.0-master-SNAPSHOT</clojure.version>
-        <clojure.contrib.version>1.0-SNAPSHOT</clojure.contrib.version>
+        <clojure.contrib.version>1.1.0-master-SNAPSHOT</clojure.contrib.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>org.clojure</groupId>
-            <artifactId>clojure</artifactId>
-            <version>${clojure.version}</version>
-        </dependency>
         <dependency>
             <groupId>org.clojure</groupId>
             <artifactId>clojure-contrib</artifactId>
@@ -40,6 +35,9 @@
     </repositories>
 
     <build>
+        <!-- this source directory only necessary in support of building the sources jar
+                 (for those who don't want to use AOT-compiled artifacts) -->
+        <sourceDirectory>src/main/clojure</sourceDirectory>
         <plugins>
             <plugin>
                 <groupId>com.theoryinpractise</groupId>
@@ -66,6 +64,21 @@
                 </executions>
             </plugin>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>2.1.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <!-- tagging of artifact manifest with hudson-standard build metadata -->
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration>
