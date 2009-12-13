@@ -1,5 +1,7 @@
 (ns clutch
-  (:use com.ashafa.clutch (clojure.contrib [test-is :as test-is])))
+ (:require [com.ashafa.clutch.http-client :as http-client])
+ (:use com.ashafa.clutch
+   (clojure.contrib [test-is :as test-is])))
 
 (set-clutch-defaults! {:language "clojure"})
 
@@ -18,6 +20,18 @@
 (def test-document-4 {:name  "Sarah Parker"
                       :email "sarah.parker@example.com"
                       :score 59})
+
+; we should be able to push a clojure query_server cmd to the localhost couch
+; without a problem (maybe using a test-only :language to avoid clobbering a "real" view svr?),
+; but that's for another day
+(declare *clj-view-svr-config*)
+
+(use-fixtures
+  :once
+  #(binding [*clj-view-svr-config* (http-client/couchdb-request *defaults* :get "_config/query_servers/clojure")]
+     (when-not *clj-view-svr-config*
+       (println "Clojure view server not available, skipping tests that depend upon it!"))
+     (%)))
 
 (defmacro defdbtest [name & body]
   `(deftest ~name
@@ -84,50 +98,54 @@
          (-> all-documents-ascending :rows last :doc :name))))
 
 (defdbtest create-a-design-view
-  (let [document-meta (create-view "users" :names-with-score-over-70
-                                   (with-clj-view-server
-                                    #(if (> (:score %) 70) [nil (:name %)])))]
-    (is (map? (-> (get-document (document-meta :id)) :views :names-with-score-over-70)))))
+  (when *clj-view-svr-config*
+    (let [document-meta (create-view "users" :names-with-score-over-70
+                          (with-clj-view-server
+                            #(if (> (:score %) 70) [nil (:name %)])))]
+      (is (map? (-> (get-document (document-meta :id)) :views :names-with-score-over-70))))))
 
 (defdbtest use-a-design-view-with-map-only
-  (create-document test-document-1)
-  (create-document test-document-2)
-  (create-document test-document-3)
-  (create-document test-document-4)
-  (create-view "users" :names-with-score-over-70-sorted-by-score
-               (with-clj-view-server
-                #(if (> (:score %) 70) [(:score %) (:name %)])))
-  (is (= ["Robert Jones" "Jane Thompson"]
-         (map :value (:rows (get-view "users" :names-with-score-over-70-sorted-by-score)))))
-  (create-document {:name "Test User 1" :score 55})
-  (create-document {:name "Test User 2" :score 78})
-  (is (= ["Test User 2" "Robert Jones" "Jane Thompson"]
-         (map :value (:rows (get-view "users" :names-with-score-over-70-sorted-by-score))))))
+  (when *clj-view-svr-config*
+    (create-document test-document-1)
+    (create-document test-document-2)
+    (create-document test-document-3)
+    (create-document test-document-4)
+    (create-view "users" :names-with-score-over-70-sorted-by-score
+      (with-clj-view-server
+        #(if (> (:score %) 70) [(:score %) (:name %)])))
+    (is (= ["Robert Jones" "Jane Thompson"]
+          (map :value (:rows (get-view "users" :names-with-score-over-70-sorted-by-score)))))
+    (create-document {:name "Test User 1" :score 55})
+    (create-document {:name "Test User 2" :score 78})
+    (is (= ["Test User 2" "Robert Jones" "Jane Thompson"]
+          (map :value (:rows (get-view "users" :names-with-score-over-70-sorted-by-score)))))))
 
 (defdbtest use-a-design-view-with-both-map-and-reduce
-  (create-document test-document-1)
-  (create-document test-document-2)
-  (create-document test-document-3)
-  (create-document test-document-4)
-  (create-view "scores" :sum-of-all-scores 
-               (with-clj-view-server
-                (fn [doc] [nil (:score doc)])
-                (fn [keys values _] (apply + values))))
-  (is (= 302 (-> (get-view "scores" :sum-of-all-scores) :rows first :value)))
-  (create-document {:score 55})
-  (is (= 357 (-> (get-view "scores" :sum-of-all-scores) :rows first :value))))
+  (when *clj-view-svr-config*
+    (create-document test-document-1)
+    (create-document test-document-2)
+    (create-document test-document-3)
+    (create-document test-document-4)
+    (create-view "scores" :sum-of-all-scores
+      (with-clj-view-server
+        (fn [doc] [nil (:score doc)])
+        (fn [keys values _] (apply + values))))
+    (is (= 302 (-> (get-view "scores" :sum-of-all-scores) :rows first :value)))
+    (create-document {:score 55})
+    (is (= 357 (-> (get-view "scores" :sum-of-all-scores) :rows first :value)))))
 
 (defdbtest use-ad-hoc-view
-  (create-document test-document-1)
-  (create-document test-document-2)
-  (create-document test-document-3)
-  (create-document test-document-4)
-  (let [view (ad-hoc-view
-              (with-clj-view-server
-               (fn [doc] (if (re-find #"example\.com$" (:email doc))
-                           [nil (:email doc)]))))]
-    (is (= #{"robert.jones@example.com" "sarah.parker@example.com"}
-           (set (map :value (:rows view)))))))
+  (when *clj-view-svr-config*
+    (create-document test-document-1)
+    (create-document test-document-2)
+    (create-document test-document-3)
+    (create-document test-document-4)
+    (let [view (ad-hoc-view
+                 (with-clj-view-server
+                   (fn [doc] (if (re-find #"example\.com$" (:email doc))
+                               [nil (:email doc)]))))]
+      (is (= #{"robert.jones@example.com" "sarah.parker@example.com"}
+            (set (map :value (:rows view))))))))
 
 (defdbtest use-ad-hoc-view-with-javascript-view-server
   (create-document test-document-1)
