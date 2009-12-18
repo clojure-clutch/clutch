@@ -25,7 +25,7 @@
 
 (ns com.ashafa.clutch.utils
   (:require [clojure.contrib.json.write :as json-write])
-  (:import [java.net.URLEncoder]))
+  (:import java.net.URLEncoder))
 
 
 (defn uri-encode
