@@ -41,6 +41,14 @@
         (finally
          (delete-database test-database#))))))
 
+(defmacro defjsdbtest [name & body]
+  `(deftest ~name
+     (let [test-database# (create-database {:name "clutch_test_db" :language "javascript"})]
+       (try
+        (with-db test-database# ~@body)
+        (finally
+         (delete-database test-database#))))))
+
 (deftest check-couchdb-connection
   (is (= "Welcome" (:couchdb (couchdb-info)))))
 
@@ -103,6 +111,19 @@
                           (with-clj-view-server
                             #(if (> (:score %) 70) [nil (:name %)])))]
       (is (map? (-> (get-document (document-meta :id)) :views :names-with-score-over-70))))))
+
+(defjsdbtest use-a-design-view-with-spaces-in-key
+  (when *clj-view-svr-config*
+    (create-document test-document-1)
+    (create-document test-document-2)
+    (create-document test-document-3)
+    (create-document test-document-4)
+    (create-view "users" :names-and-scores
+		 {:map "function(doc) { emit(doc.name, doc.score)}"})
+    (is (= [98]
+	   (map :value (:rows (get-view "users" :names-and-scores {:key "Jane Thompson"})))))))
+
+
 
 (defdbtest use-a-design-view-with-map-only
   (when *clj-view-svr-config*
