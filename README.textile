@@ -34,7 +34,7 @@ In order to use Clojure for views, you must add the following to the 'local.ini'
 
 <pre>
   [query_servers]
-  clojure = java -cp <path to clojure.jar>/clojure.jar:<path to clojure-contrib.jar or clojure-contrib source>/clojure-contrib(.jar|/src) clojure.main <path to clutch project folder>/clutch/src/com/ashafa/clutch/view_server.clj
+  clojure = java -cp <path to clojure.jar>/clojure.jar:<path to clojure-contrib.jar or clojure-contrib source>/clojure-contrib(.jar|/src) clojure.main <path to clutch project folder>/clutch/src/main/clojure/com/ashafa/clutch/view_server.clj
 </pre>
 
 h2. Dependencies
