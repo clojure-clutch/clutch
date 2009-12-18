@@ -24,8 +24,13 @@
 ;; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 (ns com.ashafa.clutch.utils
-  (:require [clojure.contrib.json.write :as json-write]))
+  (:require [clojure.contrib.json.write :as json-write])
+  (:import [java.net.URLEncoder]))
 
+
+(defn uri-encode
+  [string]
+  (.. URLEncoder (encode string) (replace "+" "%20")))
 
 (defn map-to-query-str
   [m]
@@ -34,7 +39,7 @@
      (fn [q kw]
        (let [k (if (keyword? kw) (name kw) kw)
              a (if (not (= (last kws) kw)) "&")]
-         (str q k "=" (json-write/json-str (m kw)) a)))
+         (str q (uri-encode k) "=" (uri-encode (json-write/json-str (m kw))) a)))
      "?" kws)))
 
 (defn options-to-map 
