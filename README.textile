@@ -45,7 +45,7 @@ From your repl...
 
 <pre>
   [query_servers]
-  clojure = java -cp <path to clojure.jar>/clojure.jar:<path to clojure-contrib.jar or clojure-contrib source>/clojure-contrib(.jar|/src):<path to *compile-path* (see above)> com.ashafa.clutch.view_server
+  clojure = java -cp <path to clojure.jar>/clojure.jar:<path to clojure-contrib.jar or clojure-contrib source>/clojure-contrib(.jar|/src):<*compile-path* (see above)> com.ashafa.clutch.view_server
 </pre>
 
 h2. Dependencies
