@@ -51,3 +51,10 @@ h3. TODOs
 * Use streams instead of java.io.File for attachments apis
 * Revisions
 * More robust tests
+
+h3. Contributors
+
+Thank yous go out to...
+
+* "Chas Emerick":http://github.com/cemerick
+* "Pierre Larochelle":http://github.com/pierrel
