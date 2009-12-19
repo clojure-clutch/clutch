@@ -112,11 +112,9 @@
     (create-document test-document-4)
     (create-view "users" :names-and-scores
 		 (with-clj-view-server
-		  #([(:name %) (:score %)])))
+		  (fn [doc] [(:name doc) (:score doc)])))
     (is (= [98]
 	   (map :value (:rows (get-view "users" :names-and-scores {:key "Jane Thompson"})))))))
-
-
 
 (defdbtest use-a-design-view-with-map-only
   (when *clj-view-svr-config*

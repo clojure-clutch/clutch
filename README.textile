@@ -30,11 +30,22 @@ Clutch is a "Clojure":http://clojure.org library for "Apache CouchDB":http://cou
 
 h2. Clutch (Clojure) View Server
 
-In order to use Clojure for views, you must add the following to the 'local.ini' file of your Apache CouchDB installation (replacing &lt;path to...&gt; with the appropiate paths).
+In order to use Clojure for views, you must first compile the view server.
+
+From your repl...
+
+<pre>
+ ;; Following line is optional and may already be set (defaults to "classes" if not) 
+ ;; (set! *compile-path* "<path to where you want your classes generated>")
+
+ (compile 'com.ashafa.clutch.view-server)
+</pre>
+
+... then add the following to the 'local.ini' file of your Apache CouchDB installation (replacing &lt;path to...&gt; with the appropiate paths).
 
 <pre>
   [query_servers]
-  clojure = java -cp <path to clojure.jar>/clojure.jar:<path to clojure-contrib.jar or clojure-contrib source>/clojure-contrib(.jar|/src) clojure.main <path to clutch project folder>/clutch/src/main/clojure/com/ashafa/clutch/view_server.clj
+  clojure = java -cp <path to clojure.jar>/clojure.jar:<path to clojure-contrib.jar or clojure-contrib source>/clojure-contrib(.jar|/src):<path to *compile-path* (see above)> com.ashafa.clutch.view_server
 </pre>
 
 h2. Dependencies
@@ -42,19 +53,19 @@ h2. Dependencies
 Clutch requires:
 
 * "Apache CouchDB":http://couchdb.apache.org/ (version 0.10.0 +)
-* "Clojure":http://clojure.org (version 1.0)
+* "Clojure":http://clojure.org (version 1.0 +)
 * "clojure-contrib":http://code.google.com/p/clojure-contrib/
 
 h3. TODOs
 
-* Documentation!
+* Documentation
 * Use streams instead of java.io.File for attachments apis
 * Revisions
 * More robust tests
 
 h3. Contributors
 
-Thank yous go out to...
+Thanks go out to:
 
 * "Chas Emerick":http://github.com/cemerick
 * "Pierre Larochelle":http://github.com/pierrel
