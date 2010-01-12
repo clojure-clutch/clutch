@@ -40,6 +40,8 @@
                                :connect-timeout 5000
                                :use-caches false
                                :follow-redirects false})
+(def #^{:doc "When bound to an atom, will be reset! to the HTTP response code of the last couchdb request."}
+  *response-code* nil)
 
 (defn- send-body
   [connection data]
@@ -56,6 +58,7 @@
 (defn- get-response
   [connection]
   (let [response-code (.getResponseCode connection)]
+    (when *response-code* (reset! *response-code* response-code))
     (cond (< response-code 400)
           (with-open [input (.getInputStream connection)]
             (binding [json-read/*json-keyword-keys* true]
