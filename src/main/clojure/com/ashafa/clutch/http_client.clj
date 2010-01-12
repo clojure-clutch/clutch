@@ -28,7 +28,7 @@
             [clojure.contrib.json.write :as json-write]
             [clojure.contrib.duck-streams :as duck-streams :only [spit]]
             [com.ashafa.clutch.utils :as utils]) 
-  (:import  (java.io InputStreamReader PushbackReader FileInputStream)
+  (:import  (java.io IOException InputStreamReader PushbackReader FileInputStream)
             (java.net URL MalformedURLException)
             (sun.misc BASE64Encoder)))
 
@@ -65,7 +65,7 @@
               (json-read/read-json (PushbackReader. (InputStreamReader. input *encoding*)))))
           (= response-code 404) nil
           :else (throw
-                 (Exception.
+                 (IOException.
                   (str "CouchDB Response Error: " response-code " " (.getResponseMessage connection)))))))
 
 (defn- connect
