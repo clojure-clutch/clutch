@@ -301,19 +301,21 @@
 
 (defn update-attachment
   "Takes a document, file (either a string path to the file or a java.io.File object)
-   and an optional new file name in lieu of the file name of the file argument, then
-   inserts (or updates if the file name of the attachment already exists in the document)
+   and optionally, a new file name in lieu of the file name of the file argument and a mime type,
+   then inserts (or updates if the file name of the attachment already exists in the document)
    the file as an attachment to the document."
-  [document file-or-path & file-key]
+  [document file-or-path & [file-key mime-type]]
   (let [file      (cond (string? file-or-path) (java.io.File. file-or-path)
                         (instance? java.io.File file-or-path) file-or-path
                         :else (throw (IllegalArgumentException. 
                                       "Path string or java.io.File object is expected.")))
-        file-name (or (first file-key) (.getName file))]
+        file-name (or file-key (.getName file))]
     (check-and-use-document document
       (couchdb-request config :put
-                       (if (keyword? file-name) 
-                         (name file-name) file-name) file (utils/get-mime-type file)))))
+        (if (keyword? file-name)
+          (name file-name) file-name)
+        file
+        (or mime-type (utils/get-mime-type file))))))
 
 (defn delete-attachment
   "Deletes an attachemnt from a document."
