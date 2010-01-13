@@ -68,6 +68,12 @@
          "robert.jones@example.com" (document :email)
          80 (document :score))))
 
+(defdbtest verify-response-code-access
+  (create-document test-document-1 "some_id")
+  (binding [http-client/*response-code* (atom nil)]
+    (is (thrown? java.io.IOException (create-document test-document-1 "some_id")))
+    (is (== 409 @http-client/*response-code*))))
+
 (defdbtest update-a-document
   (let [id (:id (create-document test-document-4))]
     (update-document (get-document id) {:email "test@example.com"})
@@ -208,7 +214,11 @@
         document      (get-document (document-meta :id) {:attachments true})]
     (is (= :couchdb-image (first (keys (document :_attachments)))))
     (is (= "image/png" (-> document :_attachments :couchdb-image :content_type)))
-    (is (contains? (-> document :_attachments :couchdb-image) :data))))
+    (is (contains? (-> document :_attachments :couchdb-image) :data))
+    (let [updated-meta (update-attachment document
+                         (str current-path "/couchdb.png") :couchdb-image "other/mimetype")
+          document (get-document (document-meta :id) {:attachments true})]
+      (is (= "other/mimetype" (-> document :_attachments :couchdb-image :content_type))))))
 
 (deftest replicate-a-database
   (try

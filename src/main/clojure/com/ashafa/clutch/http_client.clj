@@ -40,6 +40,8 @@
                                :connect-timeout 5000
                                :use-caches false
                                :follow-redirects false})
+; @todo - we'll be able to eliminate the atom requirement when thread-bound? is available in core
+;  http://www.assembla.com/spaces/clojure/tickets/243
 (def #^{:doc "When bound to an atom, will be reset! to the HTTP response code of the last couchdb request."}
   *response-code* nil)
 
