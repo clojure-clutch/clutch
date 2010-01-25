@@ -1,7 +1,7 @@
 (ns com.ashafa.test-clutch
  (:require [com.ashafa.clutch.http-client :as http-client])
  (:use com.ashafa.clutch
-   (clojure.contrib [test-is :as test-is])))
+   clojure.test))
 
 (set-clutch-defaults! {:language "clojure"})
 
@@ -34,17 +34,17 @@
      (%)))
 
 (defmacro defdbtest [name & body]
-  `(deftest ~name
+  `(deftest- ~name
      (let [test-database# (create-database {:name "clutch_test_db"})]
        (try
         (with-db test-database# ~@body)
         (finally
          (delete-database test-database#))))))
 
-(deftest check-couchdb-connection
+(deftest- check-couchdb-connection
   (is (= "Welcome" (:couchdb (couchdb-info)))))
 
-(deftest create-list-check-and-delete-database
+(deftest- create-list-check-and-delete-database
   (let [test-database (create-database {:name "clutch_test_db"})]
     (is (:ok test-database))
     (is ((set (all-couchdb-databases)) (:name test-database)))
@@ -53,7 +53,7 @@
 
 (defdbtest create-a-document
   (let [document-meta (create-document test-document-1)]
-    (are (contains? document-meta _)
+    (are [key] (contains? document-meta key)
          :ok :id :rev)))
 
 (defdbtest create-a-document-with-id
@@ -63,7 +63,7 @@
 (defdbtest get-a-document
   (let [document-meta (create-document test-document-3)
         document      (get-document (document-meta :id))]
-    (are (= _1 _2)
+    (are [x y] (= x y)
          "Robert Jones" (document :name)
          "robert.jones@example.com" (document :email)
          80 (document :score))))
@@ -96,10 +96,10 @@
         document-3               (create-document test-document-3 3)
         all-documents-descending (get-all-documents {:include_docs true :descending true})
         all-documents-ascending  (get-all-documents {:include_docs true :descending false})]
-    (are (= 3 _1)
+    (are [cnt] (= 3 cnt)
          (:total_rows all-documents-descending)
          (:total_rows all-documents-ascending))
-    (are (= "Robert Jones" _1)
+    (are [name] (= "Robert Jones" name)
          (-> all-documents-descending :rows first :doc :name)
          (-> all-documents-ascending :rows last :doc :name))))
 
@@ -192,35 +192,33 @@
   (is (every? true? (map #(-> % :doc :updated) (:rows (get-all-documents {:include_docs true}))))))
 
 (defdbtest inline-attachments
-  (let [current-path       (.getParent (java.io.File. *file*))
-        clojure-img-file   (java.io.File. (str current-path "/clojure.png"))
-        couchdb-img-file   (java.io.File. (str current-path "/couchdb.png"))
+  (let [clojure-img-file   (java.io.File. "src/test/resources/com/ashafa/clojure.png")
+        couchdb-img-file   (java.io.File. "src/test/resources/com/ashafa/couchdb.png")
         document-meta      (create-document test-document-4 [clojure-img-file couchdb-img-file])
         document           (get-document (document-meta :id))]
     (is (= #{:clojure.png :couchdb.png} (set (keys (document :_attachments)))))
-    (are (= "image/png" _1)
+    (are [mime] (= "image/png" mime)
          (-> document :_attachments :clojure.png :content_type)
          (-> document :_attachments :couchdb.png :content_type))
-    (are (= _1 _2)
+    (are [l1 l2] (= l1 l2)
          (.length clojure-img-file) (-> document :_attachments :clojure.png :length)
          (.length couchdb-img-file) (-> document :_attachments :couchdb.png :length))))
 
 (defdbtest standalone-attachments
-  (let [current-path  (.getParent (java.io.File. *file*))
-        document-meta (create-document test-document-1)
+  (let [document-meta (create-document test-document-1)
         document      (get-document (document-meta :id))
         updated-meta  (update-attachment document
-                       (str current-path "/couchdb.png") :couchdb-image)
+                        "src/test/resources/com/ashafa/couchdb.png" :couchdb-image)
         document      (get-document (document-meta :id) {:attachments true})]
     (is (= :couchdb-image (first (keys (document :_attachments)))))
     (is (= "image/png" (-> document :_attachments :couchdb-image :content_type)))
     (is (contains? (-> document :_attachments :couchdb-image) :data))
     (let [updated-meta (update-attachment document
-                         (str current-path "/couchdb.png") :couchdb-image "other/mimetype")
+                         "src/test/resources/com/ashafa/couchdb.png" :couchdb-image "other/mimetype")
           document (get-document (document-meta :id) {:attachments true})]
       (is (= "other/mimetype" (-> document :_attachments :couchdb-image :content_type))))))
 
-(deftest replicate-a-database
+(deftest- replicate-a-database
   (try
    (let [source-database (create-database "source_test_db")
          target-database (create-database "target_test_db")]
@@ -235,5 +233,3 @@
    (finally
     (delete-database "source_test_db")
     (delete-database "target_test_db"))))
-
-(run-tests)
