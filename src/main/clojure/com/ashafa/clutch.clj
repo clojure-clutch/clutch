@@ -54,9 +54,18 @@
 (defn database-arg-type [arg]
     (cond (string? arg) :name
           (and (map? arg) (contains? arg :name)) :meta
+          (instance? java.net.URL arg) :url
           :else (throw
                  (IllegalArgumentException. 
                   "Either a string or a map with a ':name' key is required."))))
+
+(defn url->db-meta
+  "Given a java.net.URL, returns a map with slots aligned with *defaults*.
+   Supports usage of URLs with with-db, etc."
+  [#^java.net.URL url]
+  {:host (.getHost url)
+   :port (.getPort url)
+   :name (.getPath url)})
 
 (defmacro #^{:private true} check-and-use-document
   [doc & body]
@@ -87,7 +96,8 @@
   `(let [arg-type# (database-arg-type ~database)]
     (binding [config (merge @*defaults* 
                              (cond (= :name arg-type#) {:name ~database}
-                                   (= :meta arg-type#) ~database))]
+                                   (= :meta arg-type#) ~database
+                                   (= :url arg-type#) (url->db-meta ~database)))]
        (do ~@body))))
 
 (defn couchdb-info
@@ -121,6 +131,10 @@
           (dissoc (merge @*defaults* database-meta) :name)
           :put (:name database-meta))))
 
+(defmethod create-database :url
+  [url]
+  (-> url url->db-meta create-database))
+
 (defmulti delete-database
   "Takes a database name and deletes the corresponding database."
   database-arg-type)
@@ -134,6 +148,10 @@
   (couchdb-request
    (dissoc (merge @*defaults* database-meta) :name) 
    :delete (:name database-meta)))
+
+(defmethod delete-database :url
+  [url]
+  (-> url url->db-meta delete-database))
 
 (defmulti database-info
   "Takes a database name and returns the meta information about the database."
@@ -149,6 +167,10 @@
    (dissoc (merge @*defaults* database-meta) :name) 
    :get (:name database-meta)))
 
+(defmethod database-info :url
+  [url]
+  (-> url url->db-meta database-info))
+
 (defn replicate-database
   "Takes two arguments (a source and target for replication) which could be a
    string (name of a database in the default Clutch configuration) or a map that 
@@ -160,7 +182,8 @@
                       (let [arg-type (database-arg-type db)]
                         (merge @*defaults*
                                (cond (= :name arg-type) {:name db}
-                                     (= :meta arg-type) db))))
+                                     (= :meta arg-type) db
+                                     (= :url arg-type) (url->db-meta db)))))
         source-meta (get-meta source-database)
         target-meta (get-meta target-database)]
     (couchdb-request (dissoc target-meta :name) :post "_replicate"
