@@ -1,4 +1,4 @@
-(ns clutch
+(ns com.ashafa.test-clutch
  (:require [com.ashafa.clutch.http-client :as http-client])
  (:use com.ashafa.clutch
    (clojure.contrib [test-is :as test-is])))
