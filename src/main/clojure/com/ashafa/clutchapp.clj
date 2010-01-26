@@ -43,8 +43,10 @@
             documents in a database/directory; the former will create the target
             database if necessary."}
   com.ashafa.clutchapp
+  (:require (clojure.contrib [logging :as log]))
   (:use com.ashafa.clutch
-    (clojure.contrib [duck-streams :only (slurp* spit)]
+    (clojure.contrib
+      [duck-streams :only (slurp* spit)]
       [java-utils :only (file as-url)]))
   (:import java.io.File java.net.URL))
 
@@ -54,6 +56,11 @@
                       "ruby" "rb"})
 
 (declare *lang-ext*)
+
+(def #^{:doc "Bindable var to control whether design documents are overwritten
+              when pushing. If false (it's true by default), and a design document
+              already exists, the push fns will become no-ops (logging that fact)."}
+  *push-overwrite?* true)
 
 (defn- load-files
   "Loads the files within the directory named by the paths,
@@ -119,8 +126,8 @@
   (cond
     (or (string? dir-or-ddocs)
       (instance? File dir-or-ddocs)) (->> dir-or-ddocs file .listFiles
-      (filter #(.isDirectory %))
-      (map load-design-doc))
+                                       (filter #(.isDirectory %))
+                                       (map load-design-doc))
     (sequential? dir-or-ddocs) dir-or-ddocs
     :else (throw (IllegalArgumentException.
                    (str "Don't know how to make a seq of design documents from arg of type "
@@ -144,7 +151,10 @@
         (throw (IllegalStateException. (str "Database at " db-url " does not exist."))))
       (let [remote-doc (get-document (:_id doc))]
         (if remote-doc
-        (update-document remote-doc doc)
+          (if *push-overwrite?*
+            (update-document remote-doc doc)
+            (log/warn (str "design document already exists @ " db-url \/ (:_id doc)
+                        " and overwrites are currently disabled via *push-overwrite?*.")))
           (create-document doc))))))
 
 (defn push-all
@@ -154,8 +164,6 @@
   [dir-or-ddocs db-url]
   (let [design-docs (load-all-ddocs dir-or-ddocs)
         url (as-url db-url)]
-    (when (empty? design-docs)
-      (throw (IllegalArgumentException. (str "No design document directories found in " dir-or-ddocs))))
     (when-not (database-info url)
       (create-database url))
     (doseq [dddir design-docs]
