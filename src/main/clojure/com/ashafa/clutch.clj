@@ -40,7 +40,7 @@
   "Sets Clutch default configuration:
         {:host     <ip (defaults to \"localhost\")>
          :port     <port (defaults to 5984)>
-         :language <language the view server uses (see: README)>
+         :language <language the CouchDB view server uses (see: README)>
          :username <username (if http authentication is enabled)>
          :password <password (if http authentication is enabled)>}"
   [configuration-map]
@@ -244,8 +244,8 @@
 
 (defn get-all-documents
   "Returns the meta (_id and _rev) of all documents in a database. By adding 
-   {:include_docs true} to the map for optional querying options argument
-   you can also get the documents data, not just their meta. Also takes an optional
+   {:include_docs true} to the map for optional querying options argument,
+   you can also get the documents data not just their meta. Also takes an optional
     map for querying options (see: http://bit.ly/gxObh)."
   ([]
      (get-all-documents {}))
@@ -274,7 +274,7 @@
 
 (defn ad-hoc-view
   "One-off queries (i.e. views you don't want to save in the CouchDB database). Ad-hoc
-   views are only good during development. Also takes an optional map for querying
+   views should be used during development. Also takes an optional map for querying
    options (see: http://bit.ly/gxObh)."
   ([map-reduce-fns-map]
      (ad-hoc-view map-reduce-fns-map {}))
@@ -322,3 +322,11 @@
   [document file-name]
   (check-and-use-document document
     (couchdb-request config :delete file-name)))
+
+
+(defn changes
+  "Request changes to documents of a CouchDB database."
+  ([]
+     (changes nil))
+  ([query-params-map]
+     (couchdb-request config :get (str "_changes" (utils/map-to-query-str query-params-map false)))))

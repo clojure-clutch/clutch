@@ -33,14 +33,17 @@
   (.. URLEncoder (encode string) (replace "+" "%20")))
 
 (defn map-to-query-str
-  [m]
-  (let [kws (keys m)]
-    (reduce 
-     (fn [q kw]
-       (let [k (if (keyword? kw) (name kw) kw)
-             a (if (not (= (last kws) kw)) "&")]
-         (str q (uri-encode k) "=" (uri-encode (json-write/json-str (m kw))) a)))
-     "?" kws)))
+  ([m]
+     (map-to-query-str m true))
+  ([m json-str-params?]
+     (let [kws (keys m)]
+       (reduce 
+        (fn [q kw]
+          (let [k (if (keyword? kw) (name kw) kw)
+                v (if json-str-params? (json-write/json-str (m kw)) (m kw))
+                a (if (not (= (last kws) kw)) "&")]
+            (str q (uri-encode k) "=" (uri-encode v) a)))
+        "?" kws))))
 
 (defn options-to-map 
   [init options]
