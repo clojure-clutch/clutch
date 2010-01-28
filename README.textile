@@ -30,7 +30,17 @@ Clutch is a "Clojure":http://clojure.org library for "Apache CouchDB":http://cou
 
 h2. Clutch (Clojure) View Server
 
-In order to use Clojure for views, you must first compile the view server.
+In order to use Clojure for views, you must first compile the view server.  You can either use the provided pom.xml and Maven to build clutch, or manually compile the clutch view server namespace.
+
+h3. Maven build
+
+In your command line, execute:
+
+<pre>mvn clean package</pre>
+
+This will leave a fully-compiled clutch jar file in the 'target' directory.  Optionally, you can skip running clutch's tests (perhaps if you don't have a couchdb instance running on localhost:5984) by providing the -Dmaven.test.skip=true argument.
+
+h3. Manual compilation
 
 From your repl...
 
@@ -41,11 +51,13 @@ From your repl...
  (compile 'com.ashafa.clutch.view-server)
 </pre>
 
-... then add the following to the 'local.ini' file of your Apache CouchDB installation (replacing &lt;path to...&gt; with the appropiate paths).
+h3. Configuring your CouchDB installation to use the clutch view server
+
+Add the following to the 'local.ini' file of your Apache CouchDB installation (replacing &lt;path to...&gt; with the appropiate paths).
 
 <pre>
   [query_servers]
-  clojure = java -cp <path to clojure.jar>/clojure.jar:<path to clojure-contrib.jar or clojure-contrib source>/clojure-contrib(.jar|/src):<*compile-path* (see above)> com.ashafa.clutch.view_server
+  clojure = java -cp <path to clojure.jar>/clojure.jar:<path to clojure-contrib.jar or clojure-contrib source>/clojure-contrib(.jar|/src):<clutch jar file OR *compile-path* (see above)> com.ashafa.clutch.view_server
 </pre>
 
 h2. Dependencies
