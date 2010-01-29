@@ -81,3 +81,4 @@ Thanks go out to:
 
 * "Chas Emerick":http://github.com/cemerick
 * "Pierre Larochelle":http://github.com/pierrel
+* "Matt Wilson":http://github.com/mattdw

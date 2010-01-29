@@ -40,7 +40,7 @@
        (reduce 
         (fn [q kw]
           (let [k (if (keyword? kw) (name kw) kw)
-                v (if json-str-params? (json-write/json-str (m kw)) (m kw))
+                v (if json-str-params? (json-write/json-str (m kw)) (str (m kw)))
                 a (if (not (= (last kws) kw)) "&")]
             (str q (uri-encode k) "=" (uri-encode v) a)))
         "?" kws))))

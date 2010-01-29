@@ -244,14 +244,18 @@
 
 (defn get-all-documents
   "Returns the meta (_id and _rev) of all documents in a database. By adding 
-   {:include_docs true} to the map for optional querying options argument,
-   you can also get the documents data not just their meta. Also takes an optional
-    map for querying options (see: http://bit.ly/gxObh)."
+   {:include_docs true} to the map for optional querying options argument
+   you can also get the documents data, not just their meta. Also takes an optional
+   map for querying options, and a second map of {:key [keys]} to be POSTed.
+   (see: http://bit.ly/gxObh)."
   ([]
-     (get-all-documents {}))
+     (get-all-documents {} {}))
   ([query-params-map]
-     (couchdb-request config :get
-                      (str "_all_docs" (utils/map-to-query-str query-params-map)))))
+     (get-all-documents query-params-map {}))
+  ([query-params-map post-data-map]
+     (couchdb-request config (if (empty? post-data-map) :get :post)
+                      (str "_all_docs" (utils/map-to-query-str query-params-map))
+                      (if (empty? post-data-map) nil post-data-map))))
 
 (defn create-view
   "Create a design document used for database queries."
@@ -264,13 +268,17 @@
 
 (defn get-view
   "Get documents associated with a design document. Also takes an optional map
-   for querying options (see: http://bit.ly/gxObh)."
+   for querying options, and a second map of {:key [keys]} to be POSTed.
+   (see: http://bit.ly/gxObh)."
   ([design-document view-key]
-     (get-view design-document view-key {}))
+     (get-view design-document view-key {} {}))
   ([design-document view-key query-params-map]
-     (couchdb-request config :get 
+     (get-view design-document view-key query-params-map {}))
+  ([design-document view-key query-params-map post-data-map]
+     (couchdb-request config (if (empty? post-data-map) :get :post)
                       (str "_design/" design-document "/_view/" (name view-key)
-                           (utils/map-to-query-str query-params-map)))))
+                           (utils/map-to-query-str query-params-map))
+                      (if (empty? post-data-map) nil post-data-map))))
 
 (defn ad-hoc-view
   "One-off queries (i.e. views you don't want to save in the CouchDB database). Ad-hoc

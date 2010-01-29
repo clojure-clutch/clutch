@@ -103,6 +103,16 @@
          (-> all-documents-descending :rows first :doc :name)
          (-> all-documents-ascending :rows last :doc :name))))
 
+(defdbtest get-all-documents-with-post-keys
+  (let [document-1                  (create-document test-document-1 1)
+        document-2                  (create-document test-document-2 2)
+        document-3                  (create-document test-document-3 3)
+        all-documents               (get-all-documents {:include_docs true} {:keys ["1" :2]}) ;; in _all_docs, keys = document id as string or symbol 
+        all-documents-matching-keys (:rows all-documents)]
+    (is (= ["John Smith" "Jane Thompson"]
+           (map #(-> % :doc :name) all-documents-matching-keys)))
+    (is (= 3 (:total_rows all-documents)))))
+
 (defdbtest create-a-design-view
   (when *clj-view-svr-config*
     (let [document-meta (create-view "users" :names-with-score-over-70
@@ -138,6 +148,23 @@
     (is (= ["Test User 2" "Robert Jones" "Jane Thompson"]
           (map :value (:rows (get-view "users" :names-with-score-over-70-sorted-by-score)))))))
 
+(defdbtest use-a-design-view-with-post-keys
+  (when *clj-view-svr-config*
+    (create-document test-document-1)
+    (create-document test-document-2)
+    (create-document test-document-3)
+    (create-document test-document-4)
+    ;; lets add some low score users...
+    (create-document {:name "Test User 1" :score 18})
+    (create-document {:name "Test User 2" :score 7})
+    (create-view "users" :names-keyed-by-scores
+      (with-clj-view-server
+        #(cond (< (:score %) 30) [:low (:name %)]
+               (< (:score %) 70) [:medium (:name %)]
+               :else [:high (:name %)])))
+    (is (= #{"Sarah Parker" "John Smith" "Test User 1" "Test User 2"}
+          (set (map :value (:rows (get-view "users" :names-keyed-by-scores {} {:keys [:medium :low]}))))))))
+    
 (defdbtest use-a-design-view-with-both-map-and-reduce
   (when *clj-view-svr-config*
     (create-document test-document-1)
@@ -172,7 +199,7 @@
   (create-document test-document-4)
   (let [view (ad-hoc-view
               {:language "javascript"
-               :map      "function(doc){if(doc.email.indexOf('test.com')>0)emit(null,doc.email);}"})]
+               :map      "function(doc, req){if(doc.email.indexOf('test.com')>0)emit(null,doc.email);}"})]
     (is (= #{"john.smith@test.com" "jane.thompson@test.com"}
            (set (map :value (:rows view)))))))
 
