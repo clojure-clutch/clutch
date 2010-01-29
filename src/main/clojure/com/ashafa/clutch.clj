@@ -273,7 +273,7 @@
   ([design-document view-key]
      (get-view design-document view-key {} {}))
   ([design-document view-key query-params-map]
-     (get-view design-document view-key {} {}))
+     (get-view design-document view-key query-params-map {}))
   ([design-document view-key query-params-map post-data-map]
      (couchdb-request config (if (empty? post-data-map) :get :post)
                       (str "_design/" design-document "/_view/" (name view-key)
