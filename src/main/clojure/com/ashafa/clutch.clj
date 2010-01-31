@@ -330,11 +330,3 @@
   [document file-name]
   (check-and-use-document document
     (couchdb-request config :delete file-name)))
-
-
-(defn changes
-  "Request changes to documents of a CouchDB database."
-  ([]
-     (changes nil))
-  ([query-params-map]
-     (couchdb-request config :get (str "_changes" (utils/map-to-query-str query-params-map false)))))

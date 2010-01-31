@@ -107,7 +107,7 @@
   (let [document-1                  (create-document test-document-1 1)
         document-2                  (create-document test-document-2 2)
         document-3                  (create-document test-document-3 3)
-        all-documents               (get-all-documents {:include_docs true} {:keys ["1" :2]}) ;; in _all_docs, keys = document id as string or symbol 
+        all-documents               (get-all-documents {:include_docs true} {:keys ["1" "2"]})
         all-documents-matching-keys (:rows all-documents)]
     (is (= ["John Smith" "Jane Thompson"]
            (map #(-> % :doc :name) all-documents-matching-keys)))
@@ -154,7 +154,6 @@
     (create-document test-document-2)
     (create-document test-document-3)
     (create-document test-document-4)
-    ;; lets add some low score users...
     (create-document {:name "Test User 1" :score 18})
     (create-document {:name "Test User 2" :score 7})
     (create-view "users" :names-keyed-by-scores
@@ -199,7 +198,7 @@
   (create-document test-document-4)
   (let [view (ad-hoc-view
               {:language "javascript"
-               :map      "function(doc, req){if(doc.email.indexOf('test.com')>0)emit(null,doc.email);}"})]
+               :map      "function(doc){if(doc.email.indexOf('test.com')>0)emit(null,doc.email);}"})]
     (is (= #{"john.smith@test.com" "jane.thompson@test.com"}
            (set (map :value (:rows view)))))))
 
