@@ -1,8 +1,9 @@
 h1. Clutch
 
 <pre>
-  (ns clutch
-    (:use com.ashafa.clutch))
+  (ns #^{:author "Tunde Ashafa"}
+      clutch-example
+      (:use com.ashafa.clutch))
 
   (def clutch-test-database
     (create-database {:name     "clutch_test_db"
@@ -23,7 +24,7 @@ h1. Clutch
                 (fn [doc] [[nil (:test-grade doc)]])     ; map
                 (fn [keys values _] (apply + values))))) ; reduce
 
-  (replicate-database clutch-test-database remote-database) ; replicate `cluth-test-database' to remote server
+  (replicate-database clutch-test-database remote-database) ; replicate 'cluth-test-database' to remote server
 </pre>
 
 Clutch is a "Clojure":http://clojure.org library for "Apache CouchDB":http://couchdb.apache.org/. Although it's in a very early stage of development (Clutch API subject to change), Clutch supports most of the basic Apache CouchDB APIs. To get a sense of where Clutch is at, please view the included tests. 
@@ -42,11 +43,25 @@ This will leave a fully-compiled Clutch jar file in the 'target' directory.  Opt
 
 h3. Leiningen
 
-In your command line, execute:
+"Leiningen is a build tool for Clojure designed to not set your hair on fire."
+
+For installation and help on Leiningen visit the "github repo":http://github.com/technomancy/leiningen/ .
+
+To include Clutch in your project, in your project.clj add the following to your ":dependencies":
+
+<pre>[com.ashafa/clutch "0.1.0-SNAPSHOT"]</pre>
+
+... then from command line, execute:
+
+<pre>lein deps</pre>
+
+This will create a compiled Clutch jar in the "/lib" (or path indicated by your leiningen project.clj file) of your project.
+
+If you are working with a clone of Clutch from github for development or testing purposes, in your command line execute:
 
 <pre>lein install</pre>
 
-This will leave a fully-compiled Clutch jar file in the 'target' directory. You can also run the Clutch tests by executing the following in your command line after installing:
+This will leave a fully-compiled Clutch jar file in the 'current' directory. You can also run the Clutch tests by executing the following in your command line:
 
 <pre>lein test test-clutch</pre>
  
@@ -75,8 +90,8 @@ h2. Dependencies
 Clutch requires:
 
 * "Apache CouchDB":http://couchdb.apache.org/ (version 0.10.0 +)
-* "Clojure":http://clojure.org (version 1.0 +)
-* "clojure-contrib":http://code.google.com/p/clojure-contrib/
+* "Clojure":http://clojure.org (version 1.1.0-master-SNAPSHOT +)
+* "clojure-contrib":http://code.google.com/p/clojure-contrib/ (version 1.0-SNAPSHOT +)
 
 h3. TODOs
 

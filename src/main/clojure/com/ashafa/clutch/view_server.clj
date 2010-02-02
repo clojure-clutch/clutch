@@ -24,7 +24,8 @@
 ;; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-(ns com.ashafa.clutch.view-server
+(ns #^{:author "Tunde Ashafa"}
+  com.ashafa.clutch.view-server
   (:gen-class)
   (:require [clojure.contrib.json.read :as json-read]
             [clojure.contrib.json.write :as json-write]))

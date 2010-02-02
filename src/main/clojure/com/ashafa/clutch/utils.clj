@@ -23,7 +23,8 @@
 ;; (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 ;; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-(ns com.ashafa.clutch.utils
+(ns #^{:author "Tunde Ashafa"}
+  com.ashafa.clutch.utils
   (:require [clojure.contrib.json.write :as json-write])
   (:import java.net.URLEncoder))
 

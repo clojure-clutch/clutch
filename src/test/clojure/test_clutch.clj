@@ -1,6 +1,7 @@
-(ns test-clutch
- (:require [com.ashafa.clutch.http-client :as http-client])
- (:use com.ashafa.clutch clojure.test))
+(ns #^{:author "Tunde Ashafa"}
+  test-clutch
+  (:require [com.ashafa.clutch.http-client :as http-client])
+  (:use com.ashafa.clutch clojure.test))
 
 (set-clutch-defaults! {:language "clojure"})
 

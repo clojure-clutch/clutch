@@ -24,7 +24,8 @@
 ;; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-(ns com.ashafa.clutch
+(ns #^{:author "Tunde Ashafa"}
+  com.ashafa.clutch
   (:require [com.ashafa.clutch.utils :as utils])
   (:use com.ashafa.clutch.http-client))
 

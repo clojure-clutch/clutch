@@ -23,7 +23,8 @@
 ;; (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 ;; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-(ns com.ashafa.clutch.http-client
+(ns #^{:author "Tunde Ashafa"}
+  com.ashafa.clutch.http-client
   (:require [clojure.contrib.json.read :as json-read]
             [clojure.contrib.json.write :as json-write]
             [clojure.contrib.duck-streams :as duck-streams :only [spit]]
