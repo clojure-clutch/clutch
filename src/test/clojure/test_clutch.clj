@@ -1,7 +1,6 @@
-(ns clutch
+(ns test-clutch
  (:require [com.ashafa.clutch.http-client :as http-client])
- (:use com.ashafa.clutch
-   (clojure.contrib [test-is :as test-is])))
+ (:use com.ashafa.clutch clojure.test))
 
 (set-clutch-defaults! {:language "clojure"})
 
@@ -53,7 +52,7 @@
 
 (defdbtest create-a-document
   (let [document-meta (create-document test-document-1)]
-    (are (contains? document-meta _)
+    (are [x] (contains? document-meta x)
          :ok :id :rev)))
 
 (defdbtest create-a-document-with-id
@@ -63,7 +62,7 @@
 (defdbtest get-a-document
   (let [document-meta (create-document test-document-3)
         document      (get-document (document-meta :id))]
-    (are (= _1 _2)
+    (are [x y] (= x y)
          "Robert Jones" (document :name)
          "robert.jones@example.com" (document :email)
          80 (document :score))))
@@ -96,10 +95,10 @@
         document-3               (create-document test-document-3 3)
         all-documents-descending (get-all-documents {:include_docs true :descending true})
         all-documents-ascending  (get-all-documents {:include_docs true :descending false})]
-    (are (= 3 _1)
+    (are [total_rows] (= 3 total_rows)
          (:total_rows all-documents-descending)
          (:total_rows all-documents-ascending))
-    (are (= "Robert Jones" _1)
+    (are [name] (= "Robert Jones" name)
          (-> all-documents-descending :rows first :doc :name)
          (-> all-documents-ascending :rows last :doc :name))))
 
@@ -117,7 +116,7 @@
   (when *clj-view-svr-config*
     (let [document-meta (create-view "users" :names-with-score-over-70
                           (with-clj-view-server
-                            #(if (> (:score %) 70) [nil (:name %)])))]
+                            #(if (> (:score %) 70) [[nil (:name %)]])))]
       (is (map? (-> (get-document (document-meta :id)) :views :names-with-score-over-70))))))
 
 (defdbtest use-a-design-view-with-spaces-in-key
@@ -128,7 +127,7 @@
     (create-document test-document-4)
     (create-view "users" :names-and-scores
 		 (with-clj-view-server
-		  (fn [doc] [(:name doc) (:score doc)])))
+		  (fn [doc] [[(:name doc) (:score doc)]])))
     (is (= [98]
 	   (map :value (:rows (get-view "users" :names-and-scores {:key "Jane Thompson"})))))))
 
@@ -140,7 +139,7 @@
     (create-document test-document-4)
     (create-view "users" :names-with-score-over-70-sorted-by-score
       (with-clj-view-server
-        #(if (> (:score %) 70) [(:score %) (:name %)])))
+        #(if (> (:score %) 70) [[(:score %) (:name %)]])))
     (is (= ["Robert Jones" "Jane Thompson"]
           (map :value (:rows (get-view "users" :names-with-score-over-70-sorted-by-score)))))
     (create-document {:name "Test User 1" :score 55})
@@ -158,9 +157,9 @@
     (create-document {:name "Test User 2" :score 7})
     (create-view "users" :names-keyed-by-scores
       (with-clj-view-server
-        #(cond (< (:score %) 30) [:low (:name %)]
-               (< (:score %) 70) [:medium (:name %)]
-               :else [:high (:name %)])))
+        #(cond (< (:score %) 30) [[:low (:name %)]]
+               (< (:score %) 70) [[:medium (:name %)]]
+               :else [[:high (:name %)]])))
     (is (= #{"Sarah Parker" "John Smith" "Test User 1" "Test User 2"}
           (set (map :value (:rows (get-view "users" :names-keyed-by-scores {} {:keys [:medium :low]}))))))))
     
@@ -172,7 +171,7 @@
     (create-document test-document-4)
     (create-view "scores" :sum-of-all-scores
       (with-clj-view-server
-        (fn [doc] [nil (:score doc)])
+        (fn [doc] [[nil (:score doc)]])
         (fn [keys values _] (apply + values))))
     (is (= 302 (-> (get-view "scores" :sum-of-all-scores) :rows first :value)))
     (create-document {:score 55})
@@ -187,7 +186,7 @@
     (let [view (ad-hoc-view
                  (with-clj-view-server
                    (fn [doc] (if (re-find #"example\.com$" (:email doc))
-                               [nil (:email doc)]))))]
+                               [[nil (:email doc)]]))))]
       (is (= #{"robert.jones@example.com" "sarah.parker@example.com"}
             (set (map :value (:rows view))))))))
 
@@ -218,21 +217,21 @@
   (is (every? true? (map #(-> % :doc :updated) (:rows (get-all-documents {:include_docs true}))))))
 
 (defdbtest inline-attachments
-  (let [current-path       (.getParent (java.io.File. *file*))
+  (let [current-path       (or (.getParent (java.io.File. *file*)) "src/test/clojure")
         clojure-img-file   (java.io.File. (str current-path "/clojure.png"))
         couchdb-img-file   (java.io.File. (str current-path "/couchdb.png"))
         document-meta      (create-document test-document-4 [clojure-img-file couchdb-img-file])
         document           (get-document (document-meta :id))]
     (is (= #{:clojure.png :couchdb.png} (set (keys (document :_attachments)))))
-    (are (= "image/png" _1)
+    (are [content-type] (= "image/png" content-type)
          (-> document :_attachments :clojure.png :content_type)
          (-> document :_attachments :couchdb.png :content_type))
-    (are (= _1 _2)
+    (are [file-length document-attachment-length] (= file-length document-attachment-length)
          (.length clojure-img-file) (-> document :_attachments :clojure.png :length)
          (.length couchdb-img-file) (-> document :_attachments :couchdb.png :length))))
 
 (defdbtest standalone-attachments
-  (let [current-path  (.getParent (java.io.File. *file*))
+  (let [current-path  (or (.getParent (java.io.File. *file*)) "src/test/clojure")
         document-meta (create-document test-document-1)
         document      (get-document (document-meta :id))
         updated-meta  (update-attachment document
@@ -262,4 +261,5 @@
     (delete-database "source_test_db")
     (delete-database "target_test_db"))))
 
-(run-tests)
+;; Uncomment the next line to fully run tests manually by loading this file. 'test-clutch/inline-attachments and 'test-clutch/standalone-attachments will fail if run from REPL due to the fact the REPL can not set *file* therfore the test will not find the files needed to test attachments
+;; (run-tests)

@@ -20,7 +20,7 @@ h1. Clutch
            ;; create temporary or permanent views using clojure 
            (ad-hoc-view
              (with-clj-view-server
-                (fn [doc] [nil (:test-grade doc)])       ; map
+                (fn [doc] [[nil (:test-grade doc)]])     ; map
                 (fn [keys values _] (apply + values))))) ; reduce
 
   (replicate-database clutch-test-database remote-database) ; replicate `cluth-test-database' to remote server
@@ -30,7 +30,7 @@ Clutch is a "Clojure":http://clojure.org library for "Apache CouchDB":http://cou
 
 h2. Clutch (Clojure) View Server
 
-In order to use Clojure for views, you must first compile the view server.  You can either use the provided pom.xml and Maven to build clutch, or manually compile the clutch view server namespace.
+In order to use Clojure for views, you must first compile the view server.  You can either use the provided pom.xml and Maven to build Clutch, use Leiningen, or manually compile the Clutch view server namespace.
 
 h3. Maven build
 
@@ -38,8 +38,18 @@ In your command line, execute:
 
 <pre>mvn clean package</pre>
 
-This will leave a fully-compiled clutch jar file in the 'target' directory.  Optionally, you can skip running clutch's tests (perhaps if you don't have a couchdb instance running on localhost:5984) by providing the -Dmaven.test.skip=true argument.
+This will leave a fully-compiled Clutch jar file in the 'target' directory.  Optionally, you can skip running Clutch's tests (perhaps if you don't have a CouchDB instance running on localhost:5984) by providing the -Dmaven.test.skip=true argument.
 
+h3. Leiningen
+
+In your command line, execute:
+
+<pre>lein install</pre>
+
+This will leave a fully-compiled Clutch jar file in the 'target' directory. You can also run the Clutch tests by executing the following in your command line after installing:
+
+<pre>lein test test-clutch</pre>
+ 
 h3. Manual compilation
 
 From your repl...
@@ -53,7 +63,7 @@ From your repl...
 
 h3. Configuring your CouchDB installation to use the clutch view server
 
-Add the following to the 'local.ini' file of your Apache CouchDB installation (replacing &lt;path to...&gt; with the appropiate paths).
+Add the following to the 'local.ini' file of your CouchDB installation (replacing &lt;path to...&gt; with the appropiate paths).
 
 <pre>
   [query_servers]

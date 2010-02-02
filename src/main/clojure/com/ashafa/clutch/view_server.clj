@@ -53,7 +53,10 @@
 
 (defn map-document 
   [[document]]
-  (reduce #(conj %1 [(try (or (%2 document) []) (catch Exception error []))]) [] @functions))
+  (for [f @functions]
+    (let [results (try (f document)
+                       (catch Exception error nil))]
+      (vec results))))
 
 (defn reduce-values
   ([[function-string & arguments-array :as entire-command]]
@@ -91,7 +94,13 @@
                       (json-read/read-json (read-line)))
          return-str (json-write/json-str ((handlers (first cmd)) (next cmd)))]
      (println return-str))
-   (catch Exception e (System/exit 1)))
+   (catch Exception e
+     (println (json-write/json-str
+               {"log"
+                (let [w (java.io.StringWriter.)]
+                  (.printStackTrace e (java.io.PrintWriter. w))
+                  (.toString w))}))
+     (System/exit 1)))
   (recur))
 
 (defn -main
