@@ -39,7 +39,7 @@
 ; the standard "replacement character" seems like as reasonable a choice as any
 (def #^{:doc "A very 'high' unicode character that can be used
               as a wildcard suffix when querying views."}
-  *wildcard-collation-char* \ufffd)
+  *wildcard-collation-str* "\ufffd")
 
 (defn set-clutch-defaults!
   "Sets Clutch default configuration:
