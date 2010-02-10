@@ -83,7 +83,12 @@
     (doseq [key-words (keys (configuration :headers))]
       (.setRequestProperty connection key-words ((configuration :headers) key-words)))
     (if data
-      (do (.setDoOutput connection true) (send-body connection data))
+      (do
+        (.setDoOutput connection true)
+        (when-not (-> configuration :headers (get "Content-Length"))
+          ; default chunk size is fine
+          (.setChunkedStreamingMode connection -1))
+        (send-body connection data))
       (.connect connection))    
     (get-response connection)))
 
@@ -100,11 +105,11 @@
                          (.replace database "?" (str command "?"))
                          (str database command)))
         data      (if (map? raw-data) (json-write/json-str raw-data) raw-data)
-        d-headers {"Content-Length" (str (cond (string? data) (count data)
-                                               (instance? java.io.File data) (.length data)
-                                               :else 0))
-                   "Content-Type" data-type
+        d-headers {"Content-Type" data-type
                    "User-Agent" (str "clutch.http-client/" *version*)}
+        d-headers (if (string? data)
+                    (assoc d-headers "Content-Length" (-> data count str))
+                    d-headers)
         headers   (if (:username config)
                     (assoc d-headers
                       "Authorization"
