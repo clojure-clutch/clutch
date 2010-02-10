@@ -39,7 +39,8 @@
 (def *configuration-defaults* {:read-timeout 10000
                                :connect-timeout 5000
                                :use-caches false
-                               :follow-redirects false})
+                               :follow-redirects false
+                               :read-json-response true})
 ; @todo - we'll be able to eliminate the atom requirement when thread-bound? is available in core
 ;  http://www.assembla.com/spaces/clojure/tickets/243
 (def #^{:doc "When bound to an atom, will be reset! to the HTTP response code of the last couchdb request."}
@@ -51,22 +52,24 @@
     (duck-streams/copy data output)))
 
 (defn- get-response
-  [connection]
+  [connection {:keys [read-json-response] :as config}]
   (let [response-code (.getResponseCode connection)]
     (when *response-code* (reset! *response-code* response-code))
     (cond (< response-code 400)
-          (with-open [input (.getInputStream connection)]
-            (binding [json-read/*json-keyword-keys* true]
-              (json-read/read-json (PushbackReader. (InputStreamReader. input *encoding*)))))
+          (if read-json-response
+            (with-open [input (.getInputStream connection)]
+              (binding [json-read/*json-keyword-keys* true]
+                (json-read/read-json (PushbackReader. (InputStreamReader. input *encoding*)))))
+            (.getInputStream connection))
           (= response-code 404) nil
           :else (throw
                  (IOException.
                   (str "CouchDB Response Error: " response-code " " (.getResponseMessage connection)))))))
 
 (defn- connect
-  [url method headers data]
+  [url method config data]
   (let [connection    (.openConnection (URL. url))
-        configuration (merge *configuration-defaults* headers)]
+        configuration (merge *configuration-defaults* config)]
     (doto connection
       (.setRequestMethod method)
       (.setUseCaches (configuration :use-caches))
@@ -83,7 +86,7 @@
           (.setChunkedStreamingMode connection -1))
         (send-body connection data))
       (.connect connection))    
-    (get-response connection)))
+    (get-response connection configuration)))
 
 (defn couchdb-request
   "Prepare request for CouchDB server by forming the required url, setting headers, and
@@ -111,4 +114,4 @@
                                     (.getBytes (str (config :username) ":" (:password config))))))
                     d-headers)
         method    (.toUpperCase (if (keyword? method) (name method) method))]
-    (connect url method {:headers headers} data)))
+    (connect url method (assoc config :headers headers) data)))

@@ -1,5 +1,7 @@
 (ns com.ashafa.test-clutch
- (:require [com.ashafa.clutch.http-client :as http-client])
+ (:import java.io.ByteArrayInputStream)
+ (:require [com.ashafa.clutch.http-client :as http-client]
+   [clojure.contrib.duck-streams :as duck-streams])
  (:use com.ashafa.clutch
    clojure.test))
 
@@ -28,7 +30,7 @@
 
 (use-fixtures
   :once
-  #(binding [*clj-view-svr-config* (http-client/couchdb-request *defaults* :get "_config/query_servers/clojure")]
+  #(binding [*clj-view-svr-config* (http-client/couchdb-request @*defaults* :get "_config/query_servers/clojure")]
      (when-not *clj-view-svr-config*
        (println "Clojure view server not available, skipping tests that depend upon it!"))
      (%)))
@@ -213,10 +215,17 @@
     (is (= :couchdb-image (first (keys (document :_attachments)))))
     (is (= "image/png" (-> document :_attachments :couchdb-image :content_type)))
     (is (contains? (-> document :_attachments :couchdb-image) :data))
+
+    ; ensure update-attachment arg checks work
+    (is (thrown? IllegalArgumentException (update-attachment document (Object.))))
+    (is (thrown? IllegalArgumentException (update-attachment document (ByteArrayInputStream. (make-array Byte/TYPE 0)))))
+    
     (let [updated-meta (update-attachment document
                          "src/test/resources/com/ashafa/couchdb.png" :couchdb-image "other/mimetype")
-          document (get-document (document-meta :id) {:attachments true})]
-      (is (= "other/mimetype" (-> document :_attachments :couchdb-image :content_type))))))
+          document (get-document (document-meta :id) {:attachments true})
+          data (duck-streams/to-byte-array (java.io.File. "src/test/resources/com/ashafa/couchdb.png"))]
+      (is (= "other/mimetype" (-> document :_attachments :couchdb-image :content_type)))
+      (is (= (seq data) (-> (get-attachment document :couchdb-image) duck-streams/to-byte-array seq))))))
 
 (deftest- replicate-a-database
   (try

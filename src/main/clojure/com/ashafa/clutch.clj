@@ -25,9 +25,12 @@
 
 
 (ns com.ashafa.clutch
-  (:import (java.io File InputStream FileInputStream BufferedInputStream))
-  (:require [com.ashafa.clutch.utils :as utils])
-  (:use com.ashafa.clutch.http-client))
+  (:import (java.io File InputStream OutputStream FileInputStream FileOutputStream
+             BufferedInputStream BufferedOutputStream ByteArrayOutputStream))
+  (:require [com.ashafa.clutch.utils :as utils]
+    [clojure.contrib.duck-streams :as duck-streams])
+  (:use com.ashafa.clutch.http-client
+    clojure.contrib.core))
 
 
 (declare config)
@@ -356,3 +359,17 @@
   [document file-name]
   (check-and-use-document document
     (couchdb-request config :delete file-name)))
+
+(defn get-attachment
+  "Returns an InputStream reading the named attachment to the specified/provided document,
+   or nil if the document or attachment does not exist.
+
+   Hint: use the copy or to-byte-array fns in duck-streams to easily redirect the result."
+  [doc-or-id attachment-name]
+  (let [doc (if (map? doc-or-id) doc-or-id (get-document doc-or-id))
+        attachment-name (if (keyword? attachment-name)
+                          (name attachment-name)
+                          attachment-name)]
+    (when (-?> doc :_attachments (get (keyword attachment-name)))
+      (check-and-use-document doc
+        (couchdb-request (assoc config :read-json-response false) :get attachment-name)))))
