@@ -28,7 +28,7 @@
             [clojure.contrib.json.write :as json-write]
             [clojure.contrib.duck-streams :as duck-streams :only [spit]]
             [com.ashafa.clutch.utils :as utils]) 
-  (:import  (java.io IOException InputStreamReader PushbackReader FileInputStream)
+  (:import  (java.io IOException InputStreamReader PushbackReader)
             (java.net URL MalformedURLException)
             (sun.misc BASE64Encoder)))
 
@@ -48,14 +48,7 @@
 (defn- send-body
   [connection data]
   (with-open [output (.getOutputStream connection)]
-    (if (string? data)
-      (duck-streams/spit output data)
-      (let [stream (FileInputStream. data)
-            bytes  (make-array Byte/TYPE 1024)]
-        (loop [bytes-read (.read stream bytes)]
-          (when (pos? bytes-read)
-            (.write output bytes 0 bytes-read)
-            (recur (.read stream bytes))))))))
+    (duck-streams/copy data output)))
 
 (defn- get-response
   [connection]
@@ -95,10 +88,10 @@
 (defn couchdb-request
   "Prepare request for CouchDB server by forming the required url, setting headers, and
    if required, the post/put body and its mime type."
-  [config method & cmd-data-type]
-  (let [command   (if (first cmd-data-type) (str "/" (first cmd-data-type)))
-        raw-data  (nth cmd-data-type 1 nil)
-        data-type (nth cmd-data-type 2 *default-data-type*)
+  [config method & [command data data-type]]
+  (let [command   (when command (str "/" command))
+        raw-data  data
+        data-type (or data-type *default-data-type*)
         database  (if (config :name) (str "/" (config :name)))
         url       (str "http://" (config :host) ":" (config :port) 
                        (if (and database (re-find #"\?" database))

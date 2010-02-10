@@ -25,6 +25,7 @@
 
 
 (ns com.ashafa.clutch
+  (:import (java.io File InputStream FileInputStream BufferedInputStream))
   (:require [com.ashafa.clutch.utils :as utils])
   (:use com.ashafa.clutch.http-client))
 
@@ -210,8 +211,9 @@
   (reduce
    #(assoc %1 (.getName %2)
            {:content_type (utils/get-mime-type %2)
-            :data         (utils/encode-bytes-to-base64 
-                           (utils/convert-input-to-bytes (java.io.FileInputStream. %2)))})
+            :data         (-> %2 FileInputStream. BufferedInputStream.
+                            utils/convert-input-to-bytes
+                            utils/encode-bytes-to-base64)})
    {} files))
 
 (defmethod create-document :with-attachments-and-generate-id
@@ -332,18 +334,22 @@
    and optionally, a new file name in lieu of the file name of the file argument and a mime type,
    then inserts (or updates if the file name of the attachment already exists in the document)
    the file as an attachment to the document."
-  [document file-or-path & [file-key mime-type]]
-  (let [file      (cond (string? file-or-path) (java.io.File. file-or-path)
-                        (instance? java.io.File file-or-path) file-or-path
-                        :else (throw (IllegalArgumentException. 
-                                      "Path string or java.io.File object is expected.")))
-        file-name (or file-key (.getName file))]
+  [document attachment & [file-key mime-type]]
+  (let [file (cond (string? attachment) (File. attachment)
+               (instance? File attachment) attachment)
+        stream (cond
+                 file (-> file FileInputStream. BufferedInputStream.)
+                 (instance? InputStream attachment) attachment
+                 :else (throw (IllegalArgumentException.
+                                "Path string, java.io.File, or InputStream object is expected.")))
+        file-name (or file-key (and file (.getName file))
+                    (throw (IllegalArgumentException. "Must provide a file-key if using InputStream as attachment data.")))]
     (check-and-use-document document
       (couchdb-request config :put
         (if (keyword? file-name)
           (name file-name) file-name)
-        file
-        (or mime-type (utils/get-mime-type file))))))
+        stream
+        (or mime-type (and file (utils/get-mime-type file)))))))
 
 (defn delete-attachment
   "Deletes an attachemnt from a document."
