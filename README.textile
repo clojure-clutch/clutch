@@ -39,50 +39,39 @@ In your command line, execute:
 
 <pre>mvn clean package</pre>
 
-This will leave a fully-compiled Clutch jar file in the 'target' directory.  Optionally, you can skip running Clutch's tests (perhaps if you don't have a CouchDB instance running on localhost:5984) by providing the -Dmaven.test.skip=true argument.
+This will leave a fully-compiled clutch.jar file in the 'target' directory.  Optionally, you can skip running Clutch's tests (perhaps if you don't have a CouchDB instance running on localhost:5984) by providing the -Dmaven.test.skip=true argument.
 
 h3. Leiningen
 
 "Leiningen is a build tool for Clojure designed to not set your hair on fire."
 
-For installation and help on Leiningen visit the "github repo":http://github.com/technomancy/leiningen/ .
+For installation and help with Leiningen, visit the "github repo":http://github.com/technomancy/leiningen/ .
 
-To include Clutch in your project, in your project.clj add the following to your ":dependencies":
+To include Clutch in your Leiningen enabled project, add the following to your ":dependencies" in your 'project.clj' file:
 
 <pre>[com.ashafa/clutch "0.1.0-SNAPSHOT"]</pre>
 
-... then from command line, execute:
+then at the command line, execute:
 
 <pre>lein deps</pre>
 
-This will create a compiled Clutch jar in the "/lib" (or path indicated by your leiningen project.clj file) of your project.
+This will download a compiled clutch.jar, and its dependecies (correct verison of clojure and clojure-contrib jars if needed), to the 'lib/' directory (or path indicated by your leiningen 'project.clj' file) of your project.
 
-If you are working with a clone of Clutch from github for development or testing purposes, in your command line execute:
+If you are working with a clone of Clutch from github (for development, testing, or contributing), after cloning, execute the following command in the Clutch project directory:
 
 <pre>lein install</pre>
 
-This will leave a fully-compiled Clutch jar file in the 'current' directory. You can also run the Clutch tests by executing the following in your command line:
+This will leave a fully-compiled clutch.jar file in the project directory and its dependencies in the 'lib/' directory. You can also run the tests by executing the following in your command line (if you have CouchDB instance running on localhost:5984):
 
 <pre>lein test test-clutch</pre>
- 
-h3. Manual compilation
-
-From your repl...
-
-<pre>
- ;; Following line is optional and may already be set (defaults to "classes" if not) 
- ;; (set! *compile-path* "<path to where you want your classes generated>")
-
- (compile 'com.ashafa.clutch.view-server)
-</pre>
 
 h3. Configuring your CouchDB installation to use the clutch view server
 
-Add the following to the 'local.ini' file of your CouchDB installation (replacing &lt;path to...&gt; with the appropiate paths).
+Add the following to the 'local.ini' file of your CouchDB installation (replacing &lt;path to ... &gt; with the appropiate paths).
 
 <pre>
   [query_servers]
-  clojure = java -cp <path to clojure.jar>/clojure.jar:<path to clojure-contrib.jar or clojure-contrib source>/clojure-contrib(.jar|/src):<clutch jar file OR *compile-path* (see above)> com.ashafa.clutch.view_server
+  clojure = java -cp <path to clojure jar>:<path to clojure-contrib jar>:<path to clutch jar> com.ashafa.clutch.view_server
 </pre>
 
 h2. Dependencies
@@ -90,15 +79,15 @@ h2. Dependencies
 Clutch requires:
 
 * "Apache CouchDB":http://couchdb.apache.org/ (version 0.10.0 +)
-* "Clojure":http://clojure.org (version 1.1.0-master-SNAPSHOT +)
-* "clojure-contrib":http://code.google.com/p/clojure-contrib/ (version 1.0-SNAPSHOT +)
+* "Clojure":http://clojure.org (version 1.2.0-master-SNAPSHOT)
+* "clojure-contrib":http://code.google.com/p/clojure-contrib/ (version 1.2.0-SNAPSHOT)
 
 h3. TODOs
 
 * Documentation
-* Use streams instead of java.io.File for attachments apis
 * Revisions
 * More robust tests
+* Changes
 
 h3. Contributors
 
@@ -107,3 +96,4 @@ Thanks go out to:
 * "Chas Emerick":http://github.com/cemerick
 * "Pierre Larochelle":http://github.com/pierrel
 * "Matt Wilson":http://github.com/mattdw
+* "Patrick Sullivan":http://github.com/WizardofWestmarch

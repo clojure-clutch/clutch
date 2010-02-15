@@ -25,9 +25,8 @@
 
 (ns #^{:author "Tunde Ashafa"}
   com.ashafa.clutch.http-client
-  (:require [clojure.contrib.json.read :as json-read]
-            [clojure.contrib.json.write :as json-write]
-            [clojure.contrib.duck-streams :as duck-streams :only [spit]]
+  (:require [clojure.contrib.json :as json]
+            [clojure.contrib.io :as io :only [spit]]
             [com.ashafa.clutch.utils :as utils]) 
   (:import  (java.io IOException InputStreamReader PushbackReader FileInputStream)
             (java.net URL MalformedURLException)
@@ -50,7 +49,7 @@
   [connection data]
   (with-open [output (.getOutputStream connection)]
     (if (string? data)
-      (duck-streams/spit output data)
+      (io/spit output data)
       (let [stream (FileInputStream. data)
             bytes  (make-array Byte/TYPE 1024)]
         (loop [bytes-read (.read stream bytes)]
@@ -64,8 +63,7 @@
     (when *response-code* (reset! *response-code* response-code))
     (cond (< response-code 400)
           (with-open [input (.getInputStream connection)]
-            (binding [json-read/*json-keyword-keys* true]
-              (json-read/read-json (PushbackReader. (InputStreamReader. input *encoding*)))))
+            (json/read-json (InputStreamReader. input *encoding*)))
           (= response-code 404) nil
           :else (throw
                  (IOException.
@@ -100,7 +98,7 @@
                        (if (and database (re-find #"\?" database))
                          (.replace database "?" (str command "?"))
                          (str database command)))
-        data      (if (map? raw-data) (json-write/json-str raw-data) raw-data)
+        data      (if (map? raw-data) (json/json-str raw-data) raw-data)
         d-headers {"Content-Length" (str (cond (string? data) (count data)
                                                (instance? java.io.File data) (.length data)
                                                :else 0))

@@ -9,7 +9,7 @@
   <scm>
     <connection>scm:git:git://github.com/tashafa/clutch.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/tashafa/clutch.git</developerConnection>
-    <tag>4e7951a2181659af90db6d1d960fd584b6131a8a</tag>
+    <tag>9dbe5734be3fb836ffb3eff7c5a83c6124d55a27</tag>
     <url>http://github.com/tashafa/clutch</url>
   </scm>
   <repositories>
@@ -30,12 +30,12 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojure</artifactId>
-      <version>1.1.0-master-SNAPSHOT</version>
+      <version>1.2.0-master-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojure-contrib</artifactId>
-      <version>1.0-SNAPSHOT</version>
+      <version>1.2.0-SNAPSHOT</version>
     </dependency>
   </dependencies>
 </project>
