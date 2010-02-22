@@ -90,8 +90,8 @@ h2. Dependencies
 Clutch requires:
 
 * "Apache CouchDB":http://couchdb.apache.org/ (version 0.10.0 +)
-* "Clojure":http://clojure.org (version 1.1.0-master-SNAPSHOT +)
-* "clojure-contrib":http://code.google.com/p/clojure-contrib/ (version 1.0-SNAPSHOT +)
+* "Clojure":http://clojure.org (version 1.1.0-master-SNAPSHOT)
+* "clojure-contrib":http://code.google.com/p/clojure-contrib/ (version 1.0-SNAPSHOT)
 
 h3. TODOs
 
