@@ -27,52 +27,11 @@ h1. Clutch
   (replicate-database clutch-test-database remote-database) ; replicate 'cluth-test-database' to remote server
 </pre>
 
-Clutch is a "Clojure":http://clojure.org library for "Apache CouchDB":http://couchdb.apache.org/. Although it's in a very early stage of development (Clutch API subject to change), Clutch supports most of the basic Apache CouchDB APIs. To get a sense of where Clutch is at, please view the included tests. 
+Clutch is a "Clojure":http://clojure.org library for "Apache CouchDB":http://couchdb.apache.org/. Although it's in a very early stage of development (Clutch API subject to change), Clutch supports most of the basic Apache CouchDB APIs. To get a sense of where Clutch is at, please view the included tests.
 
-h2. Clutch (Clojure) View Server
+h2. Master Branch.
 
-In order to use Clojure for views, you must first compile the view server.  You can either use the provided pom.xml and Maven to build Clutch, use Leiningen, or manually compile the Clutch view server namespace.
-
-h3. Maven build
-
-In your command line, execute:
-
-<pre>mvn clean package</pre>
-
-This will leave a fully-compiled clutch.jar file in the 'target' directory.  Optionally, you can skip running Clutch's tests (perhaps if you don't have a CouchDB instance running on localhost:5984) by providing the -Dmaven.test.skip=true argument.
-
-h3. Leiningen
-
-"Leiningen is a build tool for Clojure designed to not set your hair on fire."
-
-For installation and help with Leiningen, visit the "github repo":http://github.com/technomancy/leiningen/ .
-
-To include Clutch in your Leiningen enabled project, add the following to your ":dependencies" in your 'project.clj' file:
-
-<pre>[com.ashafa/clutch "0.1.0-SNAPSHOT"]</pre>
-
-then at the command line, execute:
-
-<pre>lein deps</pre>
-
-This will download a compiled clutch.jar, and its dependecies (correct verison of clojure and clojure-contrib jars if needed), to the 'lib/' directory (or path indicated by your leiningen 'project.clj' file) of your project.
-
-If you are working with a clone of Clutch from github (for development, testing, or contributing), after cloning, execute the following command in the Clutch project directory:
-
-<pre>lein install</pre>
-
-This will leave a fully-compiled clutch.jar file in the project directory and its dependencies in the 'lib/' directory. You can also run the tests by executing the following in your command line (if you have CouchDB instance running on localhost:5984):
-
-<pre>lein test test-clutch</pre>
-
-h3. Configuring your CouchDB installation to use the clutch view server
-
-Add the following to the 'local.ini' file of your CouchDB installation (replacing &lt;path to ... &gt; with the appropiate paths).
-
-<pre>
-  [query_servers]
-  clojure = java -cp <path to clojure jar>:<path to clojure-contrib jar>:<path to clutch jar> com.ashafa.clutch.view_server
-</pre>
+This branch tries to keep up with Clojure's master branch on github, which is at version 1.2. The "1.1-compatible branch":http://github.com/tashafa/clutch is the default recommended branch.
 
 h2. Dependencies
 
@@ -81,13 +40,6 @@ Clutch requires:
 * "Apache CouchDB":http://couchdb.apache.org/ (version 0.10.0 +)
 * "Clojure":http://clojure.org (version 1.2.0-master-SNAPSHOT)
 * "clojure-contrib":http://code.google.com/p/clojure-contrib/ (version 1.2.0-SNAPSHOT)
-
-h3. TODOs
-
-* Documentation
-* Revisions
-* More robust tests
-* Changes
 
 h3. Contributors
 
