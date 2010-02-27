@@ -27,34 +27,18 @@
 (ns #^{:author "Tunde Ashafa"}
   com.ashafa.clutch
   (:require [com.ashafa.clutch.utils :as utils])
-  (:use com.ashafa.clutch.http-client))
+  (:use com.ashafa.clutch.http-client
+        clojure.contrib.core))
 
 
 (declare config)
 
-;;; default Clutch configuration...
+;; default clutch configuration
 (def *defaults* (ref {:host "localhost"
                       :port 5984
                       :language "javascript"}))
 
-(defn set-clutch-defaults!
-  "Sets Clutch default configuration:
-        {:host     <ip (defaults to \"localhost\")>
-         :port     <port (defaults to 5984)>
-         :language <language the CouchDB view server uses (see: README)>
-         :username <username (if http authentication is enabled)>
-         :password <password (if http authentication is enabled)>}"
-  [configuration-map]
-  (dosync (alter *defaults* merge configuration-map)))
-
-(defn database-arg-type [arg]
-    (cond (string? arg) :name
-          (and (map? arg) (contains? arg :name)) :meta
-          :else (throw
-                 (IllegalArgumentException. 
-                  "Either a string or a map with a ':name' key is required."))))
-
-(defmacro #^{:private true} check-and-use-document
+(defmacro check-and-use-document
   [doc & body]
   `(if-let [id# (~doc :_id)]
      (binding [config 
@@ -64,9 +48,25 @@
      (throw 
       (IllegalArgumentException. "A valid document is required."))))
 
+(defn database-arg-type [arg]
+    (cond (string? arg) :name
+          (and (map? arg) (contains? arg :name)) :meta
+          (instance? java.net.URL arg) :url
+          :else (throw
+                 (IllegalArgumentException. 
+                  "Either a string or a map with a ':name' key is required."))))
+
+(defn url->db-meta
+  "Given a java.net.URL, returns a map with slots aligned with *defaults*.
+   Supports usage of URLs with with-db, etc."
+  [#^java.net.URL url]
+  {:host (.getHost url)
+   :port (.getPort url)
+   :name (.getPath url)})
+
 (defmacro with-clj-view-server
-  "Takes one or two functions and returns a map-reduce map (with the functions
-   serialized as strings) used by the Clojure view server."
+  "Takes one or two functions, map and reduce respectively, then returns a map-reduce clojure 
+   map (with the functions serialized as strings) used by the Clojure view server."
   ([map-form]
      `(with-clj-view-server ~(pr-str map-form) nil))
   ([map-form reduce-form]
@@ -83,20 +83,31 @@
   `(let [arg-type# (database-arg-type ~database)]
     (binding [config (merge @*defaults* 
                              (cond (= :name arg-type#) {:name ~database}
-                                   (= :meta arg-type#) ~database))]
+                                   (= :meta arg-type#) ~database
+                                   (= :url arg-type#) (url->db-meta ~database)))]
        (do ~@body))))
 
+(defn set-clutch-defaults!
+  "Sets Clutch default CouchDB configuration:
+        {:host     <ip (defaults to \"localhost\")>
+         :port     <port (defaults to 5984)>
+         :language <language the CouchDB view server uses (see: README)>
+         :username <username (if http authentication is enabled)>
+         :password <password (if http authentication is enabled)>}"
+  [configuration-map]
+  (dosync (alter *defaults* merge configuration-map)))
+
 (defn couchdb-info
-  "Returns the CouchDB information."
+  "Returns informataion about your CouchDB instance."
   ([]
      (couchdb-info nil))
-  ([database]
-     (couchdb-request (dissoc (merge @*defaults* database) :name) :get)))
+  ([database-meta]
+     (couchdb-request (dissoc (merge @*defaults* database-meta) :name) :get)))
 
-(defn all-couchdb-databases
+(defn all-databases
   "Returns a list of all databases on the CouchDB server."
   ([]
-     (all-couchdb-databases nil))
+     (all-databases nil))
   ([database-meta]
      (couchdb-request (dissoc (merge @*defaults* database-meta) :name) :get "_all_dbs")))
 
@@ -117,19 +128,6 @@
           (dissoc (merge @*defaults* database-meta) :name)
           :put (:name database-meta))))
 
-(defmulti delete-database
-  "Takes a database name and deletes the corresponding database."
-  database-arg-type)
-
-(defmethod delete-database :name
-  [database-name]
-  (delete-database (assoc @*defaults* :name database-name)))
-
-(defmethod delete-database :meta
-  [database-meta]
-  (couchdb-request
-   (dissoc (merge @*defaults* database-meta) :name) 
-   :delete (:name database-meta)))
 
 (defmulti database-info
   "Takes a database name and returns the meta information about the database."
@@ -145,6 +143,51 @@
    (dissoc (merge @*defaults* database-meta) :name) 
    :get (:name database-meta)))
 
+(defmethod create-database :url
+  [url]
+  (-> url url->db-meta create-database))
+ 
+
+
+(defmulti get-database
+  "Returns a database meta information if it already exissts else creates a new database and returns
+   the meta information for that."
+  database-arg-type)
+
+(defmethod get-database :name
+  [database-name]
+  (if (database-info database-name)
+    (assoc @*defaults* :name database-name)
+    (merge @*defaults* (create-database {:name database-name}))))
+
+(defmethod get-database :meta
+  [database-meta]
+  (if (database-info database-meta)
+    (merge @*defaults* database-meta)
+    (merge @*defaults* (create-database database-meta))))
+
+(defmethod get-database :url
+  [url]
+  (-> url url->db-meta get-database))
+ 
+(defmulti delete-database
+  "Takes a database name and deletes the corresponding database."
+  database-arg-type)
+
+(defmethod delete-database :name
+  [database-name]
+  (delete-database (assoc @*defaults* :name database-name)))
+
+(defmethod delete-database :meta
+  [database-meta]
+  (couchdb-request
+   (dissoc (merge @*defaults* database-meta) :name) 
+   :delete (:name database-meta)))
+
+(defmethod delete-database :url
+  [url]
+  (-> url url->db-meta delete-database))
+ 
 (defn replicate-database
   "Takes two arguments (a source and target for replication) which could be a
    string (name of a database in the default Clutch configuration) or a map that 
@@ -156,7 +199,8 @@
                       (let [arg-type (database-arg-type db)]
                         (merge @*defaults*
                                (cond (= :name arg-type) {:name db}
-                                     (= :meta arg-type) db))))
+                                     (= :meta arg-type) db
+                                     (= :url arg-type) (url->db-meta db)))))
         source-meta (get-meta source-database)
         target-meta (get-meta target-database)]
     (couchdb-request (dissoc target-meta :name) :post "_replicate"
@@ -173,37 +217,41 @@
           (vector? (nth args 2 nil)) :with-attachments-and-supplied-id
           :else :default)))
 
-(defn- all-files?
+(defn- get-all-files
   [files]
-  (or (every? #(= java.io.File (class %)) files)
-      (throw  (IllegalArgumentException. "File expected."))))
+  (let [all-files (map #(if (string? %) (java.io.File. %) %) files)]
+    (if (every? #(and (instance? java.io.File %) (.exists %)) all-files)
+      all-files
+      (throw  (IllegalArgumentException. "File expected or not found.")))))
 
 (defn- generate-attachment-map
   [files]
   (reduce
-   #(assoc %1 (.getName %2)
+   #(assoc %1 (keyword (.getName %2))
            {:content_type (utils/get-mime-type %2)
             :data         (utils/encode-bytes-to-base64 
-                           (utils/convert-input-to-bytes (java.io.FileInputStream. %2)))})
+                           (utils/convert-input-to-bytes (java.io.FileInputStream. %2)))
+            :length       (.length %2)})
    {} files))
 
 (defmethod create-document :with-attachments-and-generate-id
   [document-map files]
-  (if (all-files? files)
+  (if-let [all-files (get-all-files files)]
     (create-document
-     (assoc document-map :_attachments (generate-attachment-map files)))))
+     (assoc document-map :_attachments (generate-attachment-map all-files)))))
 
 (defmethod create-document :with-attachments-and-supplied-id
   [document-map id files]
-  (if (all-files? files)
+  (if-let [all-files (get-all-files files)]
     (create-document
-     (assoc document-map :_attachments (generate-attachment-map files)) id)))
+     (assoc document-map :_attachments (generate-attachment-map all-files)) id)))
 
 (defmethod create-document :default
   ([document-map]
      (create-document document-map nil))
   ([document-map id]
-     (couchdb-request config (if (nil? id) :post :put) id document-map)))
+     (if-let [new-document-meta (couchdb-request config (if (nil? id) :post :put) id document-map)]
+       (assoc document-map :_rev (new-document-meta :rev) :_id (new-document-meta :id)))))
 
 (defn get-document
   "Takes an id and an optional query parameters map as arguments and returns a
@@ -220,39 +268,25 @@
   (check-and-use-document document
     (couchdb-request config :delete)))
 
-(defmulti update-document
-  "Takes document and a map and merges it with the original. When a function
-   and a vector of keys are supplied as the second and third argument, the 
-   value of the keys supplied are upadated with the result of the function of
-   their values (see: #'clojure.core/update-in)."
-  (fn [& args] 
-    (let [targ (second args)]
-      (cond (fn? targ)  :fn
-            (map? targ) :map
-            :else (throw (IllegalArgumentException. 
-                          "A map or function is needed to update a document."))))))
-
-(defmethod update-document :fn 
-  [document update-fn update-keys]
-  (check-and-use-document document
-    (couchdb-request config :put nil
-                       (update-in document update-keys update-fn))))
-
-(defmethod update-document :map 
+(defn update-document
+  "Updates a document by taking a map and merging it with the original."
   [document merge-map]
-  (check-and-use-document document
-    (couchdb-request config :put nil (merge document merge-map))))
+  (let [updated-document      (merge document merge-map)
+        updated-document-meta (check-and-use-document document
+                                (couchdb-request config :put nil updated-document))]
+    (if updated-document-meta
+      (assoc updated-document :_rev (updated-document-meta :rev)))))
 
-(defn get-all-documents
+(defn get-all-documents-meta
   "Returns the meta (_id and _rev) of all documents in a database. By adding 
-   {:include_docs true} to the map for optional querying options argument
-   you can also get the documents data, not just their meta. Also takes an optional
-   map for querying options, and a second map of {:key [keys]} to be POSTed.
+   the key ':include_docs' with a value of true to the optional query params map
+   you can also get the full documents, not just their meta. Also takes an optional
+   second map of {:key [keys]} to be POSTed.
    (see: http://bit.ly/gxObh)."
   ([]
-     (get-all-documents {} {}))
+     (get-all-documents-meta {} {}))
   ([query-params-map]
-     (get-all-documents query-params-map {}))
+     (get-all-documents-meta query-params-map {}))
   ([query-params-map post-data-map]
      (couchdb-request config (if (empty? post-data-map) :get :post)
                       (str "_all_docs" (utils/map-to-query-str query-params-map))
@@ -296,7 +330,7 @@
 
 (defn bulk-update
   "Takes a vector of documents (maps) and inserts or updates (if \"_id\" and \"_rev\" keys
-   are supplied in a document) them with a single CouchDB request."
+   are supplied in a document) them with in a single request."
   ([documents-vector]
      (bulk-update documents-vector nil nil))
   ([documents-vector update-map]
@@ -305,8 +339,7 @@
      (couchdb-request config :post "_bulk_docs"
                       (merge {:docs (if update-map 
                                       (map #(merge % update-map) documents-vector) 
-                                      documents-vector)}
-                             options-map))))
+                                      documents-vector)} options-map))))
 
 (defn update-attachment
   "Takes a document, file (either a string path to the file or a java.io.File object)
@@ -314,20 +347,32 @@
    then inserts (or updates if the file name of the attachment already exists in the document)
    the file as an attachment to the document."
   [document file-or-path & [file-key mime-type]]
-  (let [file      (cond (string? file-or-path) (java.io.File. file-or-path)
-                        (instance? java.io.File file-or-path) file-or-path
-                        :else (throw (IllegalArgumentException. 
-                                      "Path string or java.io.File object is expected.")))
-        file-name (or file-key (.getName file))]
+  (let [file          (cond (string? file-or-path) (java.io.File. file-or-path)
+                            (instance? java.io.File file-or-path) file-or-path
+                            :else (throw (IllegalArgumentException. "Path string or java.io.File object is expected.")))
+        file-name     (or file-key (.getName file))]
     (check-and-use-document document
       (couchdb-request config :put
-        (if (keyword? file-name)
-          (name file-name) file-name)
-        file
-        (or mime-type (utils/get-mime-type file))))))
+                       (if (keyword? file-name) (name file-name) file-name)
+                       file (or mime-type (utils/get-mime-type file))))))
+
+(defn get-attachment
+  "Returns an InputStream reading the named attachment to the specified/provided document,
+   or nil if the document or attachment does not exist.
+ 
+   Hint: use the copy or to-byte-array fns in duck-streams to easily redirect the result."
+  [document-or-id attachment-name]
+  (let [document        (if (map? document-or-id) document-or-id (get-document document-or-id))
+        attachment-name (if (keyword? attachment-name)
+                          (name attachment-name)
+                          attachment-name)]
+    (when (-?> document :_attachments (get (keyword attachment-name)))
+      (check-and-use-document document
+        (couchdb-request (assoc config :read-json-response false) :get attachment-name)))))
 
 (defn delete-attachment
   "Deletes an attachemnt from a document."
   [document file-name]
   (check-and-use-document document
     (couchdb-request config :delete file-name)))
+

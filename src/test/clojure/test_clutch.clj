@@ -1,7 +1,10 @@
 (ns #^{:author "Tunde Ashafa"}
   test-clutch
-  (:require [com.ashafa.clutch.http-client :as http-client])
-  (:use com.ashafa.clutch clojure.test))
+  (:require [com.ashafa.clutch.http-client :as http-client]
+            [clojure.contrib.duck-streams :as duck-streams])
+  (:use com.ashafa.clutch 
+        clojure.test)
+  (:import java.io.ByteArrayInputStream))
 
 (set-clutch-defaults! {:language "clojure"})
 
@@ -28,7 +31,7 @@
 
 (use-fixtures
   :once
-  #(binding [*clj-view-svr-config* (http-client/couchdb-request *defaults* :get "_config/query_servers/clojure")]
+  #(binding [*clj-view-svr-config* (http-client/couchdb-request @*defaults* :get "_config/query_servers/clojure")]
      (when-not *clj-view-svr-config*
        (println "Clojure view server not available, skipping tests that depend upon it!"))
      (%)))
@@ -47,26 +50,26 @@
 (deftest create-list-check-and-delete-database
   (let [test-database (create-database {:name "clutch_test_db"})]
     (is (:ok test-database))
-    (is ((set (all-couchdb-databases)) (:name test-database)))
+    (is ((set (all-databases)) (:name test-database)))
     (is (= (:name test-database) (:db_name (database-info test-database))))
     (is (:ok (delete-database test-database)))))
 
 (defdbtest create-a-document
-  (let [document-meta (create-document test-document-1)]
-    (are [x] (contains? document-meta x)
-         :ok :id :rev)))
+  (let [document (create-document test-document-1)]
+    (are [k] (contains? document k)
+         :_id :_rev)))
 
 (defdbtest create-a-document-with-id
-  (let [document-meta (create-document test-document-2 "my_id")]
-    (is (= "my_id" (document-meta :id)))))
+  (let [document (create-document test-document-2 "my_id")]
+    (is (= "my_id" (document :_id)))))
 
 (defdbtest get-a-document
-  (let [document-meta (create-document test-document-3)
-        document      (get-document (document-meta :id))]
-    (are [x y] (= x y)
-         "Robert Jones" (document :name)
-         "robert.jones@example.com" (document :email)
-         80 (document :score))))
+  (let [created-document (create-document test-document-3)
+        fetched-document (get-document (created-document :_id))]
+    (are [x y z] (= x y z)
+         "Robert Jones" (created-document :name) (fetched-document :name)
+         "robert.jones@example.com" (created-document :email) (fetched-document :email)
+         80 (created-document :score) (fetched-document :score))))
 
 (defdbtest verify-response-code-access
   (create-document test-document-1 "some_id")
@@ -75,14 +78,9 @@
     (is (== 409 @http-client/*response-code*))))
 
 (defdbtest update-a-document
-  (let [id (:id (create-document test-document-4))]
+  (let [id (:_id (create-document test-document-4))]
     (update-document (get-document id) {:email "test@example.com"})
     (is (= "test@example.com" (:email (get-document id))))))
-
-(defdbtest update-a-document-with-a-function
-  (let [id (:id (create-document {:score 60}))]
-    (update-document (get-document id) (partial + 4) [:score])
-    (is (= 64 (:score (get-document id))))))
 
 (defdbtest delete-a-document
   (create-document test-document-2 "my_id")
@@ -91,11 +89,11 @@
   (is (nil? (get-document "my_id"))))
 
 (defdbtest get-all-documents-with-query-parameters
-  (let [document-1               (create-document test-document-1 1)
-        document-2               (create-document test-document-2 2)
-        document-3               (create-document test-document-3 3)
-        all-documents-descending (get-all-documents {:include_docs true :descending true})
-        all-documents-ascending  (get-all-documents {:include_docs true :descending false})]
+  (create-document test-document-1 "a")
+  (create-document test-document-2 "b")
+  (create-document test-document-3 "c")
+  (let [all-documents-descending (get-all-documents-meta {:include_docs true :descending true})
+        all-documents-ascending  (get-all-documents-meta {:include_docs true :descending false})]
     (are [total_rows] (= 3 total_rows)
          (:total_rows all-documents-descending)
          (:total_rows all-documents-ascending))
@@ -104,21 +102,22 @@
          (-> all-documents-ascending :rows last :doc :name))))
 
 (defdbtest get-all-documents-with-post-keys
-  (let [document-1                  (create-document test-document-1 1)
-        document-2                  (create-document test-document-2 2)
-        document-3                  (create-document test-document-3 3)
-        all-documents               (get-all-documents {:include_docs true} {:keys ["1" "2"]})
+  (create-document test-document-1 "1")
+  (create-document test-document-2 "2")
+  (create-document test-document-3 "3")
+  (create-document test-document-3 "4")
+  (let [all-documents               (get-all-documents-meta {:include_docs true} {:keys ["1" "2"]})
         all-documents-matching-keys (:rows all-documents)]
     (is (= ["John Smith" "Jane Thompson"]
            (map #(-> % :doc :name) all-documents-matching-keys)))
-    (is (= 3 (:total_rows all-documents)))))
+    (is (= 4 (:total_rows all-documents)))))
 
 (defdbtest create-a-design-view
   (when *clj-view-svr-config*
-    (let [document-meta (create-view "users" :names-with-score-over-70
-                          (with-clj-view-server
-                            #(if (> (:score %) 70) [[nil (:name %)]])))]
-      (is (map? (-> (get-document (document-meta :id)) :views :names-with-score-over-70))))))
+    (let [view-document (create-view "users" :names-with-score-over-70
+                                     (with-clj-view-server
+                                       #(if (> (:score %) 70) [[nil (:name %)]])))]
+      (is (map? (-> (get-document (view-document :_id)) :views :names-with-score-over-70))))))
 
 (defdbtest use-a-design-view-with-spaces-in-key
   (when *clj-view-svr-config*
@@ -207,44 +206,55 @@
                 test-document-2
                 test-document-3
                 test-document-4])
-  (is (= 4 (:total_rows (get-all-documents)))))
+  (is (= 4 (:total_rows (get-all-documents-meta)))))
 
 (defdbtest bulk-update-documents
   (bulk-update [test-document-1
                 test-document-2
                 test-document-3
                 test-document-4])
-  (bulk-update (map :doc (:rows (get-all-documents {:include_docs true}))) {:updated true})
-  (is (every? true? (map #(-> % :doc :updated) (:rows (get-all-documents {:include_docs true}))))))
+  (bulk-update (map :doc (:rows (get-all-documents-meta {:include_docs true}))) {:updated true})
+  (is (every? true? (map #(-> % :doc :updated) (:rows (get-all-documents-meta {:include_docs true}))))))
 
 (defdbtest inline-attachments
-  (let [current-path       (or (.getParent (java.io.File. *file*)) "src/test/clojure")
-        clojure-img-file   (java.io.File. (str current-path "/clojure.png"))
-        couchdb-img-file   (java.io.File. (str current-path "/couchdb.png"))
-        document-meta      (create-document test-document-4 [clojure-img-file couchdb-img-file])
-        document           (get-document (document-meta :id))]
-    (is (= #{:clojure.png :couchdb.png} (set (keys (document :_attachments)))))
+  (let [resources-path   (or (.getParent (java.io.File. *file*)) "src/test/clojure")
+        clojure-img-file (str resources-path "/clojure.png")
+        couchdb-img-file (str resources-path "/couchdb.png")
+        created-document (create-document test-document-4 [clojure-img-file couchdb-img-file])
+        fetched-document (get-document (created-document :_id))]
+    (are [attachment-keys] (= #{:clojure.png :couchdb.png} attachment-keys) 
+         (set (keys (created-document :_attachments)))
+         (set (keys (fetched-document :_attachments))))
     (are [content-type] (= "image/png" content-type)
-         (-> document :_attachments :clojure.png :content_type)
-         (-> document :_attachments :couchdb.png :content_type))
+         (-> created-document :_attachments :clojure.png :content_type)
+         (-> created-document :_attachments :couchdb.png :content_type)
+         (-> fetched-document :_attachments :clojure.png :content_type)
+         (-> fetched-document :_attachments :couchdb.png :content_type))
     (are [file-length document-attachment-length] (= file-length document-attachment-length)
-         (.length clojure-img-file) (-> document :_attachments :clojure.png :length)
-         (.length couchdb-img-file) (-> document :_attachments :couchdb.png :length))))
+         (.length (java.io.File. clojure-img-file)) (-> created-document :_attachments :clojure.png :length)
+         (.length (java.io.File. couchdb-img-file)) (-> created-document :_attachments :couchdb.png :length)
+         (.length (java.io.File. clojure-img-file)) (-> fetched-document :_attachments :clojure.png :length)
+         (.length (java.io.File. couchdb-img-file)) (-> fetched-document :_attachments :couchdb.png :length))))
 
 (defdbtest standalone-attachments
-  (let [current-path  (or (.getParent (java.io.File. *file*)) "src/test/clojure")
-        document-meta (create-document test-document-1)
-        document      (get-document (document-meta :id))
-        updated-meta  (update-attachment document
-                       (str current-path "/couchdb.png") :couchdb-image)
-        document      (get-document (document-meta :id) {:attachments true})]
-    (is (= :couchdb-image (first (keys (document :_attachments)))))
-    (is (= "image/png" (-> document :_attachments :couchdb-image :content_type)))
-    (is (contains? (-> document :_attachments :couchdb-image) :data))
-    (let [updated-meta (update-attachment document
-                         (str current-path "/couchdb.png") :couchdb-image "other/mimetype")
-          document (get-document (document-meta :id) {:attachments true})]
-      (is (= "other/mimetype" (-> document :_attachments :couchdb-image :content_type))))))
+  (let [resources-path            (or (.getParent (java.io.File. *file*)) "src/test/clojure")
+        document                  (create-document test-document-1)
+        updated-document-meta     (update-attachment document (str resources-path "/couchdb.png") :couchdb-image)
+        document-with-attachments (get-document (updated-document-meta :id) {:attachments true})]
+    (is (= [:couchdb-image] (keys (document-with-attachments :_attachments))))
+    (is (= "image/png" (-> document-with-attachments :_attachments :couchdb-image :content_type)))
+    (is (contains? (-> document-with-attachments :_attachments :couchdb-image) :data))
+    (is (thrown? IllegalArgumentException (update-attachment document (Object.))))
+    (is (thrown? IllegalArgumentException (update-attachment document (ByteArrayInputStream. (make-array Byte/TYPE 0)))))))
+
+(defdbtest stream-attachments
+  (let [resources-path            (or (.getParent (java.io.File. *file*)) "src/test/clojure")
+        document                  (create-document test-document-4)
+        updated-document-meta     (update-attachment document (str resources-path "/couchdb.png") :couchdb-image "other/mimetype")
+        document-with-attachments (get-document (updated-document-meta :id) {:attachments true})
+        data (duck-streams/to-byte-array (java.io.File. (str resources-path "/couchdb.png")))]
+      (is (= "other/mimetype" (-> document-with-attachments :_attachments :couchdb-image :content_type)))
+      (is (= (seq data) (-> (get-attachment document-with-attachments :couchdb-image) duck-streams/to-byte-array seq)))))
 
 (deftest replicate-a-database
   (try
@@ -257,10 +267,7 @@
                      test-document-4]))
      (replicate-database source-database target-database)
      (with-db target-database
-       (is (= 4 (:total_rows (get-all-documents))))))
+       (is (= 4 (:total_rows (get-all-documents-meta))))))
    (finally
     (delete-database "source_test_db")
     (delete-database "target_test_db"))))
-
-;; Uncomment the next line to fully run tests manually by loading this file. 'test-clutch/inline-attachments and 'test-clutch/standalone-attachments will fail if run from REPL due to the fact the REPL can not set *file* therfore the test will not find the files needed to test attachments
-;; (run-tests)
