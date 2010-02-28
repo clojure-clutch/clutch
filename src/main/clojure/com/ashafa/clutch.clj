@@ -297,7 +297,7 @@
   [design-document-name view-key view-server-map]
      (let [design-doc-id (str "_design/" design-document-name)]
        (if-let [design-doc (get-document design-doc-id)]
-         (update-document design-doc #(assoc % view-key view-server-map) [:views])
+         (update-document design-doc (update-in design-doc [:views] #(assoc % view-key view-server-map)))
          (create-document {:language (config :language)
                            :views (hash-map view-key view-server-map)} design-doc-id))))
 

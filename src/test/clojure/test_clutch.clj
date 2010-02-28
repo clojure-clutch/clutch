@@ -145,7 +145,12 @@
     (create-document {:name "Test User 1" :score 55})
     (create-document {:name "Test User 2" :score 78})
     (is (= ["Test User 2" "Robert Jones" "Jane Thompson"]
-          (map :value (:rows (get-view "users" :names-with-score-over-70-sorted-by-score)))))))
+          (map :value (:rows (get-view "users" :names-with-score-over-70-sorted-by-score)))))
+    (create-view "users" :names-with-score-less-than-70-sorted-by-name
+      (with-clj-view-server
+        #(if (< (:score %) 70) [[(:name %) (:name %)]])))
+    (is (= ["John Smith" "Sarah Parker" "Test User 1"]
+          (map :value (:rows (get-view "users" :names-with-score-less-than-70-sorted-by-name)))))))
 
 (defdbtest use-a-design-view-with-post-keys
   (when *clj-view-svr-config*
