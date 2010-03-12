@@ -26,7 +26,10 @@
 
 (ns #^{:author "Tunde Ashafa"}
   com.ashafa.clutch
-  (:require [com.ashafa.clutch.utils :as utils])
+  (:require [com.ashafa.clutch.utils :as utils]
+            [clojure.contrib.json.read :as json-read]
+            [clojure.contrib.duck-streams :as io]
+            [clojure.contrib.http.agent :as h])
   (:use com.ashafa.clutch.http-client
         clojure.contrib.core))
 
@@ -34,46 +37,36 @@
 (declare config)
 
 ;; default clutch configuration
-(def *defaults* (ref {:host "localhost"
-                      :port 5984
-                      :language "javascript"}))
+(def *defaults* (ref {:host     "localhost"
+                      :port     5984
+                      :language "clojure"}))
 
-(defmacro check-and-use-document
+(def #^{:private true} watched-databases (ref {}))
+
+(defn database-arg-type
+  [& args]
+  (let [arg (first args)]
+    (cond (string? arg) :string
+          (and (map? arg) (contains? arg :name)) :meta
+          :else (throw
+                 (IllegalArgumentException. 
+                  "Either a database name, url, or a map with a ':name' key is required.")))))
+
+(defmacro #^{:private true} check-and-use-document
   [doc & body]
   `(if-let [id# (~doc :_id)]
-     (binding [config 
+     (binding [config
                (assoc config :name 
                    (str (config :name) "/" id# "?rev=" (:_rev ~doc)))]
        (do ~@body))
      (throw 
       (IllegalArgumentException. "A valid document is required."))))
 
-(defn database-arg-type [arg]
-    (cond (string? arg) :name
-          (and (map? arg) (contains? arg :name)) :meta
-          (instance? java.net.URL arg) :url
-          :else (throw
-                 (IllegalArgumentException. 
-                  "Either a string or a map with a ':name' key is required."))))
-
-(defn url->db-meta
-  "Given a java.net.URL, returns a map with slots aligned with *defaults*.
-   Supports usage of URLs with with-db, etc."
-  [#^java.net.URL url]
-  {:host (.getHost url)
-   :port (.getPort url)
-   :name (.getPath url)})
 
 (defmacro with-clj-view-server
-  "Takes one or two functions, map and reduce respectively, then returns a map-reduce clojure 
-   map (with the functions serialized as strings) used by the Clojure view server."
-  ([map-form]
-     `(with-clj-view-server ~(pr-str map-form) nil))
-  ([map-form reduce-form]
-     (let [map-reduce-map {:map (if (string? map-form) map-form (pr-str map-form))}]
-       (if reduce-form
-          (assoc map-reduce-map :reduce (pr-str reduce-form))
-          map-reduce-map))))
+  "Takes a map and serializes the values of each key as a string for use by the Clojure view server."
+  ([view-server-map]
+     (reduce #(assoc %1 %2 (pr-str (%2 view-server-map))) {} (keys view-server-map)))) 
 
 (defmacro with-db
   "Takes a string (database name) or map (database meta) with a body of forms. It 
@@ -82,9 +75,10 @@
   [database & body]
   `(let [arg-type# (database-arg-type ~database)]
     (binding [config (merge @*defaults* 
-                             (cond (= :name arg-type#) {:name ~database}
-                                   (= :meta arg-type#) ~database
-                                   (= :url arg-type#) (url->db-meta ~database)))]
+                             (cond (= :string arg-type#) (if (re-find #"^https?:" ~database) 
+                                                           (utils/url->db-meta ~database)
+                                                           {:name ~database})
+                                   (= :meta arg-type#) ~database))]
        (do ~@body))))
 
 (defn set-clutch-defaults!
@@ -98,18 +92,18 @@
   (dosync (alter *defaults* merge configuration-map)))
 
 (defn couchdb-info
-  "Returns informataion about your CouchDB instance."
+  "Returns informataion about a CouchDB instance."
   ([]
      (couchdb-info nil))
-  ([database-meta]
-     (couchdb-request (dissoc (merge @*defaults* database-meta) :name) :get)))
+  ([db-meta]
+     (couchdb-request (dissoc (merge @*defaults* db-meta) :name) :get)))
 
 (defn all-databases
   "Returns a list of all databases on the CouchDB server."
   ([]
      (all-databases nil))
-  ([database-meta]
-     (couchdb-request (dissoc (merge @*defaults* database-meta) :name) :get "_all_dbs")))
+  ([db-meta]
+     (couchdb-request (dissoc (merge @*defaults* db-meta) :name) :get "_all_dbs")))
 
 (defmulti create-database
   "Takes a map (cofiguration of a CouchDB server with a :name key) or string (using the
@@ -117,76 +111,73 @@
    creates a database."
   database-arg-type)
 
-(defmethod create-database :name
-  [database-name]
-  (create-database (assoc @*defaults* :name database-name)))
+(defmethod create-database :string
+  [db-string]
+  (create-database (if (re-find #"^https?:" db-string) 
+                     (utils/url->db-meta db-string)
+                     (assoc @*defaults* :name db-string))))
 
 (defmethod create-database :meta
-  [database-meta]
-  (merge database-meta
+  [db-meta]
+  (merge @*defaults* db-meta
          (couchdb-request
-          (dissoc (merge @*defaults* database-meta) :name)
-          :put (:name database-meta))))
-
+          (dissoc (merge @*defaults* db-meta) :name)
+          :put (:name db-meta))))
 
 (defmulti database-info
   "Takes a database name and returns the meta information about the database."
   database-arg-type)
 
-(defmethod database-info :name
-  [database-name]
-  (database-info (assoc @*defaults* :name database-name)))
+(defmethod database-info :string
+  [db-string]
+  (database-info (if (re-find #"^https?:" db-string) 
+                     (utils/url->db-meta db-string)
+                     (assoc @*defaults* :name db-string))))
 
 (defmethod database-info :meta
-  [database-meta]
-  (couchdb-request
-   (dissoc (merge @*defaults* database-meta) :name) 
-   :get (:name database-meta)))
-
-(defmethod create-database :url
-  [url]
-  (-> url url->db-meta create-database))
- 
-
-
+  [db-meta]
+  (let [watched-databases @watched-databases
+        url-key           (utils/db-meta->url db-meta)]
+    (merge (if-let [watchers (watched-databases url-key)] {:watchers (vec (keys watchers))})
+           (couchdb-request
+            (dissoc (merge @*defaults* db-meta) :name) 
+            :get (:name db-meta)))))
+    
 (defmulti get-database
-  "Returns a database meta information if it already exissts else creates a new database and returns
-   the meta information for that."
+  "Returns a database meta information if it already exists else creates a new database and returns
+   the meta information for the new database."
   database-arg-type)
 
-(defmethod get-database :name
-  [database-name]
-  (if (database-info database-name)
-    (assoc @*defaults* :name database-name)
-    (merge @*defaults* (create-database {:name database-name}))))
+(defmethod get-database :string
+  [db-string]
+  (let [db-meta (if (re-find #"^https?:" db-string) 
+                  (utils/url->db-meta db-string)
+                  (assoc @*defaults* :name db-string))]
+    (if (database-info db-meta)
+      db-meta
+      (merge @*defaults* (create-database db-meta)))))
 
 (defmethod get-database :meta
-  [database-meta]
-  (if (database-info database-meta)
-    (merge @*defaults* database-meta)
-    (merge @*defaults* (create-database database-meta))))
-
-(defmethod get-database :url
-  [url]
-  (-> url url->db-meta get-database))
+  [db-meta]
+  (if (database-info db-meta)
+    (merge @*defaults* db-meta)
+    (merge @*defaults* (create-database db-meta))))
  
 (defmulti delete-database
   "Takes a database name and deletes the corresponding database."
   database-arg-type)
 
-(defmethod delete-database :name
-  [database-name]
-  (delete-database (assoc @*defaults* :name database-name)))
+(defmethod delete-database :string
+  [db-string]
+  (delete-database (if (re-find #"^https?:" db-string) 
+                     (utils/url->db-meta db-string)
+                     (assoc @*defaults* :name db-string))))
 
 (defmethod delete-database :meta
-  [database-meta]
+  [db-meta]
   (couchdb-request
-   (dissoc (merge @*defaults* database-meta) :name) 
-   :delete (:name database-meta)))
-
-(defmethod delete-database :url
-  [url]
-  (-> url url->db-meta delete-database))
+   (dissoc (merge @*defaults* db-meta) :name) 
+   :delete (:name db-meta)))
  
 (defn replicate-database
   "Takes two arguments (a source and target for replication) which could be a
@@ -198,14 +189,110 @@
   (let [get-meta    (fn [db]
                       (let [arg-type (database-arg-type db)]
                         (merge @*defaults*
-                               (cond (= :name arg-type) {:name db}
-                                     (= :meta arg-type) db
-                                     (= :url arg-type) (url->db-meta db)))))
+                               (cond (= :string arg-type) (if (re-find #"^https?:" db) 
+                                                            (utils/url->db-meta db)
+                                                            (assoc @*defaults* :name db))
+                                     (= :meta arg-type) db))))
         source-meta (get-meta source-database)
         target-meta (get-meta target-database)]
     (couchdb-request (dissoc target-meta :name) :post "_replicate"
-                     {:source (utils/get-database-url source-meta)
-                      :target (utils/get-database-url target-meta)})))
+                     {:source (utils/db-meta->url source-meta)
+                      :target (utils/db-meta->url target-meta)})))
+
+(defmulti watch-changes
+  "Provided a database (database meta <map>, url <string>, or database name <string>) and a callback, watches
+   for changes to the database and executes the given callback (takes one argument) on every change
+   to a document in the given database, using the meta of the changed document as the only
+   argument of the callback."
+  database-arg-type)
+
+(defn- watch-changes-handler
+  [url-str watch-key uid agnt]
+  (if (h/success? agnt)
+    (loop [lines (io/read-lines (h/stream agnt))]
+      (if-let [watched-db (@watched-databases url-str)]
+        (when (and (watched-db watch-key) (= uid (:uid (watched-db watch-key))) (not (empty? lines)))
+          (future
+            (let [line (first lines)]
+              (try
+               (if (> (count line) 1)
+                 ((:callback (watched-db watch-key)) (binding [json-read/*json-keyword-keys* true] 
+                                                       (json-read/read-json line))))
+               (catch Exception e
+                 (dosync
+                  (if-let [watched-db (@watched-databases url-str)]
+                    (if (watched-db watch-key)
+                      (alter watched-databases assoc-in [url-str watch-key :last-error]
+                             {:execption e :time (java.util.Date.) :data line}))))))))
+          (recur (rest lines)))))))
+
+(defmethod watch-changes :string
+  [db-string watch-key callback & options]
+  (apply watch-changes (if (re-find #"^https?:" db-string) 
+                         (utils/url->db-meta db-string)
+                         (assoc @*defaults* :name db-string)) watch-key callback options))
+
+(defmethod watch-changes :meta
+  [db-meta watch-key callback & options]
+  (let [url-str     (utils/db-meta->url db-meta)
+        since-seq   (:update_seq (database-info db-meta))
+        options-map (merge (first options) {:heartbeat 30000 :feed "continuous" :since since-seq})]
+    (when since-seq
+      (dosync
+       (let [uid     (.getTime (java.util.Date.))
+             watcher {:uid        uid
+                      :http-agent (h/http-agent 
+                                   (str url-str "/_changes" (utils/map-to-query-str options-map false))
+                                   :method "GET"
+                                   :handler (partial watch-changes-handler url-str watch-key uid))
+                      :callback   callback}]
+         (if (@watched-databases url-str)
+           (alter watched-databases assoc-in [url-str watch-key] watcher)
+           (alter watched-databases assoc url-str {watch-key watcher}))))
+      db-meta)))
+
+(defmulti changes-error
+  "If the provided database is being watched for changes (see: 'watch-changes'), returns a map
+   containing the last exception, the time (java.util.Date) of the exception, and the argument
+   supplied to the callback, if an exception occured during execution of the callback."
+  database-arg-type)
+
+(defmethod changes-error :string
+  [db-string watch-key]
+  (changes-error (if (re-find #"^https?:" db-string) 
+                   (utils/url->db-meta db-string)
+                   (assoc @*defaults* :name db-string)) watch-key))
+
+(defmethod changes-error :meta
+ [db-meta watch-key]
+ (let [url-str          (utils/db-meta->url db-meta)
+       watched-database (@watched-databases url-str)]
+   (if watched-database
+     (:last-error  (watched-database watch-key)))))
+
+(defmulti stop-changes
+  "If the provided database changes are being watched (see: 'watch-changes'), stops the execution 
+   of the callback on every change to the watched database."
+  database-arg-type)
+
+(defmethod stop-changes :string
+  ([db-string]
+     (stop-changes db-string nil))
+  ([db-string watch-key]
+     (stop-changes (if (re-find #"^https?:" db-string) 
+                     (utils/url->db-meta db-string)
+                     (assoc @*defaults* :name db-string)) watch-key)))
+
+(defmethod stop-changes :meta
+  ([db-meta]
+     (stop-changes db-meta nil))
+  ([db-meta watch-key]
+     (dosync
+      (let [url-key (utils/db-meta->url db-meta)]
+        (if watch-key
+          (alter watched-databases update-in [url-key watch-key] nil)
+          (alter watched-databases dissoc url-key))))
+     db-meta))
 
 (defmulti create-document
   "Takes a map and creates a document with an auto generated id, returns the id
@@ -229,8 +316,9 @@
   (reduce
    #(assoc %1 (keyword (.getName %2))
            {:content_type (utils/get-mime-type %2)
-            :data         (utils/encode-bytes-to-base64 
-                           (utils/convert-input-to-bytes (java.io.FileInputStream. %2)))
+            :data         (-> %2 java.io.FileInputStream. java.io.BufferedInputStream.
+                              utils/convert-input-to-bytes
+                              utils/encode-bytes-to-base64)
             :length       (.length %2)})
    {} files))
 
@@ -292,14 +380,13 @@
                       (str "_all_docs" (utils/map-to-query-str query-params-map))
                       (if (empty? post-data-map) nil post-data-map))))
 
-(defn create-view
+(defn save-view
   "Create a design document used for database queries."
   [design-document-name view-key view-server-map]
-     (let [design-doc-id (str "_design/" design-document-name)]
-       (if-let [design-doc (get-document design-doc-id)]
-         (update-document design-doc (update-in design-doc [:views] #(assoc % view-key view-server-map)))
-         (create-document {:language (config :language)
-                           :views (hash-map view-key view-server-map)} design-doc-id))))
+  (let [design-doc-id (str "_design/" design-document-name)]
+    (if-let [design-doc (get-document design-doc-id)]
+      (update-document design-doc (update-in design-doc [:views] #(assoc % view-key view-server-map)))
+      (create-document {:language (config :language) :views (hash-map view-key view-server-map)} design-doc-id))))
 
 (defn get-view
   "Get documents associated with a design document. Also takes an optional map
@@ -328,6 +415,14 @@
                         (assoc map-reduce-fns-map :language (config :language))
                         map-reduce-fns-map))))
 
+(defn save-filter
+  "Create a filter for use with CouchDB change notifications API via 'watch-changes'." 
+  [design-document-name view-server-map]
+  (let [design-doc-id (str "_design/" design-document-name)]
+    (if-let [design-doc (get-document design-doc-id)]
+      (update-document design-doc (update-in design-doc [:filters] #(merge %1 view-server-map)))
+      (create-document {:language (config :language) :filters view-server-map} design-doc-id))))
+
 (defn bulk-update
   "Takes a vector of documents (maps) and inserts or updates (if \"_id\" and \"_rev\" keys
    are supplied in a document) them with in a single request."
@@ -342,19 +437,26 @@
                                       documents-vector)} options-map))))
 
 (defn update-attachment
-  "Takes a document, file (either a string path to the file or a java.io.File object)
+  "Takes a document, file (either a string path to the file, a java.io.File object, or an InputStream)
    and optionally, a new file name in lieu of the file name of the file argument and a mime type,
    then inserts (or updates if the file name of the attachment already exists in the document)
    the file as an attachment to the document."
-  [document file-or-path & [file-key mime-type]]
-  (let [file          (cond (string? file-or-path) (java.io.File. file-or-path)
-                            (instance? java.io.File file-or-path) file-or-path
-                            :else (throw (IllegalArgumentException. "Path string or java.io.File object is expected.")))
-        file-name     (or file-key (.getName file))]
+  [document attachment & [file-key mime-type]]
+  (let [file (cond (string? attachment) (java.io.File. attachment)
+               (instance? java.io.File attachment) attachment)
+        stream (cond
+                 file (-> file java.io.FileInputStream. java.io.BufferedInputStream.)
+                 (instance? java.io.InputStream attachment) attachment
+                 :else (throw (IllegalArgumentException.
+                                "Path string, java.io.File, or InputStream object is expected.")))
+        file-name (or file-key (and file (.getName file))
+                    (throw (IllegalArgumentException. "Must provide a file-key if using InputStream as attachment data.")))]
     (check-and-use-document document
       (couchdb-request config :put
-                       (if (keyword? file-name) (name file-name) file-name)
-                       file (or mime-type (utils/get-mime-type file))))))
+        (if (keyword? file-name)
+          (name file-name) file-name)
+        stream
+        (or mime-type (and file (utils/get-mime-type file)))))))
 
 (defn get-attachment
   "Returns an InputStream reading the named attachment to the specified/provided document,
@@ -375,4 +477,3 @@
   [document file-name]
   (check-and-use-document document
     (couchdb-request config :delete file-name)))
-

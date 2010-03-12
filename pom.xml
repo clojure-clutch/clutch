@@ -3,13 +3,13 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.ashafa</groupId>
   <artifactId>clutch</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.2.0-SNAPSHOT</version>
   <name>clutch</name>
   <description>A Clojure library for Apache CouchDB.</description>
   <scm>
     <connection>scm:git:git://github.com/tashafa/clutch.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/tashafa/clutch.git</developerConnection>
-    <tag>b843644a9824277a85c58f39a9c2d818eee9ff7b</tag>
+    <tag>8936cbe5de03edb8264cf53373daec2093356a0f</tag>
     <url>http://github.com/tashafa/clutch</url>
   </scm>
   <repositories>

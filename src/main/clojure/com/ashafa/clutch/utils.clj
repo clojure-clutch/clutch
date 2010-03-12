@@ -52,12 +52,27 @@
     (apply (partial assoc init) options) 
     init))
 
-(defn get-database-url
+(defn db-meta->url
   [db-meta]
   (str "http://"
        (if (:username db-meta)
          (str (:username db-meta) ":" (:password db-meta) "@"))
        (:host db-meta) ":" (:port db-meta) "/" (:name db-meta)))
+
+(defn url->db-meta
+  "Given a url, returns a map with slots aligned with *defaults*.
+   Supports usage of URLs with with-db, etc."
+  [url]
+  (let [java-url      (java.net.URL. url)
+        userinfo      (.getUserInfo java-url)
+        [m user pass] (if userinfo (re-matches #"([^:]+):(.*$)" userinfo))
+        url-port      (.getPort java-url)
+        port          (if (> url-port -1) url-port 5984)]
+    {:host     (.getHost java-url)
+     :port     port
+     :username user
+     :password pass
+     :name     (.getPath java-url)}))
 
 (defn get-mime-type
   [file]
@@ -79,4 +94,3 @@
   [bytes]
   (.replaceAll
    (.encode (sun.misc.BASE64Encoder.) bytes) "\n" ""))
-    

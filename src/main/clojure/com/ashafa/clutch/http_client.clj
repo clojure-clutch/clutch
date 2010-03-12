@@ -23,7 +23,8 @@
 ;; (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 ;; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-(ns com.ashafa.clutch.http-client
+(ns #^{:author "Tunde Ashafa"}
+  com.ashafa.clutch.http-client
   (:require [clojure.contrib.json.read :as json-read]
             [clojure.contrib.json.write :as json-write]
             [clojure.contrib.duck-streams :as duck-streams :only [spit]]
@@ -36,13 +37,13 @@
 (def *version* "0.0")
 (def *encoding* "UTF-8")
 (def *default-data-type* "application/json")
-(def *configuration-defaults* {:read-timeout 10000
+(def *configuration-defaults* {:read-timeout 60000
                                :connect-timeout 5000
                                :use-caches false
                                :follow-redirects false
                                :read-json-response true})
 ; @todo - we'll be able to eliminate the atom requirement when thread-bound? is available in core
-;  http://www.assembla.com/spaces/clojure/tickets/243
+; http://www.assembla.com/spaces/clojure/tickets/243
 (def #^{:doc "When bound to an atom, will be reset! to the HTTP response code of the last couchdb request."}
   *response-code* nil)
 
@@ -81,11 +82,8 @@
     (if data
       (do
         (.setDoOutput connection true)
-        (when-not (-> configuration :headers (get "Content-Length"))
-          ; default chunk size is fine
-          (.setChunkedStreamingMode connection -1))
         (send-body connection data))
-      (.connect connection))    
+      (.connect connection))
     (get-response connection configuration)))
 
 (defn couchdb-request

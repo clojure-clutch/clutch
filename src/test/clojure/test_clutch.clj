@@ -27,7 +27,7 @@
 ; we should be able to push a clojure query_server cmd to the localhost couch
 ; without a problem (maybe using a test-only :language to avoid clobbering a "real" view svr?),
 ; but that's for another day
-(declare *clj-view-svr-config*)
+(declare *clj-view-svr-config* test-database)
 
 (use-fixtures
   :once
@@ -38,17 +38,17 @@
 
 (defmacro defdbtest [name & body]
   `(deftest ~name
-     (let [test-database# (create-database {:name "clutch_test_db"})]
+     (binding [test-database (get-database {:name "clutch_test_db"})]
        (try
-        (with-db test-database# ~@body)
+        (with-db test-database ~@body)
         (finally
-         (delete-database test-database#))))))
+         (delete-database test-database))))))
 
 (deftest check-couchdb-connection
   (is (= "Welcome" (:couchdb (couchdb-info)))))
 
-(deftest create-list-check-and-delete-database
-  (let [test-database (create-database {:name "clutch_test_db"})]
+(deftest get-list-check-and-delete-database
+  (let [test-database (get-database {:name "clutch_test_db"})]
     (is (:ok test-database))
     (is ((set (all-databases)) (:name test-database)))
     (is (= (:name test-database) (:db_name (database-info test-database))))
@@ -114,9 +114,9 @@
 
 (defdbtest create-a-design-view
   (when *clj-view-svr-config*
-    (let [view-document (create-view "users" :names-with-score-over-70
+    (let [view-document (save-view "users" :names-with-score-over-70
                                      (with-clj-view-server
-                                       #(if (> (:score %) 70) [[nil (:name %)]])))]
+                                       {:map #(if (> (:score %) 70) [[nil (:name %)]])}))]
       (is (map? (-> (get-document (view-document :_id)) :views :names-with-score-over-70))))))
 
 (defdbtest use-a-design-view-with-spaces-in-key
@@ -125,9 +125,9 @@
     (create-document test-document-2)
     (create-document test-document-3)
     (create-document test-document-4)
-    (create-view "users" :names-and-scores
+    (save-view "users" :names-and-scores
 		 (with-clj-view-server
-		  (fn [doc] [[(:name doc) (:score doc)]])))
+		  {:map (fn [doc] [[(:name doc) (:score doc)]])}))
     (is (= [98]
 	   (map :value (:rows (get-view "users" :names-and-scores {:key "Jane Thompson"})))))))
 
@@ -137,18 +137,18 @@
     (create-document test-document-2)
     (create-document test-document-3)
     (create-document test-document-4)
-    (create-view "users" :names-with-score-over-70-sorted-by-score
+    (save-view "users" :names-with-score-over-70-sorted-by-score
       (with-clj-view-server
-        #(if (> (:score %) 70) [[(:score %) (:name %)]])))
+        {:map #(if (> (:score %) 70) [[(:score %) (:name %)]])}))
     (is (= ["Robert Jones" "Jane Thompson"]
           (map :value (:rows (get-view "users" :names-with-score-over-70-sorted-by-score)))))
     (create-document {:name "Test User 1" :score 55})
     (create-document {:name "Test User 2" :score 78})
     (is (= ["Test User 2" "Robert Jones" "Jane Thompson"]
           (map :value (:rows (get-view "users" :names-with-score-over-70-sorted-by-score)))))
-    (create-view "users" :names-with-score-less-than-70-sorted-by-name
+    (save-view "users" :names-with-score-less-than-70-sorted-by-name
       (with-clj-view-server
-        #(if (< (:score %) 70) [[(:name %) (:name %)]])))
+        {:map #(if (< (:score %) 70) [[(:name %) (:name %)]])}))
     (is (= ["John Smith" "Sarah Parker" "Test User 1"]
           (map :value (:rows (get-view "users" :names-with-score-less-than-70-sorted-by-name)))))))
 
@@ -160,11 +160,11 @@
     (create-document test-document-4)
     (create-document {:name "Test User 1" :score 18})
     (create-document {:name "Test User 2" :score 7})
-    (create-view "users" :names-keyed-by-scores
+    (save-view "users" :names-keyed-by-scores
       (with-clj-view-server
-        #(cond (< (:score %) 30) [[:low (:name %)]]
-               (< (:score %) 70) [[:medium (:name %)]]
-               :else [[:high (:name %)]])))
+        {:map #(cond (< (:score %) 30) [[:low (:name %)]]
+                     (< (:score %) 70) [[:medium (:name %)]]
+                     :else [[:high (:name %)]])}))
     (is (= #{"Sarah Parker" "John Smith" "Test User 1" "Test User 2"}
           (set (map :value (:rows (get-view "users" :names-keyed-by-scores {} {:keys [:medium :low]}))))))))
     
@@ -174,10 +174,10 @@
     (create-document test-document-2)
     (create-document test-document-3)
     (create-document test-document-4)
-    (create-view "scores" :sum-of-all-scores
+    (save-view "scores" :sum-of-all-scores
       (with-clj-view-server
-        (fn [doc] [[nil (:score doc)]])
-        (fn [keys values _] (apply + values))))
+        {:map    (fn [doc] [[nil (:score doc)]])
+         :reduce (fn [keys values _] (apply + values))}))
     (is (= 302 (-> (get-view "scores" :sum-of-all-scores) :rows first :value)))
     (create-document {:score 55})
     (is (= 357 (-> (get-view "scores" :sum-of-all-scores) :rows first :value)))))
@@ -190,8 +190,8 @@
     (create-document test-document-4)
     (let [view (ad-hoc-view
                  (with-clj-view-server
-                   (fn [doc] (if (re-find #"example\.com$" (:email doc))
-                               [[nil (:email doc)]]))))]
+                   {:map (fn [doc] (if (re-find #"example\.com$" (:email doc))
+                                     [[nil (:email doc)]]))}))]
       (is (= #{"robert.jones@example.com" "sarah.parker@example.com"}
             (set (map :value (:rows view))))))))
 
@@ -263,8 +263,8 @@
 
 (deftest replicate-a-database
   (try
-   (let [source-database (create-database "source_test_db")
-         target-database (create-database "target_test_db")]
+   (let [source-database (get-database "source_test_db")
+         target-database (get-database "target_test_db")]
      (with-db source-database
        (bulk-update [test-document-1
                      test-document-2
@@ -276,3 +276,66 @@
    (finally
     (delete-database "source_test_db")
     (delete-database "target_test_db"))))
+
+(defn report-change
+  [description & forms]
+  (doseq [result forms]
+    (println (str "Testing changes: '" description "'") (if result "passed" "failed"))))
+
+(defn check-id-changes-test
+  [description change-meta]
+  (if-not (:last_seq change-meta)
+    (report-change description
+     (is (= (:id change-meta) "some-id")))))
+
+(defn check-seq-changes-test
+  [description change-meta]
+  (if-not (:last_seq change-meta)
+    (report-change description
+     (is (= (:seq change-meta) 1)))))
+
+(defn check-delete-changes-test
+  [description change-meta]
+  (if (:deleted change-meta)
+    (report-change description
+     (is (= (:id change-meta) "some-other-id"))
+     (is (= (:seq change-meta) 5)))))
+
+(defdbtest watch-for-change
+  (watch-changes test-database :check-id (partial check-id-changes-test "Watch database"))
+  (create-document test-document-2 "some-id"))
+
+(defdbtest multiple-watchers-for-change
+  (watch-changes test-database :check-id (partial check-id-changes-test "Multiple watchers - id"))
+  (watch-changes test-database :check-seq (partial check-seq-changes-test "Multiple watchers - seq"))
+  (is (= #{:check-id :check-seq} (set (:watchers (database-info test-database)))))
+  (create-document test-document-2 "some-id"))
+
+(defdbtest multiple-changes
+  (watch-changes test-database :check-delete (partial check-delete-changes-test "Multiple changes"))
+  (let [document-1 (create-document test-document-1 "some-id")
+        document-2 (create-document test-document-2 "some-other-id")
+        document-3 (create-document test-document-3 "another-id")]
+    (update-document document-1 {:score 0})
+    (delete-document document-2)))
+
+(defdbtest changes-filters
+  (save-filter "scores"
+               (with-clj-view-server
+                 {:less-than-50 (fn [document request] (if (< (:score document) 50) true false))}))
+  (watch-changes test-database :check-id (partial check-id-changes-test "Filter")
+                 {:filter "scores/less-than-50"})
+  (create-document {:name "tester 1" :score 22} "some-id")
+  (create-document {:name "tester 2" :score 79} "some-other-id"))
+
+(defdbtest changes-filters-with-query-params
+  (save-filter "scores"
+               (with-clj-view-server
+                 {:more-than-50-from-a-user (fn [document request]
+                                                     (if (and (< (:score document) 50)
+                                                              (= (:name document) (-> request :query :name)))
+                                                       true false))}))
+  (watch-changes test-database :check-id (partial check-id-changes-test "Filter with query parameters") 
+                 {:filter "scores/more-than-50-from-a-user" :name "tester 1"})
+  (create-document {:name "tester 1" :score 22} "some-id")
+  (create-document {:name "tester 2" :score 79} "some-other-id"))

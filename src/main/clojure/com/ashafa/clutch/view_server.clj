@@ -80,12 +80,33 @@
   [command]
   (reduce-values command true))
 
+(defn filter-changes
+  [[rows req user-ctx]]
+  (let [f (first @functions)]
+    [true (vec (map #(try
+                      (f % req)
+                      (catch Exception error false)) rows))]))
+
+(defn update-changes
+  [[function-string doc request]]
+  (try
+   (let [function (load-string function-string)]
+     (if (fn? function)
+       (if-let [[doc response] (function doc request)]
+         ["up" doc (if (string? response) {:body response} response)]
+         ["up" doc {}])
+       (throw (IllegalArgumentException. "Argument did not evaluate to a valid function."))))
+   (catch IllegalArgumentException error
+     {:error {:id "map_compilation_error" :reason (.getMessage error)}})))
+
 (def handlers {"log"      log
                "reset"    reset
                "add_fun"  add-function
                "map_doc"  map-document
                "reduce"   reduce-values
-               "rereduce" rereduce-values})
+               "rereduce" rereduce-values
+               "filter"   filter-changes
+               "update"   update-changes})
 
 (defn run 
   []
