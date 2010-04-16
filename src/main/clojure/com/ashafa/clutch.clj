@@ -28,8 +28,7 @@
   com.ashafa.clutch
   (:import (java.io File InputStream OutputStream FileInputStream FileOutputStream
              BufferedInputStream BufferedOutputStream ByteArrayOutputStream))
-  (:require [com.ashafa.clutch.utils :as utils]
-    [clojure.contrib.duck-streams :as duck-streams])
+  (:require [com.ashafa.clutch.utils :as utils])
   (:use com.ashafa.clutch.http-client
     clojure.contrib.core))
 
@@ -372,7 +371,7 @@
   "Returns an InputStream reading the named attachment to the specified/provided document,
    or nil if the document or attachment does not exist.
 
-   Hint: use the copy or to-byte-array fns in duck-streams to easily redirect the result."
+   Hint: use the copy or to-byte-array fns in c.c.io to easily redirect the result."
   [doc-or-id attachment-name]
   (let [doc (if (map? doc-or-id) doc-or-id (get-document doc-or-id))
         attachment-name (if (keyword? attachment-name)

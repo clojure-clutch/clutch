@@ -1,11 +1,10 @@
 (ns com.ashafa.test-clutchapp
- (:require [clojure.contrib.str-utils2 :as str])
+ (:require [clojure.contrib.string :as string])
  (:use
    (com.ashafa clutch clutchapp)
    clojure.test
    (clojure.contrib
-     [duck-streams :only (slurp*)]
-     [java-utils :only (file as-url)])))
+     [io :only (slurp* file as-url)])))
 
 (defn- content-map
   "Returns a map containing entries of
@@ -19,7 +18,7 @@
     (fn [s f]
       (if (.isDirectory f)
         s
-        (conj s [(-> f .getAbsolutePath (str/drop root-len))
+        (conj s [(->> f .getAbsolutePath (string/drop root-len))
                  (slurp* f)])))
     {} files)))
 

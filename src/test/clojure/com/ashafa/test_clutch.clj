@@ -1,7 +1,7 @@
 (ns com.ashafa.test-clutch
  (:import java.io.ByteArrayInputStream)
  (:require [com.ashafa.clutch.http-client :as http-client]
-   [clojure.contrib.duck-streams :as duck-streams])
+   [clojure.contrib.io :as io])
  (:use com.ashafa.clutch
    clojure.test))
 
@@ -36,17 +36,17 @@
      (%)))
 
 (defmacro defdbtest [name & body]
-  `(deftest- ~name
+  `(deftest ~name
      (let [test-database# (create-database {:name "clutch_test_db"})]
        (try
         (with-db test-database# ~@body)
         (finally
          (delete-database test-database#))))))
 
-(deftest- check-couchdb-connection
+(deftest check-couchdb-connection
   (is (= "Welcome" (:couchdb (couchdb-info)))))
 
-(deftest- create-list-check-and-delete-database
+(deftest create-list-check-and-delete-database
   (let [test-database (create-database {:name "clutch_test_db"})]
     (is (:ok test-database))
     (is ((set (all-couchdb-databases)) (:name test-database)))
@@ -55,7 +55,7 @@
 
 (defdbtest create-a-document
   (let [document-meta (create-document test-document-1)]
-    (are [key] (contains? document-meta key)
+    (are [x] (contains? document-meta x)
          :ok :id :rev)))
 
 (defdbtest create-a-document-with-id
@@ -98,18 +98,28 @@
         document-3               (create-document test-document-3 3)
         all-documents-descending (get-all-documents {:include_docs true :descending true})
         all-documents-ascending  (get-all-documents {:include_docs true :descending false})]
-    (are [cnt] (= 3 cnt)
+    (are [total_rows] (= 3 total_rows)
          (:total_rows all-documents-descending)
          (:total_rows all-documents-ascending))
     (are [name] (= "Robert Jones" name)
          (-> all-documents-descending :rows first :doc :name)
          (-> all-documents-ascending :rows last :doc :name))))
 
+(defdbtest get-all-documents-with-post-keys
+  (let [document-1                  (create-document test-document-1 1)
+        document-2                  (create-document test-document-2 2)
+        document-3                  (create-document test-document-3 3)
+        all-documents               (get-all-documents {:include_docs true} {:keys ["1" "2"]})
+        all-documents-matching-keys (:rows all-documents)]
+    (is (= ["John Smith" "Jane Thompson"]
+           (map #(-> % :doc :name) all-documents-matching-keys)))
+    (is (= 3 (:total_rows all-documents)))))
+
 (defdbtest create-a-design-view
   (when *clj-view-svr-config*
     (let [document-meta (create-view "users" :names-with-score-over-70
                           (with-clj-view-server
-                            #(if (> (:score %) 70) [nil (:name %)])))]
+                            #(if (> (:score %) 70) [[nil (:name %)]])))]
       (is (map? (-> (get-document (document-meta :id)) :views :names-with-score-over-70))))))
 
 (defdbtest use-a-design-view-with-spaces-in-key
@@ -120,7 +130,7 @@
     (create-document test-document-4)
     (create-view "users" :names-and-scores
 		 (with-clj-view-server
-		  (fn [doc] [(:name doc) (:score doc)])))
+		  (fn [doc] [[(:name doc) (:score doc)]])))
     (is (= [98]
 	   (map :value (:rows (get-view "users" :names-and-scores {:key "Jane Thompson"})))))))
 
@@ -132,13 +142,29 @@
     (create-document test-document-4)
     (create-view "users" :names-with-score-over-70-sorted-by-score
       (with-clj-view-server
-        #(if (> (:score %) 70) [(:score %) (:name %)])))
+        #(if (> (:score %) 70) [[(:score %) (:name %)]])))
     (is (= ["Robert Jones" "Jane Thompson"]
           (map :value (:rows (get-view "users" :names-with-score-over-70-sorted-by-score)))))
     (create-document {:name "Test User 1" :score 55})
     (create-document {:name "Test User 2" :score 78})
     (is (= ["Test User 2" "Robert Jones" "Jane Thompson"]
           (map :value (:rows (get-view "users" :names-with-score-over-70-sorted-by-score)))))))
+
+(defdbtest use-a-design-view-with-post-keys
+  (when *clj-view-svr-config*
+    (create-document test-document-1)
+    (create-document test-document-2)
+    (create-document test-document-3)
+    (create-document test-document-4)
+    (create-document {:name "Test User 1" :score 18})
+    (create-document {:name "Test User 2" :score 7})
+    (create-view "users" :names-keyed-by-scores
+      (with-clj-view-server
+        #(cond (< (:score %) 30) [[:low (:name %)]]
+               (< (:score %) 70) [[:medium (:name %)]]
+               :else [[:high (:name %)]])))
+    (is (= #{"Sarah Parker" "John Smith" "Test User 1" "Test User 2"}
+          (set (map :value (:rows (get-view "users" :names-keyed-by-scores {} {:keys [:medium :low]}))))))))
 
 (defdbtest use-a-design-view-with-both-map-and-reduce
   (when *clj-view-svr-config*
@@ -148,7 +174,7 @@
     (create-document test-document-4)
     (create-view "scores" :sum-of-all-scores
       (with-clj-view-server
-        (fn [doc] [nil (:score doc)])
+        (fn [doc] [[nil (:score doc)]])
         (fn [keys values _] (apply + values))))
     (is (= 302 (-> (get-view "scores" :sum-of-all-scores) :rows first :value)))
     (create-document {:score 55})
@@ -163,7 +189,7 @@
     (let [view (ad-hoc-view
                  (with-clj-view-server
                    (fn [doc] (if (re-find #"example\.com$" (:email doc))
-                               [nil (:email doc)]))))]
+                               [[nil (:email doc)]]))))]
       (is (= #{"robert.jones@example.com" "sarah.parker@example.com"}
             (set (map :value (:rows view))))))))
 
@@ -199,10 +225,10 @@
         document-meta      (create-document test-document-4 [clojure-img-file couchdb-img-file])
         document           (get-document (document-meta :id))]
     (is (= #{:clojure.png :couchdb.png} (set (keys (document :_attachments)))))
-    (are [mime] (= "image/png" mime)
+    (are [content-type] (= "image/png" content-type)
          (-> document :_attachments :clojure.png :content_type)
          (-> document :_attachments :couchdb.png :content_type))
-    (are [l1 l2] (= l1 l2)
+    (are [file-length document-attachment-length] (= file-length document-attachment-length)
          (.length clojure-img-file) (-> document :_attachments :clojure.png :length)
          (.length couchdb-img-file) (-> document :_attachments :couchdb.png :length))))
 
@@ -223,11 +249,11 @@
     (let [updated-meta (update-attachment document
                          "src/test/resources/com/ashafa/couchdb.png" :couchdb-image "other/mimetype")
           document (get-document (document-meta :id) {:attachments true})
-          data (duck-streams/to-byte-array (java.io.File. "src/test/resources/com/ashafa/couchdb.png"))]
+          data (io/to-byte-array (java.io.File. "src/test/resources/com/ashafa/couchdb.png"))]
       (is (= "other/mimetype" (-> document :_attachments :couchdb-image :content_type)))
-      (is (= (seq data) (-> (get-attachment document :couchdb-image) duck-streams/to-byte-array seq))))))
+      (is (= (seq data) (-> (get-attachment document :couchdb-image) io/to-byte-array seq))))))
 
-(deftest- replicate-a-database
+(deftest replicate-a-database
   (try
    (let [source-database (create-database "source_test_db")
          target-database (create-database "target_test_db")]

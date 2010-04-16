@@ -49,7 +49,7 @@
 (defn- send-body
   [connection data]
   (with-open [output (.getOutputStream connection)]
-    (duck-streams/copy data output)))
+    (io/copy data output)))
 
 (defn- get-response
   [connection {:keys [read-json-response] :as config}]
@@ -58,8 +58,7 @@
     (cond (< response-code 400)
           (if read-json-response
             (with-open [input (.getInputStream connection)]
-              (binding [json-read/*json-keyword-keys* true]
-                (json-read/read-json (PushbackReader. (InputStreamReader. input *encoding*)))))
+                (json/read-json (InputStreamReader. input *encoding*)))
             (.getInputStream connection))
           (= response-code 404) nil
           :else (throw
@@ -100,7 +99,7 @@
                        (if (and database (re-find #"\?" database))
                          (.replace database "?" (str command "?"))
                          (str database command)))
-        data      (if (map? raw-data) (json-write/json-str raw-data) raw-data)
+        data      (if (map? raw-data) (json/json-str raw-data) raw-data)
         d-headers {"Content-Type" data-type
                    "User-Agent" (str "clutch.http-client/" *version*)}
         d-headers (if (string? data)
