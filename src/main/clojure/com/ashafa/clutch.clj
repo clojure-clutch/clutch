@@ -26,9 +26,12 @@
 
 (ns #^{:author "Tunde Ashafa"}
   com.ashafa.clutch
-  (:require [com.ashafa.clutch.utils :as utils])
-  (:use com.ashafa.clutch.http-client))
-
+  (:import (java.io File InputStream OutputStream FileInputStream FileOutputStream
+             BufferedInputStream BufferedOutputStream ByteArrayOutputStream))
+  (:require [com.ashafa.clutch.utils :as utils]
+    [clojure.contrib.duck-streams :as duck-streams])
+  (:use com.ashafa.clutch.http-client
+    clojure.contrib.core))
 
 (declare config)
 
@@ -36,6 +39,11 @@
 (def *defaults* (ref {:host "localhost"
                       :port 5984
                       :language "javascript"}))
+
+; the standard "replacement character" seems like as reasonable a choice as any
+(def #^{:doc "A very 'high' unicode character that can be used
+              as a wildcard suffix when querying views."}
+  *wildcard-collation-str* "\ufffd")
 
 (defn set-clutch-defaults!
   "Sets Clutch default configuration:
@@ -50,9 +58,18 @@
 (defn database-arg-type [arg]
     (cond (string? arg) :name
           (and (map? arg) (contains? arg :name)) :meta
+          (instance? java.net.URL arg) :url
           :else (throw
                  (IllegalArgumentException. 
                   "Either a string or a map with a ':name' key is required."))))
+
+(defn url->db-meta
+  "Given a java.net.URL, returns a map with slots aligned with *defaults*.
+   Supports usage of URLs with with-db, etc."
+  [#^java.net.URL url]
+  {:host (.getHost url)
+   :port (.getPort url)
+   :name (.getPath url)})
 
 (defmacro #^{:private true} check-and-use-document
   [doc & body]
@@ -83,7 +100,8 @@
   `(let [arg-type# (database-arg-type ~database)]
     (binding [config (merge @*defaults* 
                              (cond (= :name arg-type#) {:name ~database}
-                                   (= :meta arg-type#) ~database))]
+                                   (= :meta arg-type#) ~database
+                                   (= :url arg-type#) (url->db-meta ~database)))]
        (do ~@body))))
 
 (defn couchdb-info
@@ -117,6 +135,10 @@
           (dissoc (merge @*defaults* database-meta) :name)
           :put (:name database-meta))))
 
+(defmethod create-database :url
+  [url]
+  (-> url url->db-meta create-database))
+
 (defmulti delete-database
   "Takes a database name and deletes the corresponding database."
   database-arg-type)
@@ -130,6 +152,10 @@
   (couchdb-request
    (dissoc (merge @*defaults* database-meta) :name) 
    :delete (:name database-meta)))
+
+(defmethod delete-database :url
+  [url]
+  (-> url url->db-meta delete-database))
 
 (defmulti database-info
   "Takes a database name and returns the meta information about the database."
@@ -145,6 +171,10 @@
    (dissoc (merge @*defaults* database-meta) :name) 
    :get (:name database-meta)))
 
+(defmethod database-info :url
+  [url]
+  (-> url url->db-meta database-info))
+
 (defn replicate-database
   "Takes two arguments (a source and target for replication) which could be a
    string (name of a database in the default Clutch configuration) or a map that 
@@ -156,7 +186,8 @@
                       (let [arg-type (database-arg-type db)]
                         (merge @*defaults*
                                (cond (= :name arg-type) {:name db}
-                                     (= :meta arg-type) db))))
+                                     (= :meta arg-type) db
+                                     (= :url arg-type) (url->db-meta db)))))
         source-meta (get-meta source-database)
         target-meta (get-meta target-database)]
     (couchdb-request (dissoc target-meta :name) :post "_replicate"
@@ -183,8 +214,9 @@
   (reduce
    #(assoc %1 (.getName %2)
            {:content_type (utils/get-mime-type %2)
-            :data         (utils/encode-bytes-to-base64 
-                           (utils/convert-input-to-bytes (java.io.FileInputStream. %2)))})
+            :data         (-> %2 FileInputStream. BufferedInputStream.
+                            utils/convert-input-to-bytes
+                            utils/encode-bytes-to-base64)})
    {} files))
 
 (defmethod create-document :with-attachments-and-generate-id
@@ -313,21 +345,39 @@
    and optionally, a new file name in lieu of the file name of the file argument and a mime type,
    then inserts (or updates if the file name of the attachment already exists in the document)
    the file as an attachment to the document."
-  [document file-or-path & [file-key mime-type]]
-  (let [file      (cond (string? file-or-path) (java.io.File. file-or-path)
-                        (instance? java.io.File file-or-path) file-or-path
-                        :else (throw (IllegalArgumentException. 
-                                      "Path string or java.io.File object is expected.")))
-        file-name (or file-key (.getName file))]
+  [document attachment & [file-key mime-type]]
+  (let [file (cond (string? attachment) (File. attachment)
+               (instance? File attachment) attachment)
+        stream (cond
+                 file (-> file FileInputStream. BufferedInputStream.)
+                 (instance? InputStream attachment) attachment
+                 :else (throw (IllegalArgumentException.
+                                "Path string, java.io.File, or InputStream object is expected.")))
+        file-name (or file-key (and file (.getName file))
+                    (throw (IllegalArgumentException. "Must provide a file-key if using InputStream as attachment data.")))]
     (check-and-use-document document
       (couchdb-request config :put
         (if (keyword? file-name)
           (name file-name) file-name)
-        file
-        (or mime-type (utils/get-mime-type file))))))
+        stream
+        (or mime-type (and file (utils/get-mime-type file)))))))
 
 (defn delete-attachment
   "Deletes an attachemnt from a document."
   [document file-name]
   (check-and-use-document document
     (couchdb-request config :delete file-name)))
+
+(defn get-attachment
+  "Returns an InputStream reading the named attachment to the specified/provided document,
+   or nil if the document or attachment does not exist.
+
+   Hint: use the copy or to-byte-array fns in duck-streams to easily redirect the result."
+  [doc-or-id attachment-name]
+  (let [doc (if (map? doc-or-id) doc-or-id (get-document doc-or-id))
+        attachment-name (if (keyword? attachment-name)
+                          (name attachment-name)
+                          attachment-name)]
+    (when (-?> doc :_attachments (get (keyword attachment-name)))
+      (check-and-use-document doc
+        (couchdb-request (assoc config :read-json-response false) :get attachment-name)))))
