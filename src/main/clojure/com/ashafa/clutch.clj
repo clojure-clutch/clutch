@@ -39,10 +39,11 @@
                       :port 5984
                       :language "javascript"}))
 
-; the standard "replacement character" seems like as reasonable a choice as any
 (def #^{:doc "A very 'high' unicode character that can be used
               as a wildcard suffix when querying views."}
-  *wildcard-collation-str* "\ufffd")
+  ; \ufff0 appears to be the highest character that couchdb can support
+  ; discovered experimentally with v0.10 and v0.11 ~March 2010
+  *wildcard-collation-string* "\ufff0")
 
 (defn set-clutch-defaults!
   "Sets Clutch default configuration:

@@ -200,7 +200,7 @@
   [db-url dest-path]
   (with-db (io/as-url db-url)
     (doseq [ddoc-id (->> (get-all-documents {:startkey "_design/"
-                                             :endkey (str "_design/" *wildcard-collation-str*)})
+                                             :endkey (str "_design/" *wildcard-collation-string*)})
                      :rows (map :id))
             :let [[_ ddoc-name] (.split ddoc-id "/")]]
       (clone
