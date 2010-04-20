@@ -37,7 +37,7 @@
 (def *version* "0.0")
 (def *encoding* "UTF-8")
 (def *default-data-type* "application/json")
-(def *configuration-defaults* {:read-timeout 60000
+(def *configuration-defaults* {:read-timeout 0
                                :connect-timeout 5000
                                :use-caches false
                                :follow-redirects false
