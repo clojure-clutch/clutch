@@ -26,16 +26,20 @@
     </contributors>
 
     <build>
-        <!-- this source directory only necessary in support of building the sources jar
-                 (for those who don't want to use AOT-compiled artifacts) -->
-        <sourceDirectory>src/main/clojure</sourceDirectory>
+        <resources>
+            <resource>
+                <!-- default artifact is a sources build (except for the view server) -->
+                <directory>src/main/clojure</directory>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>com.theoryinpractise</groupId>
                 <artifactId>clojure-maven-plugin</artifactId>
                 <version>1.3.2</version>
-                <configuration>
-                </configuration>
                 <executions>
                     <execution>
                         <id>compile-clojure</id>
@@ -43,26 +47,29 @@
                         <goals>
                             <goal>compile</goal>
                         </goals>
+                        <configuration>
+                            <!-- we want the AOT compile sanity check, but still only ship source -->
+                            <outputDirectory>${project.build.directory}/clojure-classes</outputDirectory>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>compile-view-server</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>
+                            <namespaces>
+                                <namespace>.*view-server.*</namespace>
+                            </namespaces>
+                        </configuration>
                     </execution>
                     <execution>
                         <id>test-clojure</id>
                         <phase>test</phase>
                         <goals>
                             <goal>test</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-source-plugin</artifactId>
-                <version>2.1.1</version>
-                <executions>
-                    <execution>
-                        <id>attach-sources</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>jar</goal>
                         </goals>
                     </execution>
                 </executions>

@@ -1,8 +1,9 @@
-# emacs + vi backup files
+# various editor-related files
 *~
 .*.sw*
 .#*
 \#*
+nb-configuration.xml
 
 # build artifacts
 *.jar
