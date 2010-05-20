@@ -82,6 +82,11 @@
     (update-document (get-document id) {:email "test@example.com"})
     (is (= "test@example.com" (:email (get-document id))))))
 
+(defdbtest update-a-document-with-a-function
+  (let [id (:_id (create-document test-document-3))]
+    (update-document (get-document id) (partial + 3) [:score])
+    (is (= 83 (:score (get-document id))))))
+
 (defdbtest delete-a-document
   (create-document test-document-2 "my_id")
   (is (get-document "my_id"))

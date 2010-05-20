@@ -356,8 +356,28 @@
   (check-and-use-document document
     (couchdb-request config :delete)))
 
-(defn update-document
-  "Updates a document by taking a map and merging it with the original."
+
+(defmulti update-document
+  "Takes document and a map and merges it with the original. When a function
+and a vector of keys are supplied as the second and third argument, the
+value of the keys supplied are upadated with the result of the function of
+their values (see: #'clojure.core/update-in)."
+  (fn [& args]
+    (let [targ (second args)]
+      (cond (fn? targ) :fn
+            (map? targ) :map
+            :else (throw (IllegalArgumentException.
+                          "A map or function is needed to update a document."))))))
+
+(defmethod update-document :fn
+  [document update-fn update-keys]
+  (let [updated-document      (update-in document update-keys update-fn)
+        updated-document-meta (check-and-use-document document
+                                (couchdb-request config :put nil updated-document))]
+    (if updated-document-meta
+      (assoc updated-document :_rev (updated-document-meta :rev)))))
+
+(defmethod update-document :map
   [document merge-map]
   (let [updated-document      (merge document merge-map)
         updated-document-meta (check-and-use-document document
