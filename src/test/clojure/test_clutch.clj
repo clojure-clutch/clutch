@@ -134,7 +134,7 @@
 		 (with-clj-view-server
 		  {:map (fn [doc] [[(:name doc) (:score doc)]])}))
     (is (= [98]
-	   (map :value (:rows (get-view "users" :names-and-scores {:key "Jane Thompson"})))))))
+             (map :value (:rows (get-view "users" :names-and-scores {:key "Jane Thompson"})))))))
 
 (defdbtest use-a-design-view-with-map-only
   (when *clj-view-svr-config*
@@ -186,6 +186,18 @@
     (is (= 302 (-> (get-view "scores" :sum-of-all-scores) :rows first :value)))
     (create-document {:score 55})
     (is (= 357 (-> (get-view "scores" :sum-of-all-scores) :rows first :value)))))
+
+(defdbtest use-a-design-view-with-multiple-emits
+  (when *clj-view-svr-config*
+    (create-document {:players ["Test User 1" "Test User 2" "Test User 3"]})
+    (create-document {:players ["Test User 4"]})
+    (create-document {:players []})
+    (create-document {:players ["Test User 5" "Test User 6" "Test User 7" "Test User 8"]})
+    (save-view "count" :number-of-players
+               (with-clj-view-server
+                 {:map (fn [doc] (map (fn [d] [d 1]) (:players doc)))
+                  :reduce (fn [keys values _] (reduce + values))}))
+    (is (= 8 (-> (get-view "count" :number-of-players) :rows first :value)))))
 
 (defdbtest use-ad-hoc-view
   (when *clj-view-svr-config*
@@ -291,7 +303,7 @@
   [description change-meta]
   (if-not (:last_seq change-meta)
     (report-change description
-     (is (= (:id change-meta) "some-id")))))
+     (is (= (:id change-meta) "target-id")))))
 
 (defn check-seq-changes-test
   [description change-meta]
@@ -303,24 +315,24 @@
   [description change-meta]
   (if (:deleted change-meta)
     (report-change description
-     (is (= (:id change-meta) "some-other-id"))
+     (is (= (:id change-meta) "target-id"))
      (is (= (:seq change-meta) 5)))))
 
 (defdbtest watch-for-change
   (watch-changes test-database :check-id (partial check-id-changes-test "Watch database"))
-  (create-document test-document-2 "some-id"))
+  (create-document test-document-2 "target-id"))
 
 (defdbtest multiple-watchers-for-change
   (watch-changes test-database :check-id (partial check-id-changes-test "Multiple watchers - id"))
   (watch-changes test-database :check-seq (partial check-seq-changes-test "Multiple watchers - seq"))
   (is (= #{:check-id :check-seq} (set (:watchers (database-info test-database)))))
-  (create-document test-document-2 "some-id"))
+  (create-document test-document-2 "target-id"))
 
 (defdbtest multiple-changes
   (watch-changes test-database :check-delete (partial check-delete-changes-test "Multiple changes"))
-  (let [document-1 (create-document test-document-1 "some-id")
-        document-2 (create-document test-document-2 "some-other-id")
-        document-3 (create-document test-document-3 "another-id")]
+  (let [document-1 (create-document test-document-1 "not-target-id")
+        document-2 (create-document test-document-2 "target-id")
+        document-3 (create-document test-document-3 "another-random-id")]
     (update-document document-1 {:score 0})
     (delete-document document-2)))
 
@@ -330,17 +342,17 @@
                  {:less-than-50 (fn [document request] (if (< (:score document) 50) true false))}))
   (watch-changes test-database :check-id (partial check-id-changes-test "Filter")
                  {:filter "scores/less-than-50"})
-  (create-document {:name "tester 1" :score 22} "some-id")
-  (create-document {:name "tester 2" :score 79} "some-other-id"))
+  (create-document {:name "tester 1" :score 22} "target-id")
+  (create-document {:name "tester 2" :score 79} "not-target-id"))
 
 (defdbtest changes-filters-with-query-params
   (save-filter "scores"
                (with-clj-view-server
                  {:more-than-50-from-a-user (fn [document request]
-                                                     (if (and (< (:score document) 50)
+                                                     (if (and (> (:score document) 50)
                                                               (= (:name document) (-> request :query :name)))
                                                        true false))}))
   (watch-changes test-database :check-id (partial check-id-changes-test "Filter with query parameters") 
                  {:filter "scores/more-than-50-from-a-user" :name "tester 1"})
-  (create-document {:name "tester 1" :score 22} "some-id")
-  (create-document {:name "tester 2" :score 79} "some-other-id"))
+  (create-document {:name "tester 1" :score 51} "target-id")
+  (create-document {:name "tester 2" :score 48} "not-target-id"))

@@ -29,7 +29,7 @@ Clutch uses Leiningen. For installation and help on using Leiningen visit the "g
 
 To include Clutch in your project, in your project.clj add the following to your ":dependencies":
 
-<pre>[com.ashafa/clutch "0.2.0-SNAPSHOT"]</pre>
+<pre>[com.ashafa/clutch "0.2.1"]</pre>
 
 ... then from your command line, execute:
 

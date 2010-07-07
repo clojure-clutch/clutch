@@ -71,7 +71,7 @@
                                [nil arguments]
                                (if (> argument-count 1)
                                  (partition argument-count (apply interleave arguments))
-                                 arguments))]
+                                 [[(first (first arguments))] [(second (first arguments))]]))]
         [true (reduce #(conj %1 (%2 keys values rereduce?)) [] reduce-functions)])
       (catch Exception error
         {:error {:id "reduce_compilation_error" :reason (.getMessage error)}}))))

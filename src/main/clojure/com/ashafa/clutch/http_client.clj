@@ -42,15 +42,17 @@
                                :use-caches false
                                :follow-redirects false
                                :read-json-response true})
+
 ; @todo - we'll be able to eliminate the atom requirement when thread-bound? is available in core
 ; http://www.assembla.com/spaces/clojure/tickets/243
 (def #^{:doc "When bound to an atom, will be reset! to the HTTP response code of the last couchdb request."}
-  *response-code* nil)
+     *response-code* nil)
 
 (defn- send-body
   [connection data]
   (with-open [output (.getOutputStream connection)]
-    (duck-streams/copy data output)))
+    (duck-streams/copy data output)
+    (if (instance? java.io.InputStream data) (.close data))))
 
 (defn- get-response
   [connection {:keys [read-json-response] :as config}]
