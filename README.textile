@@ -1,4 +1,4 @@
-h1. Clutch v0.2
+h1. Clutch
 
 <pre>
   (ns #^{:author "Tunde Ashafa"}
@@ -43,33 +43,30 @@ If you are working with a clone of Clutch from github for development, contribut
 
 <pre>lein install</pre>
 
-This will leave a fully-compiled Clutch jar file in the project directory. You can also run the Clutch tests by executing the following in your command line:
+This will leave a fully-compiled Clutch jar file in the project directory.
+
+You can also run the Clutch tests by executing the following in your command line:
 
 <pre>lein test test-clutch</pre>
  
 h3. Configuring your CouchDB installation to use the Clutch view server
 
-To use clojure for views and filters, add the following to the 'local.ini' file of your CouchDB installation (replacing &lt;path to...&gt; with the appropiate paths).
+To use Clojure for views and filters, add the following to the 'local.ini' file of your CouchDB installation (replacing &lt;path to...&gt; with the appropiate paths).
 
 <pre>
   [query_servers]
-  clojure = java -cp <path to clojure.jar>/clojure.jar:<path to clojure-contrib.jar or clojure-contrib source>/clojure-contrib(.jar|/src):<clutch jar file OR *compile-path* (see above)> com.ashafa.clutch.view_server
+  clojure = java -cp <path to clojure.jar>/clojure.jar:<path to clojure-contrib.jar>/clojure-contrib.jar:clutch.jar com.ashafa.clutch.view_server
 </pre>
 
-h2. Dependencies
+h2. Requirements
 
-Clutch requires:
-
-* "Apache CouchDB":http://couchdb.apache.org/ (version 0.10.1)
-* "Clojure":http://clojure.org (version 1.1.0-master-SNAPSHOT)
-* "clojure-contrib":http://code.google.com/p/clojure-contrib/ (version 1.0-SNAPSHOT)
+Clutch is currently being tested on "Apache CouchDB":http://couchdb.apache.org/ version 0.10.1
 
 h3. TODOs
 
 * Documentation
-* Use streams instead of java.io.File for attachments apis
 * Revisions
-* More robust tests
+* More tests
 
 h3. Contributors
 
@@ -79,3 +76,4 @@ Appreciations go out to:
 * "Pierre Larochelle":http://github.com/pierrel
 * "Matt Wilson":http://github.com/mattdw
 * "Patrick Sullivan":http://github.com/WizardofWestmarch
+* "Toni Batchelli":http://tbatchelli.org
