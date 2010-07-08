@@ -21,7 +21,7 @@ h1. Clutch
                  :reduce (fn [keys values _] (apply + values))}))) ; => 60
 </pre>
 
-Clutch is a "Clojure":http://clojure.org library for "Apache CouchDB":http://couchdb.apache.org/. Although it's in an early stage of development (Clutch API subject to change), Clutch supports most of the basic Apache CouchDB APIs. To get a sense of where we are at with Clutch, please view "the tests":http://github.com/tashafa/clutch/blob/1.1-compatible/src/test/clojure/test_clutch.clj . 
+Clutch is a "Clojure":http://clojure.org library for "Apache CouchDB":http://couchdb.apache.org/. Although it's in an early stage of development (Clutch API subject to change), Clutch supports most of the basic Apache CouchDB APIs. To get a sense of where we are at with Clutch, please view "the tests":http://github.com/ashafa/clutch/blob/1.1-compatible/src/test/clojure/test_clutch.clj . 
 
 h3. Download and Installation
 
