@@ -27,8 +27,8 @@
 (ns #^{:author "Tunde Ashafa"}
   com.ashafa.clutch
   (:require [com.ashafa.clutch.utils :as utils]
-            [clojure.contrib.json.read :as json-read]
-            [clojure.contrib.duck-streams :as io]
+            [clojure.contrib.json :as json]
+            [clojure.contrib.io :as io]
             [clojure.contrib.http.agent :as h])
   (:use com.ashafa.clutch.http-client
         clojure.contrib.core))
@@ -39,6 +39,7 @@
 ;; default clutch configuration
 (def *defaults* (ref {:host     "localhost"
                       :port     5984
+                      :ssl-port 443
                       :language "clojure"}))
 
 (def #^{:private true} watched-databases (ref {}))
@@ -216,8 +217,7 @@
             (let [line (first lines)]
               (try
                (if (> (count line) 1)
-                 ((:callback (watched-db watch-key)) (binding [json-read/*json-keyword-keys* true] 
-                                                       (json-read/read-json line))))
+                 ((:callback (watched-db watch-key)) (json/read-json line true)))
                (catch Exception e
                  (dosync
                   (if-let [watched-db (@watched-databases url-str)]

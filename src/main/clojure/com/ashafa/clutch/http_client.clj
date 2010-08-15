@@ -25,9 +25,8 @@
 
 (ns #^{:author "Tunde Ashafa"}
   com.ashafa.clutch.http-client
-  (:require [clojure.contrib.json.read :as json-read]
-            [clojure.contrib.json.write :as json-write]
-            [clojure.contrib.duck-streams :as duck-streams :only [spit]]
+  (:require [clojure.contrib.json :as json]
+            [clojure.contrib.io :as io :only [spit]]
             [com.ashafa.clutch.utils :as utils]) 
   (:import  (java.io IOException InputStreamReader PushbackReader)
             (java.net URL MalformedURLException)
@@ -48,10 +47,11 @@
 (def #^{:doc "When bound to an atom, will be reset! to the HTTP response code of the last couchdb request."}
      *response-code* nil)
 
+
 (defn- send-body
   [connection data]
   (with-open [output (.getOutputStream connection)]
-    (duck-streams/copy data output)
+    (io/copy data output)
     (if (instance? java.io.InputStream data) (.close data))))
 
 (defn- get-response
@@ -61,8 +61,7 @@
     (cond (< response-code 400)
           (if read-json-response
             (with-open [input (.getInputStream connection)]
-              (binding [json-read/*json-keyword-keys* true]
-                (json-read/read-json (PushbackReader. (InputStreamReader. input *encoding*)))))
+              (json/read-json (PushbackReader. (InputStreamReader. input *encoding*)) true))
             (.getInputStream connection))
           (= response-code 404) nil
           :else (throw
@@ -96,13 +95,18 @@
         raw-data  data
         data-type (or data-type *default-data-type*)
         database  (if (config :name) (str "/" (config :name)))
-        url       (str "http://" (config :host) ":" (config :port) 
+        url       (str "http"
+                       (if (config :ssl) "s") "://" (config :host)
+                       ":"
+                       (if (config :ssl) (config :ssl-port) (config :port))
                        (if (and database (re-find #"\?" database))
                          (.replace database "?" (str command "?"))
                          (str database command)))
-        data      (if (map? raw-data) (json-write/json-str raw-data) raw-data)
+        data      (if (map? raw-data) (json/json-str raw-data) raw-data)
         d-headers {"Content-Type" data-type
-                   "User-Agent" (str "clutch.http-client/" *version*)}
+                   "Host" (config :host)
+                   "User-Agent" (str "com.ashafa.clutch.http-client/" *version*)
+                   "Accept" "*/*"}
         d-headers (if (string? data)
                     (assoc d-headers "Content-Length" (-> data count str))
                     d-headers)

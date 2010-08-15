@@ -27,8 +27,7 @@
 (ns #^{:author "Tunde Ashafa"}
   com.ashafa.clutch.view-server
   (:gen-class)
-  (:require [clojure.contrib.json.read :as json-read]
-            [clojure.contrib.json.write :as json-write]))
+  (:require [clojure.contrib.json :as json]))
 
 
 (def functions (ref []))
@@ -112,12 +111,11 @@
   []
   (try
    (flush)
-   (let [cmd        (binding [json-read/*json-keyword-keys* true]
-                      (json-read/read-json (read-line)))
-         return-str (json-write/json-str ((handlers (first cmd)) (next cmd)))]
+   (let [cmd        (json/read-json (read-line) true)
+         return-str (json/json-str ((handlers (first cmd)) (next cmd)))]
      (println return-str))
    (catch Exception e
-     (println (json-write/json-str
+     (println (json/json-str
                {"log"
                 (let [w (java.io.StringWriter.)]
                   (.printStackTrace e (java.io.PrintWriter. w))

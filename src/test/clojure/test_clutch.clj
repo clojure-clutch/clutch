@@ -6,7 +6,7 @@
         clojure.test)
   (:import java.io.ByteArrayInputStream))
 
-(set-clutch-defaults! {:language "clojure"})
+(set-clutch-defaults! {:host "localhost"})
 
 (def test-document-1 {:name  "John Smith"
                       :email "john.smith@test.com"
@@ -31,10 +31,12 @@
 
 (use-fixtures
   :once
-  #(binding [*clj-view-svr-config* (http-client/couchdb-request @*defaults* :get "_config/query_servers/clojure")]
+  #(binding [*clj-view-svr-config* (try
+                                     (http-client/couchdb-request @*defaults* :get "_config/query_servers/clojure")
+                                     (catch java.io.IOException e false))]
      (when-not *clj-view-svr-config*
        (println "Clojure view server not available, skipping tests that depend upon it!"))
-     (%)))
+       (%)))
 
 (defmacro defdbtest [name & body]
   `(deftest ~name
