@@ -1,6 +1,7 @@
 h1. Clutch
 
-Clutch is a "Clojure":http://clojure.org library for "Apache CouchDB":http://couchdb.apache.org/. Although it's in an early stage of development (Clutch API subject to change), Clutch supports most of the basic Apache CouchDB APIs. To get a sense of where we are at with Clutch, please view "the tests":http://github.com/ashafa/clutch/blob/1.1-compatible/src/test/clojure/test_clutch.clj . 
+Clutch is a "Clojure":http://clojure.org library for "Apache CouchDB":http://couchdb.apache.org/. Although it's in an early stage of development (Clutch API subject to change), Clutch supports most of the basic Apache CouchDB APIs. To get a sense of where we are at with Clutch, please view "the tests.":http://github.com/ashafa/clutch/blob/master/test/test_clutch.clj 
+<br /><br /><br />
 
 <pre>
   (ns #^{:author "Tunde Ashafa"}
