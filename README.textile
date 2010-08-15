@@ -1,19 +1,17 @@
 h1. Clutch
 
+Clutch is a "Clojure":http://clojure.org library for "Apache CouchDB":http://couchdb.apache.org/. Although it's in an early stage of development (Clutch API subject to change), Clutch supports most of the basic Apache CouchDB APIs. To get a sense of where we are at with Clutch, please view "the tests":http://github.com/ashafa/clutch/blob/1.1-compatible/src/test/clojure/test_clutch.clj . 
+
 <pre>
   (ns #^{:author "Tunde Ashafa"}
       clutch-example
       (:use com.ashafa.clutch))
 
-  (def clutch-test-database
-    (create-database {:name     "clutch_test_db"
-                      :language "clojure"}))     ; use Clutch (Clojure) view server with database
+  (def example-database
+    (get-database {:name     "clutch_test_db"
+                   :language "clojure"}))     ; use Clutch (Clojure) view server
 
-  (def remote-database 
-    (create-database {:name "clutch_test_db"
-                      :host "10.1.192.23"}))     ; remote CouchDB server
-                      
-  (with-db clutch-test-database
+  (with-db example-database
            ;; insert or update multiple documents
            (bulk-update [{:test-grade 10}
                          {:test-grade 20}
@@ -21,31 +19,37 @@ h1. Clutch
            ;; create temporary or permanent views using clojure 
            (ad-hoc-view
              (with-clj-view-server
-                (fn [doc] [[nil (:test-grade doc)]])     ; map
-                (fn [keys values _] (apply + values))))) ; reduce
-
-  (replicate-database clutch-test-database remote-database) ; replicate 'cluth-test-database' to remote server
+                {:map    (fn [doc] [[nil (:test-grade doc)]])
+                 :reduce (fn [keys values _] (apply + values))}))) ; => 60
 </pre>
 
-Clutch is a "Clojure":http://clojure.org library for "Apache CouchDB":http://couchdb.apache.org/. Although it's in a very early stage of development (Clutch API subject to change), Clutch supports most of the basic Apache CouchDB APIs. To get a sense of where Clutch is at, please view the included tests.
+h3. Download and Installation
 
-h2. Master Branch.
+Clutch uses Leiningen. For installation and help on using Leiningen visit the "github repo":http://github.com/technomancy/leiningen/ .
 
-This branch tries to keep up with Clojure's master branch on github, which is at version 1.2. The "1.1-compatible branch":http://github.com/tashafa/clutch is the default recommended branch.
+To include Clutch in your project, in your project.clj add the following to your ":dependencies":
 
-h2. Dependencies
+<pre>[com.ashafa/clutch "0.2.2"]</pre>
 
-Clutch requires:
+and run...
 
-* "Apache CouchDB":http://couchdb.apache.org/ (version 0.10.0 +)
-* "Clojure":http://clojure.org (version 1.2.0-master-SNAPSHOT)
-* "clojure-contrib":http://code.google.com/p/clojure-contrib/ (version 1.2.0-SNAPSHOT)
+<pre>lein deps</pre>
+
+h3. Configuring your CouchDB installation to use the Clutch view server
+
+To use Clojure for views and filters, add the following to the 'local.ini' file of your CouchDB installation (replacing &lt;path to...&gt; with the appropiate paths to the jars which reside in the "lib" folder in your project folder).
+
+<pre>
+  [query_servers]
+  clojure = java -cp <path to clojure.jar>/clojure.jar:<path to clojure-contrib.jar>/clojure-contrib.jar:clutch.jar com.ashafa.clutch.view_server
+</pre>
 
 h3. Contributors
 
-Thanks go out to:
+Appreciations go out to:
 
 * "Chas Emerick":http://github.com/cemerick
 * "Pierre Larochelle":http://github.com/pierrel
 * "Matt Wilson":http://github.com/mattdw
 * "Patrick Sullivan":http://github.com/WizardofWestmarch
+* "Toni Batchelli":http://tbatchelli.org

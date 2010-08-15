@@ -28,8 +28,13 @@
   com.ashafa.clutch.view-server
   (:gen-class)
   (:require [clojure.contrib.json :as json]))
+<<<<<<< HEAD:src/main/clojure/com/ashafa/clutch/view_server.clj
  
  
+=======
+
+
+>>>>>>> 1.1-compatible:src/main/clojure/com/ashafa/clutch/view_server.clj
 (def functions (ref []))
  
 (defn log
@@ -70,7 +75,7 @@
                                [nil arguments]
                                (if (> argument-count 1)
                                  (partition argument-count (apply interleave arguments))
-                                 arguments))]
+                                 [[(first (first arguments))] [(second (first arguments))]]))]
         [true (reduce #(conj %1 (%2 keys values rereduce?)) [] reduce-functions)])
       (catch Exception error
         {:error {:id "reduce_compilation_error" :reason (.getMessage error)}}))))
@@ -78,6 +83,7 @@
 (defn rereduce-values
   [command]
   (reduce-values command true))
+<<<<<<< HEAD:src/main/clojure/com/ashafa/clutch/view_server.clj
  
 (def handlers {"log" log
                "reset" reset
@@ -91,6 +97,42 @@
   (try
    (flush)
    (let [cmd (json/read-json (read-line) true)
+=======
+
+(defn filter-changes
+  [[rows req user-ctx]]
+  (let [f (first @functions)]
+    [true (vec (map #(try
+                      (f % req)
+                      (catch Exception error false)) rows))]))
+
+(defn update-changes
+  [[function-string doc request]]
+  (try
+   (let [function (load-string function-string)]
+     (if (fn? function)
+       (if-let [[doc response] (function doc request)]
+         ["up" doc (if (string? response) {:body response} response)]
+         ["up" doc {}])
+       (throw (IllegalArgumentException. "Argument did not evaluate to a valid function."))))
+   (catch IllegalArgumentException error
+     {:error {:id "map_compilation_error" :reason (.getMessage error)}})))
+
+(def handlers {"log"      log
+               "reset"    reset
+               "add_fun"  add-function
+               "map_doc"  map-document
+               "reduce"   reduce-values
+               "rereduce" rereduce-values
+               "filter"   filter-changes
+               "update"   update-changes})
+
+(defn run 
+  []
+  (try
+   (flush)
+   (let [cmd        (json/read-json (read-line) true)
+>>>>>>> 1.1-compatible:src/main/clojure/com/ashafa/clutch/view_server.clj
          return-str (json/json-str ((handlers (first cmd)) (next cmd)))]
      (println return-str))
    (catch Exception e
