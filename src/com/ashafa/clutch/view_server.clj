@@ -28,13 +28,7 @@
   com.ashafa.clutch.view-server
   (:gen-class)
   (:require [clojure.contrib.json :as json]))
-<<<<<<< HEAD:src/main/clojure/com/ashafa/clutch/view_server.clj
- 
- 
-=======
 
-
->>>>>>> 1.1-compatible:src/main/clojure/com/ashafa/clutch/view_server.clj
 (def functions (ref []))
  
 (defn log
@@ -83,21 +77,6 @@
 (defn rereduce-values
   [command]
   (reduce-values command true))
-<<<<<<< HEAD:src/main/clojure/com/ashafa/clutch/view_server.clj
- 
-(def handlers {"log" log
-               "reset" reset
-               "add_fun" add-function
-               "map_doc" map-document
-               "reduce" reduce-values
-               "rereduce" rereduce-values})
- 
-(defn run
-  []
-  (try
-   (flush)
-   (let [cmd (json/read-json (read-line) true)
-=======
 
 (defn filter-changes
   [[rows req user-ctx]]
@@ -132,7 +111,6 @@
   (try
    (flush)
    (let [cmd        (json/read-json (read-line) true)
->>>>>>> 1.1-compatible:src/main/clojure/com/ashafa/clutch/view_server.clj
          return-str (json/json-str ((handlers (first cmd)) (next cmd)))]
      (println return-str))
    (catch Exception e

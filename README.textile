@@ -27,9 +27,9 @@ h3. Download and Installation
 
 Clutch uses Leiningen. For installation and help on using Leiningen visit the "github repo":http://github.com/technomancy/leiningen/ .
 
-To include Clutch in your project, in your project.clj add the following to your ":dependencies":
+To include Clutch in your project, simply add the following to your project.clj:
 
-<pre>[com.ashafa/clutch "0.2.2"]</pre>
+<pre>(:dependencies [com.ashafa/clutch "0.2.2"])</pre>
 
 and run...
 

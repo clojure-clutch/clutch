@@ -9,7 +9,7 @@
   <scm>
     <connection>scm:git:git://github.com/ashafa/clutch.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/ashafa/clutch.git</developerConnection>
-    <tag>8cc2c0541065a563d25c740394c056dd87006567</tag>
+    <tag>cc6740bb22ed3cda2bf634cd58500c63343c989d</tag>
     <url>http://github.com/ashafa/clutch</url>
   </scm>
   <repositories>
