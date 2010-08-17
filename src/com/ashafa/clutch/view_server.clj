@@ -37,7 +37,8 @@
  
 (defn reset
   [_]
-  (def functions (ref [])) true)
+  (dosync (ref-set functions []))
+  true)
  
 (defn add-function
   [[function-string]]
