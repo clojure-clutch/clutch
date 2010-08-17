@@ -118,5 +118,4 @@
                                     (.getBytes (str (config :username) ":" (:password config))))))
                     d-headers)
         method    (.toUpperCase (if (keyword? method) (name method) method))]
-    (println url)
     (connect url method (assoc config :headers headers) data)))
