@@ -31,7 +31,7 @@
 
 (defn uri-encode
   [string]
-  (.. URLEncoder (encode string) (replace "+" "%20")))
+  (.. URLEncoder (encode string "UTF-8") (replace "+" "%20")))
 
 (defn map-to-query-str
   ([m]
