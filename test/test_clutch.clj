@@ -7,6 +7,8 @@
         clojure.test)
   (:import java.io.ByteArrayInputStream))
 
+(def resources-path "test")
+
 (set-clutch-defaults! {:host "localhost"})
 
 (def test-document-1 {:name  "John Smith"
@@ -242,8 +244,7 @@
   (is (every? true? (map #(-> % :doc :updated) (:rows (get-all-documents-meta {:include_docs true}))))))
 
 (defdbtest inline-attachments
-  (let [resources-path   (or (.getParent (java.io.File. *file*)) "test")
-        clojure-img-file (str resources-path "/clojure.png")
+  (let [clojure-img-file (str resources-path "/clojure.png")
         couchdb-img-file (str resources-path "/couchdb.png")
         created-document (create-document test-document-4 [clojure-img-file couchdb-img-file])
         fetched-document (get-document (created-document :_id))]
@@ -262,8 +263,7 @@
          (.length (java.io.File. couchdb-img-file)) (-> fetched-document :_attachments :couchdb.png :length))))
 
 (defdbtest standalone-attachments
-  (let [resources-path            (or (.getParent (java.io.File. *file*)) "test")
-        document                  (create-document test-document-1)
+  (let [document                  (create-document test-document-1)
         updated-document-meta     (update-attachment document (str resources-path "/couchdb.png") :couchdb-image)
         document-with-attachments (get-document (updated-document-meta :id) {:attachments true})]
     (is (= [:couchdb-image] (keys (document-with-attachments :_attachments))))
@@ -273,8 +273,7 @@
     (is (thrown? IllegalArgumentException (update-attachment document (ByteArrayInputStream. (make-array Byte/TYPE 0)))))))
 
 (defdbtest stream-attachments
-  (let [resources-path            (or (.getParent (java.io.File. *file*)) "test")
-        document                  (create-document test-document-4)
+  (let [document                  (create-document test-document-4)
         updated-document-meta     (update-attachment document (str resources-path "/couchdb.png") :couchdb-image "other/mimetype")
         document-with-attachments (get-document (updated-document-meta :id) {:attachments true})
         data (io/to-byte-array (java.io.File. (str resources-path "/couchdb.png")))]
