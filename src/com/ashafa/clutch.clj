@@ -104,7 +104,8 @@
                             (cond (= :string arg-type#) (if (re-find #"^https?:" ~database) 
                                                           (utils/url->db-meta ~database)
                                                           {:name ~database})
-                                   (= :meta arg-type#) ~database))]
+                                  (= :meta arg-type#) ~database
+                                  (= :url arg-type#) (url->db-meta ~database)))]
       (do ~@body))))
 
 (defn set-clutch-defaults!
@@ -143,6 +144,10 @@
                      (utils/url->db-meta db-string)
                      (assoc @*defaults* :name db-string))))
 
+(defmethod create-database :url
+  [^java.net.URL url]
+  (create-database (str url)))
+
 (defmethod create-database :meta
   [db-meta]
   (merge @*defaults* db-meta
@@ -159,6 +164,10 @@
   (database-info (if (re-find #"^https?:" db-string) 
                      (utils/url->db-meta db-string)
                      (assoc @*defaults* :name db-string))))
+
+(defmethod database-info :url
+  [^java.net.URL url]
+  (database-info (str url)))
 
 (defmethod database-info :meta
   [db-meta]
@@ -198,6 +207,10 @@
   (delete-database (if (re-find #"^https?:" db-string) 
                      (utils/url->db-meta db-string)
                      (assoc @*defaults* :name db-string))))
+
+(defmethod delete-database :url
+  [^java.net.URL url]
+  (delete-database (str url)))
 
 (defmethod delete-database :meta
   [db-meta]
