@@ -37,7 +37,7 @@
   ([m]
      (map-to-query-str m true))
   ([m json-str-params?]
-     (let [kws (keys m)]
+     (when-let [kws (keys m)]
        (reduce 
         (fn [q kw]
           (let [k (if (keyword? kw) (name kw) kw)
