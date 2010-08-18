@@ -5,7 +5,7 @@
             [clojure.contrib.io :as io])
   (:use com.ashafa.clutch 
         clojure.test)
-  (:import java.io.ByteArrayInputStream))
+  (:import (java.io File ByteArrayInputStream)))
 
 (def resources-path "test")
 
@@ -129,6 +129,38 @@
   (is (get-document "my_id"))
   (is (true? (:ok (delete-document (get-document "my_id")))))
   (is (nil? (get-document "my_id"))))
+
+(defdbtest copy-a-document
+  (let [doc (create-document test-document-1 "src")]
+  (copy-document "src" "dst")
+  (copy-document doc "dst2")
+  (is (= (dissoc-meta doc)
+        (-> "dst" get-document dissoc-meta)
+        (-> "dst2" get-document dissoc-meta)))))
+
+(defdbtest copy-document-overwrite
+  (let [doc (create-document test-document-1 "src")
+        overwrite (create-document test-document-2 "overwrite")]
+    (copy-document doc overwrite)
+    (is (= (dissoc-meta doc) (-> overwrite :_id get-document dissoc-meta)))))
+
+(defdbtest copy-document-attachments
+  (let [doc (create-document test-document-1 "src")
+        file (File. (str resources-path "/couchdb.png"))
+        doc (update-attachment doc file :image)
+        doc (-> doc :id get-document)]
+    (copy-document "src" "dest")
+    (let [copy (get-document "dest")
+          copied-attachment (get-attachment copy :image)]
+      (is (= (dissoc-meta doc) (dissoc-meta copy)))
+      (is (= (-> file io/to-byte-array seq) (-> copied-attachment io/to-byte-array seq))))))
+
+(defdbtest copy-document-fail-overwrite
+  (create-document test-document-1 "src")
+  (create-document test-document-2 "overwrite")
+  (binding [http-client/*response-code* (atom nil)]
+    (is (thrown? java.io.IOException (copy-document "src" "overwrite")))
+    (is (== 409 @http-client/*response-code*))))
 
 (defdbtest get-all-documents-with-query-parameters
   (create-document test-document-1 "a")

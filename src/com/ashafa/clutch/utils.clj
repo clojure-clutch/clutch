@@ -52,6 +52,15 @@
     (apply (partial assoc init) options) 
     init))
 
+(defn set-field
+  "Set to private or protected field. field-name is a symbol or keyword.
+   This will presumably be added to clojure.contrib.reflect eventually...?"
+  [klass field-name obj value]
+  (-> klass
+    (.getDeclaredField (name field-name))
+    (doto (.setAccessible true))
+    (.set obj value)))
+
 (defn db-meta->url
   [db-meta]
   (str "http://"

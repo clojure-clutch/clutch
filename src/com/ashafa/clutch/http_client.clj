@@ -71,9 +71,11 @@
 (defn- connect
   [url method config data]
   (let [connection    (.openConnection (URL. url))
-        configuration (merge *configuration-defaults* config)]
+        configuration (merge *configuration-defaults* config)]    
+    ; can't just use .setRequestMethod because it throws an exception on
+    ; any "illegal" [sic] HTTP methods, including couchdb's COPY
+    (utils/set-field java.net.HttpURLConnection :method connection method)
     (doto connection
-      (.setRequestMethod method)
       (.setUseCaches (configuration :use-caches))
       (.setConnectTimeout (configuration :connect-timeout))
       (.setReadTimeout (configuration :read-timeout))

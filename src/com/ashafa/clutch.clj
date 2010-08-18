@@ -31,7 +31,7 @@
             [clojure.contrib.io :as io]
             [clojure.contrib.http.agent :as h])
   (:use com.ashafa.clutch.http-client
-        clojure.contrib.core))
+        (clojure.contrib core def)))
 
 
 (declare config)
@@ -78,12 +78,18 @@
    :port (.getPort url)
    :name (.getPath url)})
 
-(defmacro #^{:private true} check-and-use-document
+(defn- doc->rev-query-string
+  [doc]
+  (apply str
+    (utils/uri-encode (:_id doc))
+    (when-let [rev (:_rev doc)]
+      ["?rev=" rev])))
+
+(defmacro- check-and-use-document
   [doc & body]
   `(if-let [id# (~doc :_id)]
-     (binding [config
-               (assoc config :name 
-                   (str (config :name) "/" (utils/uri-encode id#) "?rev=" (:_rev ~doc)))]
+     (binding [config (assoc config :name 
+                        (str (config :name) "/" (doc->rev-query-string ~doc)))]
        (do ~@body))
      (throw 
       (IllegalArgumentException. "A valid document is required."))))
@@ -406,6 +412,26 @@
   (check-and-use-document document
     (couchdb-request config :delete)))
 
+(defmulti copy-document
+  "Copies the provided document (or the document with the given string id)
+   to the given new id.  If the destination id identifies an existing
+   document, then a document map (with up-to-date :_id and :_rev slots)
+   must be provided as a destination argument to avoid a 409 Conflict."
+  (fn [src dest]
+    (if (map? dest) :map :string)))
+
+(defmethod copy-document :string
+  [src dest]
+  (if-let [src-doc (if (map? src)
+                     src
+                     {:_id src})]
+    (check-and-use-document src-doc
+      (couchdb-request config :copy :headers {"Destination"
+                                              dest}))))
+
+(defmethod copy-document :map
+  [src dest]
+  (copy-document src (doc->rev-query-string dest)))
 
 (defmulti update-document
   "Takes document and a map and merges it with the original. When a function
