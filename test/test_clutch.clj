@@ -59,6 +59,38 @@
     (is (= (:name test-database) (:db_name (database-info test-database))))
     (is (:ok (delete-database test-database)))))
 
+(defn- valid-id-charcode?
+  [code]
+  (cond
+    ; c.c.json doesn't cope well with the responses provided when CR or LF are included
+    (#{10 13} code) false
+    ; D800–DFFF only used in surrogate pairs, invalid anywhere else (couch chokes on them)
+    (and (>= code 0xd800) (<= code 0xdfff)) false
+    :else true))
+
+; create a document containing each of the 65K chars in unicode BMP.
+; this ensures that utils/id-encode is doing what it should and that we aren't screwing up
+; encoding issues generally (which are easy regressions to introduce) 
+(defdbtest test-docid-encoding
+  ; doing a lot of requests here -- the test is crazy-slow if delayed_commit=false,
+  ; so let's use the iron we've got
+  (let [clutch-config config
+        agents (vec (repeatedly 100 #(agent nil)))]
+    (doseq [x (range 0xffff)
+            :when (valid-id-charcode? x)
+            :let [id (str "a" (char x)) ; doc ids can't start with _, so prefix everything
+                  id-desc (str x " " id)]]
+      (send-off (agents (mod x (count agents)))
+        (fn [& args]
+          (binding [config clutch-config
+                    http-client/*response-code* (atom nil)]
+            (try
+              (is (= id (:_id (create-document {} id))) id-desc)
+              (is (= {} (dissoc (get-document id) :_id :_rev)) id-desc)
+              (catch Exception e
+                (is false (str "Error for " id-desc ": " (.getMessage e)))))))))
+    (apply await agents)))
+
 (defdbtest create-a-document
   (let [document (create-document test-document-1)]
     (are [k] (contains? document k)

@@ -39,7 +39,7 @@
 (def *configuration-defaults* {:read-timeout 0
                                :connect-timeout 5000
                                :use-caches false
-                               :follow-redirects false
+                               :follow-redirects true
                                :read-json-response true})
 
 ; @todo - we'll be able to eliminate the atom requirement when thread-bound? is available in core
@@ -104,7 +104,6 @@
                          (str database command)))
         data      (if (map? raw-data) (json/json-str raw-data) raw-data)
         d-headers {"Content-Type" data-type
-                   "Host" (config :host)
                    "User-Agent" (str "com.ashafa.clutch.http-client/" *version*)
                    "Accept" "*/*"}
         d-headers (if (string? data)

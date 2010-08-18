@@ -83,7 +83,7 @@
   `(if-let [id# (~doc :_id)]
      (binding [config
                (assoc config :name 
-                   (str (config :name) "/" id# "?rev=" (:_rev ~doc)))]
+                   (str (config :name) "/" (utils/uri-encode id#) "?rev=" (:_rev ~doc)))]
        (do ~@body))
      (throw 
       (IllegalArgumentException. "A valid document is required."))))
@@ -363,7 +363,7 @@
   ([document-map]
      (create-document document-map nil))
   ([document-map id]
-     (if-let [new-document-meta (couchdb-request config (if (nil? id) :post :put) id document-map)]
+     (if-let [new-document-meta (couchdb-request config (if (nil? id) :post :put) (utils/uri-encode id) document-map)]
        (assoc document-map :_rev (new-document-meta :rev) :_id (new-document-meta :id)))))
 
 (defn get-document
@@ -373,7 +373,7 @@
      (get-document id {}))
   ([id query-params-map]
      (if (and id (not (empty? id)))
-       (couchdb-request config :get (str id (utils/map-to-query-str query-params-map))))))
+       (couchdb-request config :get (str (utils/uri-encode id) (utils/map-to-query-str query-params-map))))))
 
 (defn delete-document
   "Takes a document and deletes it from the database."

@@ -26,12 +26,12 @@
 (ns #^{:author "Tunde Ashafa"}
   com.ashafa.clutch.utils
   (:require [clojure.contrib.json :as json])
+  (:use clojure.contrib.core)
   (:import java.net.URLEncoder))
-
 
 (defn uri-encode
   [string]
-  (.. URLEncoder (encode string "UTF-8") (replace "+" "%20")))
+  (-?> string (URLEncoder/encode "UTF-8") (.replace "+" "%20")))
 
 (defn map-to-query-str
   ([m]
