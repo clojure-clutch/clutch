@@ -35,7 +35,7 @@
 (use-fixtures
   :once
   #(binding [*clj-view-svr-config* (try
-                                     (http-client/couchdb-request @*defaults* :get "_config/query_servers/clojure")
+                                     (http-client/couchdb-request @*defaults* :get :command "_config/query_servers/clojure")
                                      (catch java.io.IOException e false))]
      (when-not *clj-view-svr-config*
        (println "Clojure view server not available, skipping tests that depend upon it!"))

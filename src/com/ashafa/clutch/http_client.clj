@@ -90,7 +90,7 @@
 (defn couchdb-request
   "Prepare request for CouchDB server by forming the required url, setting headers, and
    if required, the post/put body and its mime type."
-  [config method & [command data data-type]]
+  [config method & {:keys [command data data-type headers]}]
   (let [command   (when command (str "/" command))
         raw-data  data
         data-type (or data-type *default-data-type*)
@@ -103,9 +103,10 @@
                          (.replace database "?" (str command "?"))
                          (str database command)))
         data      (if (map? raw-data) (json/json-str raw-data) raw-data)
-        d-headers {"Content-Type" data-type
-                   "User-Agent" (str "com.ashafa.clutch.http-client/" *version*)
-                   "Accept" "*/*"}
+        d-headers (merge {"Content-Type" data-type
+                          "User-Agent" (str "com.ashafa.clutch.http-client/" *version*)
+                          "Accept" "*/*"}
+                    headers)
         d-headers (if (string? data)
                     (assoc d-headers "Content-Length" (-> data count str))
                     d-headers)
@@ -116,5 +117,5 @@
                            (.encode (BASE64Encoder.)
                                     (.getBytes (str (config :username) ":" (:password config))))))
                     d-headers)
-        method    (.toUpperCase (if (keyword? method) (name method) method))]
+        method    (.toUpperCase ^String (if (keyword? method) (name method) method))]
     (connect url method (assoc config :headers headers) data)))
