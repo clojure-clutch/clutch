@@ -117,7 +117,11 @@
 (defdbtest update-a-document
   (let [id (:_id (create-document test-document-4))]
     (update-document (get-document id) {:email "test@example.com"})
-    (is (= "test@example.com" (:email (get-document id))))))
+    (is (= "test@example.com" (:email (get-document id)))))
+  (testing "no update map or fn"
+    (let [id (:_id (create-document test-document-4))]
+      (update-document (merge (get-document id) {:email "test@example.com"}))
+      (is (= "test@example.com" (:email (get-document id)))))))
 
 (defdbtest update-a-document-with-a-function
   (let [id (:_id (create-document test-document-3))]

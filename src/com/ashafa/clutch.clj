@@ -442,6 +442,7 @@ their values (see: #'clojure.core/update-in)."
     (let [targ (second args)]
       (cond (fn? targ) :fn
             (map? targ) :map
+            (nil? targ) :updated
             :else (throw (IllegalArgumentException.
                           "A map or function is needed to update a document."))))))
 
@@ -460,6 +461,13 @@ their values (see: #'clojure.core/update-in)."
                                 (couchdb-request config :put :data updated-document))]
     (if updated-document-meta
       (assoc updated-document :_rev (updated-document-meta :rev)))))
+
+(defmethod update-document :updated
+  [document]
+  (if-let [updated-document (check-and-use-document
+                             document
+                             (couchdb-request config :put :data document))]
+    (assoc document :_rev (updated-document :rev))))
 
 (defn get-all-documents-meta
   "Returns the meta (_id and _rev) of all documents in a database. By adding 
