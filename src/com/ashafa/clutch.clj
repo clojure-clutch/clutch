@@ -87,8 +87,8 @@
 
 (defmacro- check-and-use-document
   [doc & body]
-  `(if-let [id# (~doc :_id)]
-     (binding [config (assoc config :name 
+  `(if-let [id# (:_id ~doc)]
+     (binding [config (assoc config :name
                         (str (config :name) "/" (doc->rev-query-string ~doc)))]
        (do ~@body))
      (throw 
