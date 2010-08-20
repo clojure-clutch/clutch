@@ -100,6 +100,13 @@
   (let [document (create-document test-document-2 "my_id")]
     (is (= "my_id" (document :_id)))))
 
+(defrecord Foo [a])
+
+(defdbtest create-with-record
+  (let [rec (create-document (Foo. "bar") "docid")]
+    (is (instance? Foo rec)))
+  (is (= "bar" (-> "docid" get-document :a))))
+
 (defdbtest get-a-document
   (let [created-document (create-document test-document-3)
         fetched-document (get-document (created-document :_id))]
@@ -127,6 +134,20 @@
   (let [id (:_id (create-document test-document-3))]
     (update-document (get-document id) (partial + 3) [:score])
     (is (= 83 (:score (get-document id))))))
+
+(defdbtest update-with-updated-map
+  (-> test-document-3
+    (create-document "docid")
+    (assoc :a "bar")
+    update-document)
+  (is (= "bar" (-> "docid" get-document :a))))
+
+(defdbtest update-with-record
+  (let [rec (-> (Foo. "bar")
+              (merge (create-document {} "docid"))
+              update-document)]
+    (is (instance? Foo rec)))
+  (is (= "bar" (-> "docid" get-document :a))))
 
 (defdbtest delete-a-document
   (create-document test-document-2 "my_id")
