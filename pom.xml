@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.ashafa</groupId>
 	<artifactId>clutch</artifactId>
-	<version>0.2.2-SNAPSHOT</version>
+	<version>0.2.3-SNAPSHOT</version>
 	<name>clutch</name>
 	<description>A Clojure library for Apache CouchDB.</description>
 
@@ -115,12 +115,12 @@
 		<dependency>
 			<groupId>org.clojure</groupId>
 			<artifactId>clojure</artifactId>
-			<version>1.2.0-RC3</version>
+			<version>1.2.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.clojure</groupId>
 			<artifactId>clojure-contrib</artifactId>
-			<version>1.2.0-RC3</version>
+			<version>1.2.0</version>
 		</dependency>
 	</dependencies>
 	<repositories>
