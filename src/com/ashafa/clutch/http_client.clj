@@ -39,7 +39,7 @@
 (def *configuration-defaults* {:read-timeout 0
                                :connect-timeout 5000
                                :use-caches false
-                               :follow-redirects false
+                               :follow-redirects true
                                :read-json-response true})
 
 ; @todo - we'll be able to eliminate the atom requirement when thread-bound? is available in core
@@ -71,9 +71,11 @@
 (defn- connect
   [url method config data]
   (let [connection    (.openConnection (URL. url))
-        configuration (merge *configuration-defaults* config)]
+        configuration (merge *configuration-defaults* config)]    
+    ; can't just use .setRequestMethod because it throws an exception on
+    ; any "illegal" [sic] HTTP methods, including couchdb's COPY
+    (utils/set-field java.net.HttpURLConnection :method connection method)
     (doto connection
-      (.setRequestMethod method)
       (.setUseCaches (configuration :use-caches))
       (.setConnectTimeout (configuration :connect-timeout))
       (.setReadTimeout (configuration :read-timeout))
@@ -90,7 +92,7 @@
 (defn couchdb-request
   "Prepare request for CouchDB server by forming the required url, setting headers, and
    if required, the post/put body and its mime type."
-  [config method & [command data data-type]]
+  [config method & {:keys [command data data-type headers]}]
   (let [command   (when command (str "/" command))
         raw-data  data
         data-type (or data-type *default-data-type*)
@@ -103,10 +105,10 @@
                          (.replace database "?" (str command "?"))
                          (str database command)))
         data      (if (map? raw-data) (json/json-str raw-data) raw-data)
-        d-headers {"Content-Type" data-type
-                   "Host" (config :host)
-                   "User-Agent" (str "com.ashafa.clutch.http-client/" *version*)
-                   "Accept" "*/*"}
+        d-headers (merge {"Content-Type" data-type
+                          "User-Agent" (str "com.ashafa.clutch.http-client/" *version*)
+                          "Accept" "*/*"}
+                    headers)
         d-headers (if (string? data)
                     (assoc d-headers "Content-Length" (-> data count str))
                     d-headers)
@@ -117,6 +119,5 @@
                            (.encode (BASE64Encoder.)
                                     (.getBytes (str (config :username) ":" (:password config))))))
                     d-headers)
-        method    (.toUpperCase (if (keyword? method) (name method) method))]
-    (println url)
+        method    (.toUpperCase ^String (if (keyword? method) (name method) method))]
     (connect url method (assoc config :headers headers) data)))

@@ -31,7 +31,7 @@
             [clojure.contrib.io :as io]
             [clojure.contrib.http.agent :as h])
   (:use com.ashafa.clutch.http-client
-        clojure.contrib.core))
+        (clojure.contrib core def)))
 
 
 (declare config)
@@ -78,12 +78,18 @@
    :port (.getPort url)
    :name (.getPath url)})
 
-(defmacro #^{:private true} check-and-use-document
+(defn- doc->rev-query-string
+  [doc]
+  (apply str
+    (utils/uri-encode (:_id doc))
+    (when-let [rev (:_rev doc)]
+      ["?rev=" rev])))
+
+(defmacro- check-and-use-document
   [doc & body]
-  `(if-let [id# (~doc :_id)]
-     (binding [config
-               (assoc config :name 
-                   (str (config :name) "/" id# "?rev=" (:_rev ~doc)))]
+  `(if-let [id# (:_id ~doc)]
+     (binding [config (assoc config :name
+                        (str (config :name) "/" (doc->rev-query-string ~doc)))]
        (do ~@body))
      (throw 
       (IllegalArgumentException. "A valid document is required."))))
@@ -104,7 +110,8 @@
                             (cond (= :string arg-type#) (if (re-find #"^https?:" ~database) 
                                                           (utils/url->db-meta ~database)
                                                           {:name ~database})
-                                   (= :meta arg-type#) ~database))]
+                                  (= :meta arg-type#) ~database
+                                  (= :url arg-type#) (url->db-meta ~database)))]
       (do ~@body))))
 
 (defn set-clutch-defaults!
@@ -129,7 +136,7 @@
   ([]
      (all-databases nil))
   ([db-meta]
-     (couchdb-request (dissoc (merge @*defaults* db-meta) :name) :get "_all_dbs")))
+     (couchdb-request (dissoc (merge @*defaults* db-meta) :name) :get :command "_all_dbs")))
 
 (defmulti create-database
   "Takes a map (cofiguration of a CouchDB server with a :name key) or string (using the
@@ -143,12 +150,17 @@
                      (utils/url->db-meta db-string)
                      (assoc @*defaults* :name db-string))))
 
+(defmethod create-database :url
+  [^java.net.URL url]
+  (create-database (str url)))
+
 (defmethod create-database :meta
   [db-meta]
   (merge @*defaults* db-meta
          (couchdb-request
           (dissoc (merge @*defaults* db-meta) :name)
-          :put (:name db-meta))))
+          :put
+          :command (:name db-meta))))
 
 (defmulti database-info
   "Takes a database name and returns the meta information about the database."
@@ -160,6 +172,10 @@
                      (utils/url->db-meta db-string)
                      (assoc @*defaults* :name db-string))))
 
+(defmethod database-info :url
+  [^java.net.URL url]
+  (database-info (str url)))
+
 (defmethod database-info :meta
   [db-meta]
   (let [watched-databases @watched-databases
@@ -167,7 +183,8 @@
     (merge (if-let [watchers (watched-databases url-key)] {:watchers (vec (keys watchers))})
            (couchdb-request
             (dissoc (merge @*defaults* db-meta) :name) 
-            :get (:name db-meta)))))
+            :get
+            :command (:name db-meta)))))
     
 (defmulti get-database
   "Returns a database meta information if it already exists else creates a new database and returns
@@ -199,11 +216,16 @@
                      (utils/url->db-meta db-string)
                      (assoc @*defaults* :name db-string))))
 
+(defmethod delete-database :url
+  [^java.net.URL url]
+  (delete-database (str url)))
+
 (defmethod delete-database :meta
   [db-meta]
   (couchdb-request
    (dissoc (merge @*defaults* db-meta) :name) 
-   :delete (:name db-meta)))
+   :delete
+   :command (:name db-meta)))
  
 (defn replicate-database
   "Takes two arguments (a source and target for replication) which could be a
@@ -221,9 +243,10 @@
                                      (= :meta arg-type) db))))
         source-meta (get-meta source-database)
         target-meta (get-meta target-database)]
-    (couchdb-request (dissoc target-meta :name) :post "_replicate"
-                     {:source (utils/db-meta->url source-meta)
-                      :target (utils/db-meta->url target-meta)})))
+    (couchdb-request (dissoc target-meta :name) :post
+      :command "_replicate"
+      :data {:source (utils/db-meta->url source-meta)
+             :target (utils/db-meta->url target-meta)})))
 
 (defmulti watch-changes
   "Provided a database (database meta <map>, url <string>, or database name <string>) and a callback, watches
@@ -363,8 +386,15 @@
   ([document-map]
      (create-document document-map nil))
   ([document-map id]
-     (if-let [new-document-meta (couchdb-request config (if (nil? id) :post :put) id document-map)]
+     (if-let [new-document-meta (couchdb-request config (if (nil? id) :post :put)
+                                  :command (utils/uri-encode id) 
+                                  :data document-map)]
        (assoc document-map :_rev (new-document-meta :rev) :_id (new-document-meta :id)))))
+
+(defn dissoc-meta
+  "dissoc'es the :_id and :_rev slots from the provided map."
+  [doc]
+  (dissoc doc :_id :_rev))
 
 (defn get-document
   "Takes an id and an optional query parameters map as arguments and returns a
@@ -373,7 +403,8 @@
      (get-document id {}))
   ([id query-params-map]
      (if (and id (not (empty? id)))
-       (couchdb-request config :get (str id (utils/map-to-query-str query-params-map))))))
+       (couchdb-request config :get
+         :command (str (utils/uri-encode id) (utils/map-to-query-str query-params-map))))))
 
 (defn delete-document
   "Takes a document and deletes it from the database."
@@ -381,6 +412,26 @@
   (check-and-use-document document
     (couchdb-request config :delete)))
 
+(defmulti copy-document
+  "Copies the provided document (or the document with the given string id)
+   to the given new id.  If the destination id identifies an existing
+   document, then a document map (with up-to-date :_id and :_rev slots)
+   must be provided as a destination argument to avoid a 409 Conflict."
+  (fn [src dest]
+    (if (map? dest) :map :string)))
+
+(defmethod copy-document :string
+  [src dest]
+  (if-let [src-doc (if (map? src)
+                     src
+                     {:_id src})]
+    (check-and-use-document src-doc
+      (couchdb-request config :copy :headers {"Destination"
+                                              dest}))))
+
+(defmethod copy-document :map
+  [src dest]
+  (copy-document src (doc->rev-query-string dest)))
 
 (defmulti update-document
   "Takes document and a map and merges it with the original. When a function
@@ -391,6 +442,7 @@ their values (see: #'clojure.core/update-in)."
     (let [targ (second args)]
       (cond (fn? targ) :fn
             (map? targ) :map
+            (nil? targ) :updated
             :else (throw (IllegalArgumentException.
                           "A map or function is needed to update a document."))))))
 
@@ -398,7 +450,7 @@ their values (see: #'clojure.core/update-in)."
   [document update-fn update-keys]
   (let [updated-document      (update-in document update-keys update-fn)
         updated-document-meta (check-and-use-document document
-                                (couchdb-request config :put nil updated-document))]
+                                (couchdb-request config :put :data updated-document))]
     (if updated-document-meta
       (assoc updated-document :_rev (updated-document-meta :rev)))))
 
@@ -406,9 +458,16 @@ their values (see: #'clojure.core/update-in)."
   [document merge-map]
   (let [updated-document      (merge document merge-map)
         updated-document-meta (check-and-use-document document
-                                (couchdb-request config :put nil updated-document))]
+                                (couchdb-request config :put :data updated-document))]
     (if updated-document-meta
       (assoc updated-document :_rev (updated-document-meta :rev)))))
+
+(defmethod update-document :updated
+  [document]
+  (if-let [updated-document (check-and-use-document
+                             document
+                             (couchdb-request config :put :data document))]
+    (assoc document :_rev (updated-document :rev))))
 
 (defn get-all-documents-meta
   "Returns the meta (_id and _rev) of all documents in a database. By adding 
@@ -421,9 +480,10 @@ their values (see: #'clojure.core/update-in)."
   ([query-params-map]
      (get-all-documents-meta query-params-map {}))
   ([query-params-map post-data-map]
-     (couchdb-request config (if (empty? post-data-map) :get :post)
-                      (str "_all_docs" (utils/map-to-query-str query-params-map))
-                      (if (empty? post-data-map) nil post-data-map))))
+     (couchdb-request config
+       (if (empty? post-data-map) :get :post)
+       :command (str "_all_docs" (utils/map-to-query-str query-params-map))
+       :data (if (empty? post-data-map) nil post-data-map))))
 
 (defn save-view
   "Create a design document used for database queries."
@@ -442,10 +502,11 @@ their values (see: #'clojure.core/update-in)."
   ([design-document view-key query-params-map]
      (get-view design-document view-key query-params-map {}))
   ([design-document view-key query-params-map post-data-map]
-     (couchdb-request config (if (empty? post-data-map) :get :post)
-                      (str "_design/" design-document "/_view/" (name view-key)
-                           (utils/map-to-query-str query-params-map))
-                      (if (empty? post-data-map) nil post-data-map))))
+     (couchdb-request config
+       (if (empty? post-data-map) :get :post)
+       :command (str "_design/" design-document "/_view/" (name view-key)
+                  (utils/map-to-query-str query-params-map))
+       :data (if (empty? post-data-map) nil post-data-map))))
 
 (defn ad-hoc-view
   "One-off queries (i.e. views you don't want to save in the CouchDB database). Ad-hoc
@@ -455,10 +516,10 @@ their values (see: #'clojure.core/update-in)."
      (ad-hoc-view map-reduce-fns-map {}))
   ([map-reduce-fns-map query-params-map]
      (couchdb-request config :post 
-                      (str "_temp_view" (utils/map-to-query-str query-params-map))
-                      (if-not (contains? map-reduce-fns-map :language)
-                        (assoc map-reduce-fns-map :language (config :language))
-                        map-reduce-fns-map))))
+       :command (str "_temp_view" (utils/map-to-query-str query-params-map))
+       :data (if-not (contains? map-reduce-fns-map :language)
+               (assoc map-reduce-fns-map :language (config :language))
+               map-reduce-fns-map))))
 
 (defn save-filter
   "Create a filter for use with CouchDB change notifications API via 'watch-changes'." 
@@ -476,10 +537,11 @@ their values (see: #'clojure.core/update-in)."
   ([documents-vector update-map]
      (bulk-update documents-vector update-map nil))
   ([documents-vector update-map options-map]
-     (couchdb-request config :post "_bulk_docs"
-                      (merge {:docs (if update-map 
-                                      (map #(merge % update-map) documents-vector) 
-                                      documents-vector)} options-map))))
+     (couchdb-request config :post
+       :command "_bulk_docs"
+       :data (merge {:docs (if update-map 
+                             (map #(merge % update-map) documents-vector) 
+                             documents-vector)} options-map))))
 
 (defn update-attachment
   "Takes a document, file (either a string path to the file, a java.io.File object, or an InputStream)
@@ -498,10 +560,10 @@ their values (see: #'clojure.core/update-in)."
                     (throw (IllegalArgumentException. "Must provide a file-key if using InputStream as attachment data.")))]
     (check-and-use-document document
       (couchdb-request config :put
-        (if (keyword? file-name)
-          (name file-name) file-name)
-        stream
-        (or mime-type (and file (utils/get-mime-type file)))))))
+        :command (if (keyword? file-name)
+                   (name file-name) file-name)
+        :data stream
+        :data-type (or mime-type (and file (utils/get-mime-type file)))))))
 
 (defn get-attachment
   "Returns an InputStream reading the named attachment to the specified/provided document,
@@ -515,13 +577,13 @@ their values (see: #'clojure.core/update-in)."
                           attachment-name)]
     (when (-?> document :_attachments (get (keyword attachment-name)))
       (check-and-use-document document
-        (couchdb-request (assoc config :read-json-response false) :get attachment-name)))))
+        (couchdb-request (assoc config :read-json-response false) :get :command attachment-name)))))
 
 (defn delete-attachment
   "Deletes an attachemnt from a document."
   [document file-name]
   (check-and-use-document document
-    (couchdb-request config :delete file-name)))
+    (couchdb-request config :delete :command file-name)))
 
 (defn get-attachment
   "Returns an InputStream reading the named attachment to the specified/provided document,
@@ -535,4 +597,4 @@ their values (see: #'clojure.core/update-in)."
                           attachment-name)]
     (when (-?> doc :_attachments (get (keyword attachment-name)))
       (check-and-use-document doc
-        (couchdb-request (assoc config :read-json-response false) :get attachment-name)))))
+        (couchdb-request (assoc config :read-json-response false) :get :command attachment-name)))))

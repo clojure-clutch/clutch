@@ -5,7 +5,9 @@
             [clojure.contrib.io :as io])
   (:use com.ashafa.clutch 
         clojure.test)
-  (:import java.io.ByteArrayInputStream))
+  (:import (java.io File ByteArrayInputStream)))
+
+(def resources-path "test")
 
 (set-clutch-defaults! {:host "localhost"})
 
@@ -33,7 +35,7 @@
 (use-fixtures
   :once
   #(binding [*clj-view-svr-config* (try
-                                     (http-client/couchdb-request @*defaults* :get "_config/query_servers/clojure")
+                                     (http-client/couchdb-request @*defaults* :get :command "_config/query_servers/clojure")
                                      (catch java.io.IOException e false))]
      (when-not *clj-view-svr-config*
        (println "Clojure view server not available, skipping tests that depend upon it!"))
@@ -57,6 +59,38 @@
     (is (= (:name test-database) (:db_name (database-info test-database))))
     (is (:ok (delete-database test-database)))))
 
+(defn- valid-id-charcode?
+  [code]
+  (cond
+    ; c.c.json doesn't cope well with the responses provided when CR or LF are included
+    (#{10 13} code) false
+    ; D800–DFFF only used in surrogate pairs, invalid anywhere else (couch chokes on them)
+    (and (>= code 0xd800) (<= code 0xdfff)) false
+    :else true))
+
+; create a document containing each of the 65K chars in unicode BMP.
+; this ensures that utils/id-encode is doing what it should and that we aren't screwing up
+; encoding issues generally (which are easy regressions to introduce) 
+(defdbtest test-docid-encoding
+  ; doing a lot of requests here -- the test is crazy-slow if delayed_commit=false,
+  ; so let's use the iron we've got
+  (let [clutch-config config
+        agents (vec (repeatedly 100 #(agent nil)))]
+    (doseq [x (range 0xffff)
+            :when (valid-id-charcode? x)
+            :let [id (str "a" (char x)) ; doc ids can't start with _, so prefix everything
+                  id-desc (str x " " id)]]
+      (send-off (agents (mod x (count agents)))
+        (fn [& args]
+          (binding [config clutch-config
+                    http-client/*response-code* (atom nil)]
+            (try
+              (is (= id (:_id (create-document {} id))) id-desc)
+              (is (= {} (dissoc (get-document id) :_id :_rev)) id-desc)
+              (catch Exception e
+                (is false (str "Error for " id-desc ": " (.getMessage e)))))))))
+    (apply await agents)))
+
 (defdbtest create-a-document
   (let [document (create-document test-document-1)]
     (are [k] (contains? document k)
@@ -65,6 +99,13 @@
 (defdbtest create-a-document-with-id
   (let [document (create-document test-document-2 "my_id")]
     (is (= "my_id" (document :_id)))))
+
+(defrecord Foo [a])
+
+(defdbtest create-with-record
+  (let [rec (create-document (Foo. "bar") "docid")]
+    (is (instance? Foo rec)))
+  (is (= "bar" (-> "docid" get-document :a))))
 
 (defdbtest get-a-document
   (let [created-document (create-document test-document-3)
@@ -83,18 +124,68 @@
 (defdbtest update-a-document
   (let [id (:_id (create-document test-document-4))]
     (update-document (get-document id) {:email "test@example.com"})
-    (is (= "test@example.com" (:email (get-document id))))))
+    (is (= "test@example.com" (:email (get-document id)))))
+  (testing "no update map or fn"
+    (let [id (:_id (create-document test-document-4))]
+      (update-document (merge (get-document id) {:email "test@example.com"}))
+      (is (= "test@example.com" (:email (get-document id)))))))
 
 (defdbtest update-a-document-with-a-function
   (let [id (:_id (create-document test-document-3))]
     (update-document (get-document id) (partial + 3) [:score])
     (is (= 83 (:score (get-document id))))))
 
+(defdbtest update-with-updated-map
+  (-> test-document-3
+    (create-document "docid")
+    (assoc :a "bar")
+    update-document)
+  (is (= "bar" (-> "docid" get-document :a))))
+
+(defdbtest update-with-record
+  (let [rec (-> (Foo. "bar")
+              (merge (create-document {} "docid"))
+              update-document)]
+    (is (instance? Foo rec)))
+  (is (= "bar" (-> "docid" get-document :a))))
+
 (defdbtest delete-a-document
   (create-document test-document-2 "my_id")
   (is (get-document "my_id"))
   (is (true? (:ok (delete-document (get-document "my_id")))))
   (is (nil? (get-document "my_id"))))
+
+(defdbtest copy-a-document
+  (let [doc (create-document test-document-1 "src")]
+  (copy-document "src" "dst")
+  (copy-document doc "dst2")
+  (is (= (dissoc-meta doc)
+        (-> "dst" get-document dissoc-meta)
+        (-> "dst2" get-document dissoc-meta)))))
+
+(defdbtest copy-document-overwrite
+  (let [doc (create-document test-document-1 "src")
+        overwrite (create-document test-document-2 "overwrite")]
+    (copy-document doc overwrite)
+    (is (= (dissoc-meta doc) (-> overwrite :_id get-document dissoc-meta)))))
+
+(defdbtest copy-document-attachments
+  (let [doc (create-document test-document-1 "src")
+        file (File. (str resources-path "/couchdb.png"))
+        doc (update-attachment doc file :image)
+        doc (-> doc :id get-document)]
+    (copy-document "src" "dest")
+    (let [copy (get-document "dest")
+          copied-attachment (get-attachment copy :image)]
+      (is (= (dissoc-meta doc) (dissoc-meta copy)))
+      (is (= (-> file io/to-byte-array seq) (-> copied-attachment io/to-byte-array seq))))))
+
+(defdbtest copy-document-fail-overwrite
+  (create-document test-document-1 "src")
+  (create-document test-document-2 "overwrite")
+  (binding [http-client/*response-code* (atom nil)]
+    (is (thrown? java.io.IOException (copy-document "src" "overwrite")))
+    (is (== 409 @http-client/*response-code*))))
 
 (defdbtest get-all-documents-with-query-parameters
   (create-document test-document-1 "a")
@@ -242,8 +333,7 @@
   (is (every? true? (map #(-> % :doc :updated) (:rows (get-all-documents-meta {:include_docs true}))))))
 
 (defdbtest inline-attachments
-  (let [resources-path   (or (.getParent (java.io.File. *file*)) "test")
-        clojure-img-file (str resources-path "/clojure.png")
+  (let [clojure-img-file (str resources-path "/clojure.png")
         couchdb-img-file (str resources-path "/couchdb.png")
         created-document (create-document test-document-4 [clojure-img-file couchdb-img-file])
         fetched-document (get-document (created-document :_id))]
@@ -262,8 +352,7 @@
          (.length (java.io.File. couchdb-img-file)) (-> fetched-document :_attachments :couchdb.png :length))))
 
 (defdbtest standalone-attachments
-  (let [resources-path            (or (.getParent (java.io.File. *file*)) "test")
-        document                  (create-document test-document-1)
+  (let [document                  (create-document test-document-1)
         updated-document-meta     (update-attachment document (str resources-path "/couchdb.png") :couchdb-image)
         document-with-attachments (get-document (updated-document-meta :id) {:attachments true})]
     (is (= [:couchdb-image] (keys (document-with-attachments :_attachments))))
@@ -273,8 +362,7 @@
     (is (thrown? IllegalArgumentException (update-attachment document (ByteArrayInputStream. (make-array Byte/TYPE 0)))))))
 
 (defdbtest stream-attachments
-  (let [resources-path            (or (.getParent (java.io.File. *file*)) "test")
-        document                  (create-document test-document-4)
+  (let [document                  (create-document test-document-4)
         updated-document-meta     (update-attachment document (str resources-path "/couchdb.png") :couchdb-image "other/mimetype")
         document-with-attachments (get-document (updated-document-meta :id) {:attachments true})
         data (io/to-byte-array (java.io.File. (str resources-path "/couchdb.png")))]
