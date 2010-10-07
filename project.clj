@@ -5,4 +5,5 @@
                  [org.clojure/clojure-contrib "1.2.0"]]
   :dev-dependencies [[autodoc "0.7.0"]
                      [swank-clojure "1.2.1"]
+		     [lein-run "1.0.0"]
                      [lein-clojars "0.5.0-SNAPSHOT"]])

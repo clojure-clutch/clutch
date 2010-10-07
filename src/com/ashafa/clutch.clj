@@ -15,9 +15,9 @@
 ;; THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
 ;; IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
 ;; OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-;; IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+;; IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT
 ;; INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
-;; NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+;; NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE
 ;; DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 ;; THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 ;; (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
@@ -48,6 +48,7 @@
   ; discovered experimentally with v0.10 and v0.11 ~March 2010
   *wildcard-collation-string* "\ufff0")
 
+;; dissoc should handle removing other parameters?
 (defn set-clutch-defaults!
   "Sets Clutch default configuration:
         {:host     <ip (defaults to \"localhost\")>
@@ -58,6 +59,40 @@
   [configuration-map]
   (dosync (alter *defaults* merge configuration-map)))
 
+(defn set-clutch-config
+  "Sets Clutch configuration
+        {:host     <ip (defaults to \"localhost\")>
+         :port     <port (defaults to 5984)>
+         :language <language the CouchDB view server uses (see: README)>
+         :username <username (if http authentication is enabled)>
+         :password <password (if http authentication is enabled)>}"
+  [configuration-map]
+  (set-clutch-defaults! cm))
+
+(def *clutch-host* (get (deref *defaults*) :host))
+
+(def *clutch-port* (get (deref *defaults*) :port))
+
+(def *clutch-ssl-port* (get (deref *defaults*) :ssl-port))
+
+(def *clutch-language* (get (deref *defaults*) :language))
+
+(defn set-clutch-host! [hostname]
+  "Set Clutch default host"
+  (set-clutch-defaults! {:host hostname}))
+
+(defn set-clutch-port! [port]
+  "Set Clutch default port"
+  (set-clutch-defaults! {:port port}))
+
+(defn set-clutch-ssl-port! [ssl-port]
+  "Set Clutch default ssl port"
+  (set-clutch-defaults! {:ssl-port ssl-port}))
+
+(defn set-clutch-language! [lang]
+  "Set Clutch default language"
+  (set-clutch-defaults! {:language lang}))
+
 (def #^{:private true} watched-databases (ref {}))
 
 (defn database-arg-type
@@ -67,7 +102,7 @@
           (and (map? arg) (contains? arg :name)) :meta
           (instance? java.net.URL arg) :url
           :else (throw
-                 (IllegalArgumentException. 
+                 (IllegalArgumentException.
                   "Either a database name, url, or a map with a ':name' key is required.")))))
 
 (defn url->db-meta
@@ -91,23 +126,23 @@
      (binding [config (assoc config :name
                         (str (config :name) "/" (doc->rev-query-string ~doc)))]
        (do ~@body))
-     (throw 
+     (throw
       (IllegalArgumentException. "A valid document is required."))))
 
 
 (defmacro with-clj-view-server
   "Takes a map and serializes the values of each key as a string for use by the Clojure view server."
   ([view-server-map]
-     (reduce #(assoc %1 %2 (pr-str (%2 view-server-map))) {} (keys view-server-map)))) 
+     (reduce #(assoc %1 %2 (pr-str (%2 view-server-map))) {} (keys view-server-map))))
 
 (defmacro with-db
-  "Takes a string (database name) or map (database meta) with a body of forms. It 
+  "Takes a string (database name) or map (database meta) with a body of forms. It
    then binds the database information to the Clutch configuration and then executes
    the body."
   [database & body]
   `(let [arg-type# (database-arg-type ~database)]
-    (binding [config (merge @*defaults* 
-                            (cond (= :string arg-type#) (if (re-find #"^https?:" ~database) 
+    (binding [config (merge @*defaults*
+                            (cond (= :string arg-type#) (if (re-find #"^https?:" ~database)
                                                           (utils/url->db-meta ~database)
                                                           {:name ~database})
                                   (= :meta arg-type#) ~database
@@ -146,7 +181,7 @@
 
 (defmethod create-database :string
   [db-string]
-  (create-database (if (re-find #"^https?:" db-string) 
+  (create-database (if (re-find #"^https?:" db-string)
                      (utils/url->db-meta db-string)
                      (assoc @*defaults* :name db-string))))
 
@@ -168,7 +203,7 @@
 
 (defmethod database-info :string
   [db-string]
-  (database-info (if (re-find #"^https?:" db-string) 
+  (database-info (if (re-find #"^https?:" db-string)
                      (utils/url->db-meta db-string)
                      (assoc @*defaults* :name db-string))))
 
@@ -182,10 +217,10 @@
         url-key           (utils/db-meta->url db-meta)]
     (merge (if-let [watchers (watched-databases url-key)] {:watchers (vec (keys watchers))})
            (couchdb-request
-            (dissoc (merge @*defaults* db-meta) :name) 
+            (dissoc (merge @*defaults* db-meta) :name)
             :get
             :command (:name db-meta)))))
-    
+
 (defmulti get-database
   "Returns a database meta information if it already exists else creates a new database and returns
    the meta information for the new database."
@@ -193,7 +228,7 @@
 
 (defmethod get-database :string
   [db-string]
-  (let [db-meta (if (re-find #"^https?:" db-string) 
+  (let [db-meta (if (re-find #"^https?:" db-string)
                   (utils/url->db-meta db-string)
                   (assoc @*defaults* :name db-string))]
     (if (database-info db-meta)
@@ -205,14 +240,14 @@
   (if (database-info db-meta)
     (merge @*defaults* db-meta)
     (merge @*defaults* (create-database db-meta))))
- 
+
 (defmulti delete-database
   "Takes a database name and deletes the corresponding database."
   database-arg-type)
 
 (defmethod delete-database :string
   [db-string]
-  (delete-database (if (re-find #"^https?:" db-string) 
+  (delete-database (if (re-find #"^https?:" db-string)
                      (utils/url->db-meta db-string)
                      (assoc @*defaults* :name db-string))))
 
@@ -223,13 +258,13 @@
 (defmethod delete-database :meta
   [db-meta]
   (couchdb-request
-   (dissoc (merge @*defaults* db-meta) :name) 
+   (dissoc (merge @*defaults* db-meta) :name)
    :delete
    :command (:name db-meta)))
- 
+
 (defn replicate-database
   "Takes two arguments (a source and target for replication) which could be a
-   string (name of a database in the default Clutch configuration) or a map that 
+   string (name of a database in the default Clutch configuration) or a map that
    contains a least the database name (':name' keyword, map is merged with
    default Clutch configuration) and reproduces all the active documents in the
    source database on the target databse."
@@ -237,7 +272,7 @@
   (let [get-meta    (fn [db]
                       (let [arg-type (database-arg-type db)]
                         (merge @*defaults*
-                               (cond (= :string arg-type) (if (re-find #"^https?:" db) 
+                               (cond (= :string arg-type) (if (re-find #"^https?:" db)
                                                             (utils/url->db-meta db)
                                                             (assoc @*defaults* :name db))
                                      (= :meta arg-type) db))))
@@ -276,7 +311,7 @@
 
 (defmethod watch-changes :string
   [db-string watch-key callback & options]
-  (apply watch-changes (if (re-find #"^https?:" db-string) 
+  (apply watch-changes (if (re-find #"^https?:" db-string)
                          (utils/url->db-meta db-string)
                          (assoc @*defaults* :name db-string)) watch-key callback options))
 
@@ -289,7 +324,7 @@
       (dosync
        (let [uid     (.getTime (java.util.Date.))
              watcher {:uid        uid
-                      :http-agent (h/http-agent 
+                      :http-agent (h/http-agent
                                    (str url-str "/_changes" (utils/map-to-query-str options-map false))
                                    :method "GET"
                                    :handler (partial watch-changes-handler url-str watch-key uid))
@@ -307,7 +342,7 @@
 
 (defmethod changes-error :string
   [db-string watch-key]
-  (changes-error (if (re-find #"^https?:" db-string) 
+  (changes-error (if (re-find #"^https?:" db-string)
                    (utils/url->db-meta db-string)
                    (assoc @*defaults* :name db-string)) watch-key))
 
@@ -319,7 +354,7 @@
      (:last-error  (watched-database watch-key)))))
 
 (defmulti stop-changes
-  "If the provided database changes are being watched (see: 'watch-changes'), stops the execution 
+  "If the provided database changes are being watched (see: 'watch-changes'), stops the execution
    of the callback on every change to the watched database."
   database-arg-type)
 
@@ -327,7 +362,7 @@
   ([db-string]
      (stop-changes db-string nil))
   ([db-string watch-key]
-     (stop-changes (if (re-find #"^https?:" db-string) 
+     (stop-changes (if (re-find #"^https?:" db-string)
                      (utils/url->db-meta db-string)
                      (assoc @*defaults* :name db-string)) watch-key)))
 
@@ -387,7 +422,7 @@
      (create-document document-map nil))
   ([document-map id]
      (if-let [new-document-meta (couchdb-request config (if (nil? id) :post :put)
-                                  :command (utils/uri-encode id) 
+                                  :command (utils/uri-encode id)
                                   :data document-map)]
        (assoc document-map :_rev (new-document-meta :rev) :_id (new-document-meta :id)))))
 
@@ -470,7 +505,7 @@ their values (see: #'clojure.core/update-in)."
     (assoc document :_rev (updated-document :rev))))
 
 (defn get-all-documents-meta
-  "Returns the meta (_id and _rev) of all documents in a database. By adding 
+  "Returns the meta (_id and _rev) of all documents in a database. By adding
    the key ':include_docs' with a value of true to the optional query params map
    you can also get the full documents, not just their meta. Also takes an optional
    second map of {:key [keys]} to be POSTed.
@@ -515,14 +550,14 @@ their values (see: #'clojure.core/update-in)."
   ([map-reduce-fns-map]
      (ad-hoc-view map-reduce-fns-map {}))
   ([map-reduce-fns-map query-params-map]
-     (couchdb-request config :post 
+     (couchdb-request config :post
        :command (str "_temp_view" (utils/map-to-query-str query-params-map))
        :data (if-not (contains? map-reduce-fns-map :language)
                (assoc map-reduce-fns-map :language (config :language))
                map-reduce-fns-map))))
 
 (defn save-filter
-  "Create a filter for use with CouchDB change notifications API via 'watch-changes'." 
+  "Create a filter for use with CouchDB change notifications API via 'watch-changes'."
   [design-document-name view-server-map]
   (let [design-doc-id (str "_design/" design-document-name)]
     (if-let [design-doc (get-document design-doc-id)]
@@ -539,13 +574,13 @@ their values (see: #'clojure.core/update-in)."
   ([documents-vector update-map options-map]
      (couchdb-request config :post
        :command "_bulk_docs"
-       :data (merge {:docs (if update-map 
-                             (map #(merge % update-map) documents-vector) 
+       :data (merge {:docs (if update-map
+                             (map #(merge % update-map) documents-vector)
                              documents-vector)} options-map))))
 
 (defn update-attachment
   "Takes a document, file (either a string path to the file, a java.io.File object, or an InputStream)
-   and optionally, a new file name in lieu of the file name of the file argument and a mime type,
+   and optionally, a new file name in lieu of the file name of the file argument and a mime type
    then inserts (or updates if the file name of the attachment already exists in the document)
    the file as an attachment to the document."
   [document attachment & [file-key mime-type]]
@@ -566,9 +601,9 @@ their values (see: #'clojure.core/update-in)."
         :data-type (or mime-type (and file (utils/get-mime-type file)))))))
 
 (defn get-attachment
-  "Returns an InputStream reading the named attachment to the specified/provided document,
+  "Returns an InputStream reading the named attachment to the specified/provided document
    or nil if the document or attachment does not exist.
- 
+
    Hint: use the copy or to-byte-array fns in duck-streams to easily redirect the result."
   [document-or-id attachment-name]
   (let [document        (if (map? document-or-id) document-or-id (get-document document-or-id))
@@ -586,7 +621,7 @@ their values (see: #'clojure.core/update-in)."
     (couchdb-request config :delete :command file-name)))
 
 (defn get-attachment
-  "Returns an InputStream reading the named attachment to the specified/provided document,
+  "Returns an InputStream reading the named attachment to the specified/provided document
    or nil if the document or attachment does not exist.
 
    Hint: use the copy or to-byte-array fns in c.c.io to easily redirect the result."
