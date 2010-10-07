@@ -67,7 +67,7 @@
          :username <username (if http authentication is enabled)>
          :password <password (if http authentication is enabled)>}"
   [configuration-map]
-  (set-clutch-defaults! cm))
+  (set-clutch-defaults! configuration-map))
 
 (def *clutch-host* (get (deref *defaults*) :host))
 
@@ -149,15 +149,6 @@
                                   (= :url arg-type#) (url->db-meta ~database)))]
       (do ~@body))))
 
-(defn set-clutch-defaults!
-  "Sets Clutch default CouchDB configuration:
-        {:host     <ip (defaults to \"localhost\")>
-         :port     <port (defaults to 5984)>
-         :language <language the CouchDB view server uses (see: README)>
-         :username <username (if http authentication is enabled)>
-         :password <password (if http authentication is enabled)>}"
-  [configuration-map]
-  (dosync (alter *defaults* merge configuration-map)))
 
 (defn couchdb-info
   "Returns informataion about a CouchDB instance."
