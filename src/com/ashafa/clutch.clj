@@ -174,17 +174,6 @@
   ([db-meta]
      (couchdb-request (dissoc (merge @*defaults* db-meta) :name) :get :command "_all_dbs")))
 
-;; default authentication db is called "_users". In this db the information about users is stored.
-;; change authentication db
-
-;; users_db = new CouchDB("custom_users_db");
-
-(defn change-auth-db [db_name]
-  "Change authentication db"
-  (create-database db_name)
-  )
-
-
 (defmulti create-database
   "Takes a map (cofiguration of a CouchDB server with a :name key) or string (using the
    string and the :name key and merging it into the default Clutch configuration) and
