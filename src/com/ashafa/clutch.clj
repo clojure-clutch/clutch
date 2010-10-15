@@ -33,6 +33,7 @@
   (:use com.ashafa.clutch.http-client
         (clojure.contrib core def)))
 
+
 (declare config)
 
 ;; default clutch configuration
@@ -91,17 +92,6 @@
 (defn set-clutch-language! [lang]
   "Set Clutch default language"
   (set-clutch-defaults! {:language lang}))
-
-;; PersistentHashMap of couchdb config
-(def *couchdb-config* (database-info "_config"))
-
-(defn couchdb-config-search-key [attrib]
-  "search couchdb config for value of certain attribute by key"
-  (get *couchdb-config* attrib))
-
-(defn couchdb-config-search-string [attrib]
-  "search couchdb config for value of certain attribute by string"
-  (filter (fn [x] (re-find (re-pattern (str attrib)) (str x))) *couchdb-config*))
 
 (def #^{:private true} watched-databases (ref {}))
 
@@ -173,17 +163,6 @@
      (all-databases nil))
   ([db-meta]
      (couchdb-request (dissoc (merge @*defaults* db-meta) :name) :get :command "_all_dbs")))
-
-;; default authentication db is called "_users". In this db the information about users is stored.
-;; change authentication db
-
-;; users_db = new CouchDB("custom_users_db");
-
-(defn change-auth-db [db_name]
-  "Change authentication db"
-  (create-database db_name)
-  )
-
 
 (defmulti create-database
   "Takes a map (cofiguration of a CouchDB server with a :name key) or string (using the
