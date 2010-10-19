@@ -78,6 +78,29 @@
    :port (.getPort url)
    :name (.getPath url)})
 
+(defn config-for
+  "Returns a clutch database configuration map, suitable for use with
+   with-db, set-clutch-defaults!, or set-clutch-config!."
+  [database]
+  (let [arg-type (database-arg-type database)]
+    (merge @*defaults* 
+      (cond (= :string arg-type) (if (re-find #"^https?:" database) 
+                                    (utils/url->db-meta database)
+                                    {:name database})
+        (= :meta arg-type) database
+        (= :url arg-type) (url->db-meta database)))))
+
+(defn set-clutch-config!
+  "Sets the configuration to be used by Clutch, eliminating the need to
+   use with-db.
+   
+   This should *only* ever be used as a convenience on the REPL, and
+   even then, only with caution."
+  [config-map]
+  (let [config-map (config-for config-map)]
+    (def config config-map)
+    config))
+
 (defn- doc->rev-query-string
   [doc]
   (apply str
@@ -105,14 +128,8 @@
    then binds the database information to the Clutch configuration and then executes
    the body."
   [database & body]
-  `(let [arg-type# (database-arg-type ~database)]
-    (binding [config (merge @*defaults* 
-                            (cond (= :string arg-type#) (if (re-find #"^https?:" ~database) 
-                                                          (utils/url->db-meta ~database)
-                                                          {:name ~database})
-                                  (= :meta arg-type#) ~database
-                                  (= :url arg-type#) (url->db-meta ~database)))]
-      (do ~@body))))
+  `(binding [config (config-for ~database)]
+     (do ~@body)))
 
 (defn set-clutch-defaults!
   "Sets Clutch default CouchDB configuration:
