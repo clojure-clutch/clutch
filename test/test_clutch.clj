@@ -443,7 +443,7 @@
                (with-clj-view-server
                  {:less-than-50 (fn [document request] (if (< (:score document) 50) true false))}))
   (watch-changes test-database :check-id (partial check-id-changes-test "Filter")
-                 {:filter "scores/less-than-50"})
+                 :filter "scores/less-than-50")
   (create-document {:name "tester 1" :score 22} "target-id")
   (create-document {:name "tester 2" :score 79} "not-target-id"))
 
@@ -455,6 +455,6 @@
                                                               (= (:name document) (-> request :query :name)))
                                                        true false))}))
   (watch-changes test-database :check-id (partial check-id-changes-test "Filter with query parameters") 
-                 {:filter "scores/more-than-50-from-a-user" :name "tester 1"})
+                 :filter "scores/more-than-50-from-a-user" :name "tester 1")
   (create-document {:name "tester 1" :score 51} "target-id")
   (create-document {:name "tester 2" :score 48} "not-target-id"))

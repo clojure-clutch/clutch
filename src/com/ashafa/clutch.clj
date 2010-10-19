@@ -298,16 +298,19 @@
                          (assoc @*defaults* :name db-string)) watch-key callback options))
 
 (defmethod watch-changes :meta
-  [db-meta watch-key callback & options]
+  [db-meta watch-key callback & {:as options}]
   (let [url-str     (utils/db-meta->url db-meta)
-        since-seq   (:update_seq (database-info db-meta))
-        options-map (merge (first options) {:heartbeat 30000 :feed "continuous" :since since-seq})]
-    (when since-seq
+        last-update (:update_seq (database-info db-meta))
+        options (merge {:heartbeat 30000 :feed "continuous"} options)
+        options (if (:since options)
+                  options
+                  (assoc options :since last-update))]
+    (when last-update
       (dosync
-       (let [uid     (.getTime (java.util.Date.))
+       (let [uid     (str (java.util.UUID/randomUUID))
              watcher {:uid        uid
                       :http-agent (h/http-agent 
-                                   (str url-str "/_changes" (utils/map-to-query-str options-map false))
+                                   (str url-str "/_changes" (utils/map-to-query-str options false))
                                    :method "GET"
                                    :handler (partial watch-changes-handler url-str watch-key uid))
                       :callback   callback}]
