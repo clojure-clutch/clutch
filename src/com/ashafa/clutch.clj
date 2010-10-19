@@ -465,25 +465,16 @@ their values (see: #'clojure.core/update-in)."
 
 (defmethod update-document :fn
   [document update-fn update-keys]
-  (let [updated-document      (update-in document update-keys update-fn)
-        updated-document-meta (check-and-use-document document
-                                (couchdb-request config :put :data updated-document))]
-    (if updated-document-meta
-      (assoc updated-document :_rev (updated-document-meta :rev)))))
+  (update-document (update-in document update-keys update-fn)))
 
 (defmethod update-document :map
   [document merge-map]
-  (let [updated-document      (merge document merge-map)
-        updated-document-meta (check-and-use-document document
-                                (couchdb-request config :put :data updated-document))]
-    (if updated-document-meta
-      (assoc updated-document :_rev (updated-document-meta :rev)))))
+  (update-document (merge document merge-map)))
 
 (defmethod update-document :updated
   [document]
-  (if-let [updated-document (check-and-use-document
-                             document
-                             (couchdb-request config :put :data document))]
+  (when-let [updated-document (check-and-use-document document
+                                (couchdb-request config :put :data document))]
     (assoc document :_rev (updated-document :rev))))
 
 (defn get-all-documents-meta
