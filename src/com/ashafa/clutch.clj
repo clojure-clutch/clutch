@@ -355,7 +355,10 @@
      (dosync
       (let [url-key (utils/db-meta->url db-meta)]
         (if watch-key
-          (alter watched-databases update-in [url-key watch-key] nil)
+          (alter watched-databases #(let [m (update-in % [url-key] dissoc watch-key)]
+                                      (if (seq (m url-key))
+                                        m
+                                        (dissoc m url-key))))
           (alter watched-databases dissoc url-key))))
      db-meta))
 

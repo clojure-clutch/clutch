@@ -413,6 +413,17 @@
   (watch-changes test-database :check-id (partial check-id-changes-test "Watch database"))
   (create-document test-document-2 "target-id"))
 
+(defdbtest ensure-stop-changes
+  (watch-changes test-database :foo println)
+  (letfn [(tracking-changes? [] (->> @@#'com.ashafa.clutch/watched-databases
+                                  (filter #(.contains (first %) (:name test-database)))
+                                  first
+                                  second
+                                  seq))]
+    (is (tracking-changes?))
+    (stop-changes test-database :foo)
+    (is (not (tracking-changes?)))))
+
 (defdbtest multiple-watchers-for-change
   (watch-changes test-database :check-id (partial check-id-changes-test "Multiple watchers - id"))
   (watch-changes test-database :check-seq (partial check-seq-changes-test "Multiple watchers - seq"))
