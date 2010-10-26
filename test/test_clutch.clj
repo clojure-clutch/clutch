@@ -413,6 +413,17 @@
   (watch-changes test-database :check-id (partial check-id-changes-test "Watch database"))
   (create-document test-document-2 "target-id"))
 
+(defdbtest ensure-stop-changes
+  (watch-changes test-database :foo println)
+  (letfn [(tracking-changes? [] (->> @@#'com.ashafa.clutch/watched-databases
+                                  (filter #(.contains (first %) (:name test-database)))
+                                  first
+                                  second
+                                  seq))]
+    (is (tracking-changes?))
+    (stop-changes test-database :foo)
+    (is (not (tracking-changes?)))))
+
 (defdbtest multiple-watchers-for-change
   (watch-changes test-database :check-id (partial check-id-changes-test "Multiple watchers - id"))
   (watch-changes test-database :check-seq (partial check-seq-changes-test "Multiple watchers - seq"))
@@ -432,7 +443,7 @@
                (with-clj-view-server
                  {:less-than-50 (fn [document request] (if (< (:score document) 50) true false))}))
   (watch-changes test-database :check-id (partial check-id-changes-test "Filter")
-                 {:filter "scores/less-than-50"})
+                 :filter "scores/less-than-50")
   (create-document {:name "tester 1" :score 22} "target-id")
   (create-document {:name "tester 2" :score 79} "not-target-id"))
 
@@ -444,6 +455,6 @@
                                                               (= (:name document) (-> request :query :name)))
                                                        true false))}))
   (watch-changes test-database :check-id (partial check-id-changes-test "Filter with query parameters") 
-                 {:filter "scores/more-than-50-from-a-user" :name "tester 1"})
+                 :filter "scores/more-than-50-from-a-user" :name "tester 1")
   (create-document {:name "tester 1" :score 51} "target-id")
   (create-document {:name "tester 2" :score 48} "not-target-id"))

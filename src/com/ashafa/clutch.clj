@@ -113,6 +113,29 @@
    :port (.getPort url)
    :name (.getPath url)})
 
+(defn config-for
+  "Returns a clutch database configuration map, suitable for use with
+   with-db, set-clutch-defaults!, or set-clutch-config!."
+  [database]
+  (let [arg-type (database-arg-type database)]
+    (merge @*defaults* 
+      (cond (= :string arg-type) (if (re-find #"^https?:" database) 
+                                    (utils/url->db-meta database)
+                                    {:name database})
+        (= :meta arg-type) database
+        (= :url arg-type) (url->db-meta database)))))
+
+(defn set-clutch-config!
+  "Sets the configuration to be used by Clutch, eliminating the need to
+   use with-db.
+   
+   This should *only* ever be used as a convenience on the REPL, and
+   even then, only with caution."
+  [config-map]
+  (let [config-map (config-for config-map)]
+    (def config config-map)
+    config))
+
 (defn- doc->rev-query-string
   [doc]
   (apply str
@@ -140,15 +163,8 @@
    then binds the database information to the Clutch configuration and then executes
    the body."
   [database & body]
-  `(let [arg-type# (database-arg-type ~database)]
-    (binding [config (merge @*defaults*
-                            (cond (= :string arg-type#) (if (re-find #"^https?:" ~database)
-                                                          (utils/url->db-meta ~database)
-                                                          {:name ~database})
-                                  (= :meta arg-type#) ~database
-                                  (= :url arg-type#) (url->db-meta ~database)))]
-      (do ~@body))))
-
+  `(binding [config (config-for ~database)]
+     (do ~@body)))
 
 (defn couchdb-info
   "Returns informataion about a CouchDB instance."
@@ -307,16 +323,24 @@
                          (assoc @*defaults* :name db-string)) watch-key callback options))
 
 (defmethod watch-changes :meta
-  [db-meta watch-key callback & options]
+  [db-meta watch-key callback & {:as options}]
   (let [url-str     (utils/db-meta->url db-meta)
-        since-seq   (:update_seq (database-info db-meta))
-        options-map (merge (first options) {:heartbeat 30000 :feed "continuous" :since since-seq})]
-    (when since-seq
+        last-update (:update_seq (database-info db-meta))
+        options (merge {:heartbeat 30000 :feed "continuous"} options)
+        options (if (:since options)
+                  options
+                  (assoc options :since last-update))]
+    (when last-update
       (dosync
-       (let [uid     (.getTime (java.util.Date.))
+       (let [uid     (str (java.util.UUID/randomUUID))
              watcher {:uid        uid
+<<<<<<< HEAD:src/com/ashafa/clutch.clj
                       :http-agent (h/http-agent
                                    (str url-str "/_changes" (utils/map-to-query-str options-map false))
+=======
+                      :http-agent (h/http-agent 
+                                   (str url-str "/_changes" (utils/map-to-query-str options false))
+>>>>>>> 34fabce1ce28d9a3411054201c4d6bc1f68c927a:src/com/ashafa/clutch.clj
                                    :method "GET"
                                    :handler (partial watch-changes-handler url-str watch-key uid))
                       :callback   callback}]
@@ -364,7 +388,10 @@
      (dosync
       (let [url-key (utils/db-meta->url db-meta)]
         (if watch-key
-          (alter watched-databases update-in [url-key watch-key] nil)
+          (alter watched-databases #(let [m (update-in % [url-key] dissoc watch-key)]
+                                      (if (seq (m url-key))
+                                        m
+                                        (dissoc m url-key))))
           (alter watched-databases dissoc url-key))))
      db-meta))
 
@@ -474,25 +501,16 @@ their values (see: #'clojure.core/update-in)."
 
 (defmethod update-document :fn
   [document update-fn update-keys]
-  (let [updated-document      (update-in document update-keys update-fn)
-        updated-document-meta (check-and-use-document document
-                                (couchdb-request config :put :data updated-document))]
-    (if updated-document-meta
-      (assoc updated-document :_rev (updated-document-meta :rev)))))
+  (update-document (update-in document update-keys update-fn)))
 
 (defmethod update-document :map
   [document merge-map]
-  (let [updated-document      (merge document merge-map)
-        updated-document-meta (check-and-use-document document
-                                (couchdb-request config :put :data updated-document))]
-    (if updated-document-meta
-      (assoc updated-document :_rev (updated-document-meta :rev)))))
+  (update-document (merge document merge-map)))
 
 (defmethod update-document :updated
   [document]
-  (if-let [updated-document (check-and-use-document
-                             document
-                             (couchdb-request config :put :data document))]
+  (when-let [updated-document (check-and-use-document document
+                                (couchdb-request config :put :data document))]
     (assoc document :_rev (updated-document :rev))))
 
 (defn get-all-documents-meta
