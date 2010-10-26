@@ -334,13 +334,8 @@
       (dosync
        (let [uid     (str (java.util.UUID/randomUUID))
              watcher {:uid        uid
-<<<<<<< HEAD:src/com/ashafa/clutch.clj
-                      :http-agent (h/http-agent
-                                   (str url-str "/_changes" (utils/map-to-query-str options-map false))
-=======
                       :http-agent (h/http-agent 
                                    (str url-str "/_changes" (utils/map-to-query-str options false))
->>>>>>> 34fabce1ce28d9a3411054201c4d6bc1f68c927a:src/com/ashafa/clutch.clj
                                    :method "GET"
                                    :handler (partial watch-changes-handler url-str watch-key uid))
                       :callback   callback}]
