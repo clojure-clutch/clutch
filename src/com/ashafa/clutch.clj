@@ -31,7 +31,8 @@
             [clojure.contrib.io :as io]
             [clojure.contrib.http.agent :as h])
   (:use com.ashafa.clutch.http-client
-        (clojure.contrib core def)))
+        (clojure.contrib core def))
+  (:import [java.io File FileInputStream BufferedInputStream]))
 
 
 (declare config)
@@ -402,20 +403,21 @@
 
 (defn- get-all-files
   [files]
-  (let [all-files (map #(if (string? %) (java.io.File. %) %) files)]
-    (if (every? #(and (instance? java.io.File %) (.exists %)) all-files)
+  (let [all-files (map #(if (string? %) (File. ^String %) %) files)]
+    (if (every? #(and (instance? File %) (.exists ^File %)) all-files)
       all-files
       (throw  (IllegalArgumentException. "File expected or not found.")))))
 
 (defn- generate-attachment-map
   [files]
   (reduce
-   #(assoc %1 (keyword (.getName %2))
-           {:content_type (utils/get-mime-type %2)
-            :data         (-> %2 java.io.FileInputStream. java.io.BufferedInputStream.
+   (fn [map ^File file]
+     (assoc map (keyword (.getName file))
+            {:content_type (utils/get-mime-type file)
+            :data         (-> file FileInputStream. BufferedInputStream.
                               utils/convert-input-to-bytes
                               utils/encode-bytes-to-base64)
-            :length       (.length %2)})
+            :length       (.length file)}))
    {} files))
 
 (defmethod create-document :with-attachments-and-generate-id
@@ -588,8 +590,8 @@ their values (see: #'clojure.core/update-in)."
    then inserts (or updates if the file name of the attachment already exists in the document)
    the file as an attachment to the document."
   [document attachment & [file-key mime-type]]
-  (let [file (cond (string? attachment) (java.io.File. attachment)
-               (instance? java.io.File attachment) attachment)
+  (let [^File file (cond (string? attachment) (java.io.File. ^String attachment)
+                         (instance? java.io.File attachment) attachment)
         stream (cond
                  file (-> file java.io.FileInputStream. java.io.BufferedInputStream.)
                  (instance? java.io.InputStream attachment) attachment

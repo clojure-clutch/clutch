@@ -27,7 +27,9 @@
   com.ashafa.clutch.utils
   (:require [clojure.contrib.json :as json])
   (:use clojure.contrib.core)
-  (:import java.net.URLEncoder))
+  (:import java.net.URLEncoder
+           java.lang.Class
+           [java.io File InputStream]))
 
 (defn uri-encode
   [string]
@@ -55,7 +57,7 @@
 (defn set-field
   "Set to private or protected field. field-name is a symbol or keyword.
    This will presumably be added to clojure.contrib.reflect eventually...?"
-  [klass field-name obj value]
+  [^Class klass field-name obj value]
   (-> klass
     (.getDeclaredField (name field-name))
     (doto (.setAccessible true))
@@ -84,12 +86,12 @@
      :name     (.getPath java-url)}))
 
 (defn get-mime-type
-  [file]
+  [^File file]
   (.getContentType
    (javax.activation.MimetypesFileTypeMap.) file))
 
 (defn convert-input-to-bytes
-  [input]
+  [^InputStream input]
   (let [barr (make-array Byte/TYPE 1024)
         out  (java.io.ByteArrayOutputStream.)]
     (loop [r (.read input barr)]
@@ -100,6 +102,6 @@
     (.toByteArray out)))
 
 (defn encode-bytes-to-base64
-  [bytes]
+  [^bytes bytes]
   (.replaceAll
    (.encode (sun.misc.BASE64Encoder.) bytes) "\n" ""))

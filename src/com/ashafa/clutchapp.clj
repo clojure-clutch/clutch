@@ -66,7 +66,7 @@
    returning a seq of [:filename content] vectors.  Note that file
    extensions are trimmed in the process of creating :filename."
   [dir paths]
-  (for [path paths
+  (for [^String path paths
         :let [f (jio/file dir path)
               dot (.lastIndexOf path ".")]
         :when (.exists f)]
@@ -81,7 +81,7 @@
 
    @todo add support for other languages based on the design doc's
    :language slot, e.g. map.clj, reduce.clj"
-  [view-dir]
+  [^File view-dir]
   {(-> view-dir .getName keyword)
    (into {} (load-files view-dir (map #(str % \. *lang-ext*) ["map" "reduce"])))})
 
@@ -89,7 +89,7 @@
   "Loads all views under the given design document root directory path."
   [design-doc-path]
   (let [views-root (jio/file design-doc-path "views")
-        view-dirs (filter #(.isDirectory %) (.listFiles views-root))]
+        view-dirs (filter #(.isDirectory ^File %) (.listFiles views-root))]
     (->> view-dirs
       (map load-view)
       (reduce merge))))
@@ -125,7 +125,7 @@
   (cond
     (or (string? dir-or-ddocs)
       (instance? File dir-or-ddocs)) (->> dir-or-ddocs jio/file .listFiles
-                                       (filter #(.isDirectory %))
+                                       (filter #(.isDirectory ^File %))
                                        (map load-design-doc))
     (sequential? dir-or-ddocs) dir-or-ddocs
     :else (throw (IllegalArgumentException.
@@ -201,9 +201,10 @@
    content in the destination directory."
   [db-url dest-path]
   (with-db (jio/as-url db-url)
-    (doseq [ddoc-id (->> (get-all-documents-meta {:startkey "_design/"
-                                                  :endkey (str "_design/" *wildcard-collation-string*)})
-                     :rows (map :id))
+    (doseq [^String ddoc-id (->> (get-all-documents-meta
+                                  {:startkey "_design/"
+                                   :endkey (str "_design/" *wildcard-collation-string*)})
+                                 :rows (map :id))
             :let [[_ ddoc-name] (.split ddoc-id "/")]]
       (clone
         (-> db-url (str "/") URL. (URL. ddoc-id) .toExternalForm)

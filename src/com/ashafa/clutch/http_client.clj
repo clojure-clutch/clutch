@@ -28,13 +28,13 @@
   (:require [clojure.contrib.json :as json]
             [clojure.contrib.io :as io :only [spit]]
             [com.ashafa.clutch.utils :as utils]) 
-  (:import  (java.io IOException InputStreamReader PushbackReader)
-            (java.net URL MalformedURLException)
+  (:import  (java.io IOException InputStream InputStreamReader PushbackReader)
+            (java.net URL URLConnection HttpURLConnection MalformedURLException)
             (sun.misc BASE64Encoder)))
 
 
 (def *version* "0.0")
-(def *encoding* "UTF-8")
+(def ^String *encoding* "UTF-8")
 (def *default-data-type* "application/json")
 (def *configuration-defaults* {:read-timeout 0
                                :connect-timeout 5000
@@ -49,13 +49,13 @@
 
 
 (defn- send-body
-  [connection data]
+  [^URLConnection connection data]
   (with-open [output (.getOutputStream connection)]
     (io/copy data output)
-    (if (instance? java.io.InputStream data) (.close data))))
+    (if (instance? InputStream data) (.close ^InputStream data))))
 
 (defn- get-response
-  [connection {:keys [read-json-response] :as config}]
+  [^HttpURLConnection connection {:keys [read-json-response] :as config}]
   (let [response-code (.getResponseCode connection)]
     (when *response-code* (reset! *response-code* response-code))
     (cond (< response-code 400)
@@ -70,11 +70,11 @@
 
 (defn- connect
   [url method config data]
-  (let [connection    (.openConnection (URL. url))
+  (let [^HttpURLConnection connection    (.openConnection (URL. url))
         configuration (merge *configuration-defaults* config)]    
     ; can't just use .setRequestMethod because it throws an exception on
     ; any "illegal" [sic] HTTP methods, including couchdb's COPY
-    (utils/set-field java.net.HttpURLConnection :method connection method)
+    (utils/set-field HttpURLConnection :method connection method)
     (doto connection
       (.setUseCaches (configuration :use-caches))
       (.setConnectTimeout (configuration :connect-timeout))
@@ -119,5 +119,5 @@
                            (.encode (BASE64Encoder.)
                                     (.getBytes (str (config :username) ":" (:password config))))))
                     d-headers)
-        method    (.toUpperCase ^String (if (keyword? method) (name method) method))]
+        method    (.toUpperCase (name method))]
     (connect url method (assoc config :headers headers) data)))
