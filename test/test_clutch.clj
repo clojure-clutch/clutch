@@ -438,7 +438,7 @@
     (update-document document-1 {:score 0})
     (delete-document document-2)))
 
-(defdbtest changes-filters
+(defdbtest changes-filter
   (save-filter "scores"
                (with-clj-view-server
                  {:less-than-50 (fn [document request] (if (< (:score document) 50) true false))}))
@@ -447,7 +447,7 @@
   (create-document {:name "tester 1" :score 22} "target-id")
   (create-document {:name "tester 2" :score 79} "not-target-id"))
 
-(defdbtest changes-filters-with-query-params
+(defdbtest changes-filter-with-query-params
   (save-filter "scores"
                (with-clj-view-server
                  {:more-than-50-from-a-user (fn [document request]

@@ -30,10 +30,12 @@
   (:require [clojure.contrib.json :as json]))
 
 (def functions (ref []))
- 
+
+(def cached-views (ref {}))
+
 (defn log
   [message]
-  {:log message})
+  ["log" message])
  
 (defn reset
   [_]
@@ -42,14 +44,11 @@
  
 (defn add-function
   [[function-string]]
-  (try
-   (let [function (load-string function-string)]
-     (if (fn? function)
-       (dosync
-        (alter functions conj function) true)
-       (throw (IllegalArgumentException. "Argument did not evaluate to a function."))))
-   (catch IllegalArgumentException error
-     {:error {:id "map_compilation_error" :reason (.getMessage error)}})))
+  (let [function (load-string function-string)]
+    (if (fn? function)
+      (dosync
+       (alter functions conj function) true)
+      ["error" "map_compilation_error" "Argument did not evaluate to a function."])))
  
 (defn map-document
   [[document]]
@@ -70,59 +69,78 @@
                                [nil arguments]
                                (if (> argument-count 1)
                                  (partition argument-count (apply interleave arguments))
-                                 [[(first (first arguments))] [(second (first arguments))]]))]
+                                 [[(ffirst arguments)] [(second (first arguments))]]))]
         [true (reduce #(conj %1 (%2 keys values rereduce?)) [] reduce-functions)])
       (catch Exception error
-        {:error {:id "reduce_compilation_error" :reason (.getMessage error)}}))))
+        ["error" "reduce_compilation_error" (.getMessage error)]))))
  
 (defn rereduce-values
   [command]
   (reduce-values command true))
 
 (defn filter-changes
-  [[rows req user-ctx]]
-  (let [f (first @functions)]
-    [true (vec (map #(try
-                      (f % req)
-                      (catch Exception error false)) rows))]))
+  [func ddoc [ddocs request]]
+  [true (vec (map #(or (and (func % request) true) false) ddocs))])
 
 (defn update-changes
-  [[function-string doc request]]
-  (try
-   (let [function (load-string function-string)]
-     (if (fn? function)
-       (if-let [[doc response] (function doc request)]
-         ["up" doc (if (string? response) {:body response} response)]
-         ["up" doc {}])
-       (throw (IllegalArgumentException. "Argument did not evaluate to a valid function."))))
-   (catch IllegalArgumentException error
-     {:error {:id "map_compilation_error" :reason (.getMessage error)}})))
+  [func ddoc args]
+  (if-let [[ddoc response] (apply func args)]
+      ["up" ddoc (if (string? response) {:body response} response)]
+      ["up" ddoc {}]))
+
+(def ddoc-handlers {"filters" filter-changes
+                    "updates" update-changes})
+
+(defn ddoc
+  [arguments]
+  (let [ddoc-id (first arguments)]
+    (if (= "new" ddoc-id)
+      (let [ddoc-id (second arguments)]
+        (dosync
+         (alter cached-views assoc ddoc-id (nth arguments 2)))
+        true)
+      (if-let [ddoc (@cached-views ddoc-id)]
+        (let [func-path (map keyword (second arguments))
+              command   (first (second arguments))
+              func-args (nth arguments 2)]
+          (if-let [handle (ddoc-handlers command)]
+            (let [func-key (last func-path)
+                  cfunc    (get-in ddoc func-path)
+                  func     (if-not (fn? cfunc) (load-string cfunc) cfunc)]
+              (if-not (fn? cfunc)
+                (dosync
+                 (alter cached-views assoc-in [ddoc-id func-key] func)))
+              (apply handle [func (@cached-views ddoc-id) func-args]))
+            ["error" "unknown_command" (str "Unknown ddoc '" command  "' command")]))
+        ["error" "query_protocol_error" (str "Uncached design doc id: '" ddoc-id "'")]))))
 
 (def handlers {"log"      log
+               "ddoc"     ddoc
                "reset"    reset
                "add_fun"  add-function
                "map_doc"  map-document
                "reduce"   reduce-values
-               "rereduce" rereduce-values
-               "filter"   filter-changes
-               "update"   update-changes})
+               "rereduce" rereduce-values})
 
 (defn run 
   []
   (try
    (flush)
-   (let [cmd        (json/read-json (read-line) true)
-         return-str (json/json-str ((handlers (first cmd)) (next cmd)))]
-     (println return-str))
+   (let [input      (json/read-json (read-line) true)
+         command    (first input)
+         handle     (handlers command)
+         return-str (if handle
+                      (handle (next input))
+                      ["error" "unknown_command" (str "No '" command "' command.")])]
+     (println (json/json-str return-str)))
    (catch Exception e
-     (println (json/json-str
-               {"log"
-                (let [w (java.io.StringWriter.)]
-                  (.printStackTrace e (java.io.PrintWriter. w))
-                  (.toString w))}))
+     (println (json/json-str ["fatal" "fatal_error" (let [w (java.io.StringWriter.)]
+                                                        (.printStackTrace e (java.io.PrintWriter. w))
+                                                        (.toString w))]))
      (System/exit 1)))
   (recur))
  
+
 (defn -main
   [& args]
   (run))
