@@ -115,6 +115,19 @@
          "robert.jones@example.com" (created-document :email) (fetched-document :email)
          80 (created-document :score) (fetched-document :score))))
 
+(defdbtest get-a-document-revision
+  (let [created-document (create-document test-document-3)
+        updated-doc (update-document (assoc created-document :newentry 1))
+        fetched-document (get-document (:_id created-document)
+                                       {:rev (:_rev created-document)}
+                                       #{:rev})]
+    (are [x y z] (= x y z)
+         "Robert Jones" (created-document :name) (fetched-document :name)
+         "robert.jones@example.com" (created-document :email) (fetched-document :email)
+         80 (:score created-document) (:score fetched-document)
+         nil (:newentry created-document) (:newentry fetched-document))
+    (is (= 1 (:newentry updated-doc)))))
+
 (defdbtest verify-response-code-access
   (create-document test-document-1 "some_id")
   (binding [http-client/*response-code* (atom nil)]
@@ -458,3 +471,4 @@
                  :filter "scores/more-than-50-from-a-user" :name "tester 1")
   (create-document {:name "tester 1" :score 51} "target-id")
   (create-document {:name "tester 2" :score 48} "not-target-id"))
+

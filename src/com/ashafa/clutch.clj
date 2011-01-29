@@ -336,7 +336,7 @@
        (let [uid     (str (java.util.UUID/randomUUID))
              watcher {:uid        uid
                       :http-agent (h/http-agent 
-                                   (str url-str "/_changes" (utils/map-to-query-str options false))
+                                   (str url-str "/_changes" (utils/map-to-query-str options (constantly false)))
                                    :method "GET"
                                    :handler (partial watch-changes-handler url-str watch-key uid))
                       :callback   callback}]
@@ -452,9 +452,13 @@
   ([id]
      (get-document id {}))
   ([id query-params-map]
+     (get-document id query-params-map (constantly false)))
+  ([id query-params-map keys-not-encoded-fn?]
      (if (and id (not (empty? id)))
        (couchdb-request config :get
-         :command (str (utils/uri-encode id) (utils/map-to-query-str query-params-map))))))
+         :command (str (utils/uri-encode id)
+                       (utils/map-to-query-str query-params-map
+                                               (comp not keys-not-encoded-fn?)))))))
 
 (defn delete-document
   "Takes a document and deletes it from the database."
@@ -639,3 +643,4 @@ their values (see: #'clojure.core/update-in)."
     (when (-?> doc :_attachments (get (keyword attachment-name)))
       (check-and-use-document doc
         (couchdb-request (assoc config :read-json-response false) :get :command attachment-name)))))
+
