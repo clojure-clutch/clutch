@@ -31,7 +31,7 @@ Clutch uses Leiningen. For installation and help on using Leiningen visit the "g
 
 To include Clutch in your project, simply add the following to your project.clj:
 
-<pre>(:dependencies [com.ashafa/clutch "0.2.3-SNAPSHOT"])</pre>
+<pre>(:dependencies [com.ashafa/clutch "0.2.4-SNAPSHOT"])</pre>
 
 and run...
 
@@ -56,3 +56,4 @@ Appreciations go out to:
 * "Patrick Sullivan":http://github.com/WizardofWestmarch
 * "Toni Batchelli":http://tbatchelli.org
 * "Hugo Duncan":http://github.com/hugoduncan
+* "Ryan Senior":http://github.com/senior
