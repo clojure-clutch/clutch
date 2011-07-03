@@ -41,9 +41,7 @@
 (use-fixtures
   :once
   #(binding [*clj-view-svr-config* (try
-                                     (http-client/couchdb-request @*defaults* :put
-                                         :command (str "_config/query_servers/" view-server-name)
-                                         :data (pr-str (utils/view-server-exec-string)))
+                                     (configure-view-server (utils/view-server-exec-string) view-server-name)
                                      (catch java.io.IOException e (.printStackTrace e)))]
      (if *clj-view-svr-config*
        (set-clutch-defaults! {:language view-server-name})

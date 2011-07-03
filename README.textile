@@ -70,14 +70,20 @@ This function assumes that @java@ is on CouchDB's PATH, and it's entirely possib
 
 Enter the first JSON array, and hit return; the view server should immediately reply with the second JSON array.  Anything else, and your exec string is flawed, or something else is wrong.
 
-Once you have a working exec string, you can use Clojure for views and filters by adding it to the 'local.ini' file of your CouchDB installation:
+Once you have a working exec string, you can use Clojure for views and filters by adding a view server configuration to CouchDB.  This can be as easy as passing the exec string to the @com.ashafa.clutch/configure-view-server@ function:
+
+<pre>
+(configure-view-server (view-server-exec-string))
+</pre>
+
+Alternatively, use Futon to add the @clojure@ query server language to your CouchDB instance's config.
+
+In the end, both of these methods add the exec string you provide it to the 'local.ini' file of your CouchDB installation, which you can modify directly if you like (this is likely what you'll need to do for non-local/production CouchDB instances):
 
 <pre>
   [query_servers]
   clojure = java -cp …rest of your exec string…
 </pre>
-
-Alternatively, use Futon to add the @clojure@ query server language to your CouchDB instance's config.
 
 h3. Contributors
 

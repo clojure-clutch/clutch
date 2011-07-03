@@ -530,6 +530,16 @@ their values (see: #'clojure.core/update-in)."
        :command (str "_all_docs" (utils/map-to-query-str query-params-map))
        :data (if (empty? post-data-map) nil post-data-map))))
 
+(defn configure-view-server
+  "Sets the query server exec string for 'clojure' views.  This is intended to be
+   a REPL convenience function; see the Clutch README for more info about setting
+   up CouchDB to be Clutch-view-server-ready in general terms."
+  ([exec-string] (configure-view-server exec-string "clojure"))
+  ([exec-string language]
+    (couchdb-request @*defaults* :put
+      :command (str "_config/query_servers/" language)
+      :data (pr-str exec-string))))
+
 (defn save-view
   "Create a design document used for database queries."
   [design-document-name view-key view-server-map]
