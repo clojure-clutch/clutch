@@ -30,7 +30,8 @@
 ; we should be able to push a clojure query_server cmd to the localhost couch
 ; without a problem (maybe using a test-only :language to avoid clobbering a "real" view svr?),
 ; but that's for another day
-(declare *clj-view-svr-config* test-database)
+(declare ^:dynamic *clj-view-svr-config*
+         ^:dynamic test-database)
 
 (use-fixtures
   :once

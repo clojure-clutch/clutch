@@ -1,133 +1,92 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
-  <modelVersion>4.0.0</modelVersion>
-  <groupId>com.ashafa</groupId>
-  <artifactId>clutch</artifactId>
-  <version>0.2.5-SNAPSHOT</version>
-  <name>clutch</name>
-  <description>A Clojure library for Apache CouchDB.</description>
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.ashafa</groupId>
+    <artifactId>clutch</artifactId>
+    <version>0.2.5-SNAPSHOT</version>
+    <name>clutch</name>
+    <packaging>clojure</packaging>
+    <description>A Clojure library for Apache CouchDB.</description>
 
-  <developers>
-    <developer>
-      <id>tashafa</id>
-      <name>Tunde Ashafa</name>
-      <email>tunde.ashafa@gmail.com</email>
-      </developer>
+    <developers>
+        <developer>
+            <id>tashafa</id>
+            <name>Tunde Ashafa</name>
+            <email>tunde.ashafa@gmail.com</email>
+        </developer>
     </developers>
-  <contributors>
-    <contributor>
-      <name>Chas Emerick</name>
-      <email>cemerick@snowtide.com</email>
-      <organization>Snowtide Informatics</organization>
-      <organizationUrl>http://snowtide.com</organizationUrl>
-      <timezone>-5</timezone>
-      <url>http://cemerick.com</url>
-    </contributor>
-  </contributors>
+    <contributors>
+        <contributor>
+            <name>Chas Emerick</name>
+            <email>cemerick@snowtide.com</email>
+            <organization>Snowtide Informatics</organization>
+            <organizationUrl>http://snowtide.com</organizationUrl>
+            <timezone>-5</timezone>
+            <url>http://cemerick.com</url>
+        </contributor>
+    </contributors>
 
-  <build>
-    <resources>
-      <resource>
-        <!-- default artifact is a sources build (except for the view server) -->
-        <directory>src</directory>
-        </resource>
-      <resource>
-        <directory>resources</directory>
-        </resource>
-      </resources>
-    <plugins>
-      <plugin>
-        <groupId>com.theoryinpractise</groupId>
-        <artifactId>clojure-maven-plugin</artifactId>
-        <version>1.3.2</version>
-        <configuration>
-          <sourceDirectories>
-            <sourceDirectory>src</sourceDirectory>
-            </sourceDirectories>
-          </configuration>
-        <executions>
-          <execution>
-            <id>compile-clojure</id>
-            <phase>compile</phase>
-            <goals>
-              <goal>compile</goal>
-              </goals>
-            <configuration>
-              <!-- we want the AOT compile sanity check, but still only ship source -->
-              <outputDirectory>${project.build.directory}/clojure-classes</outputDirectory>
-              </configuration>
-            </execution>
-          <execution>
-            <id>compile-view-server</id>
-            <phase>compile</phase>
-            <goals>
-              <goal>compile</goal>
-              </goals>
-            <configuration>
-              <compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>
-              <namespaces>
-                <namespace>.*view-server.*</namespace>
-                </namespaces>
-              </configuration>
-            </execution>
-          <execution>
-            <id>test-clojure</id>
-            <phase>test</phase>
-            <configuration>
-              <baseTestSourceDirectory>test</baseTestSourceDirectory>
-              </configuration>
-            <goals>
-              <goal>test</goal>
-              </goals>
-            </execution>
-          </executions>
-        </plugin>
-      <plugin>
-        <!-- tagging of artifact manifest with hudson-standard build metadata -->
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <configuration>
-          <archive>
-            <manifestEntries>
-              <Build-Tag>${BUILD_TAG}</Build-Tag>
-              <Build-Number>${BUILD_NUMBER}</Build-Number>
-              <Build-Id>${BUILD_ID}</Build-Id>
-              </manifestEntries>
-            </archive>
-          </configuration>
-        </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <source>1.6</source>
-          <target>1.6</target>
-          </configuration>
-        </plugin>
-      </plugins>
+    <build>
+        <resources>
+            <resource>
+                <!-- default artifact is a sources build -->
+                <directory>src</directory>
+            </resource>
+            <resource>
+                <directory>resources</directory>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>com.theoryinpractise</groupId>
+                <artifactId>clojure-maven-plugin</artifactId>
+                <version>1.3.7</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <sourceDirectories>
+                        <sourceDirectory>src</sourceDirectory>
+                    </sourceDirectories>
+                    <baseTestSourceDirectory>test</baseTestSourceDirectory>
+                    <warnOnReflection>true</warnOnReflection>
+                    <temporaryOutputDirectory>true</temporaryOutputDirectory>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>1.6</source>
+                    <target>1.6</target>
+                </configuration>
+            </plugin>
+        </plugins>
     </build>
 
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
-  <dependencies>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>clojure</artifactId>
-      <version>1.2.0</version>
-      </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>clojure-contrib</artifactId>
-      <version>1.2.0</version>
-      </dependency>
+    <dependencies>
+        <dependency>
+            <groupId>org.clojure</groupId>
+            <artifactId>clojure</artifactId>
+            <version>1.3.0-beta1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.clojure</groupId>
+            <artifactId>data.json</artifactId>
+            <version>0.1.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.clojure</groupId>
+            <artifactId>tools.logging</artifactId>
+            <version>0.1.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.clojure</groupId>
+            <artifactId>clojure-contrib</artifactId>
+            <version>1.2.0</version>
+        </dependency>
     </dependencies>
-  <repositories>
-    <repository>
-      <id>clojure-snapshots</id>
-      <url>http://build.clojure.org/snapshots</url>
-      </repository>
-    </repositories>
 
 </project>

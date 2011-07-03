@@ -27,15 +27,15 @@
 (ns #^{:author "Tunde Ashafa"}
   com.ashafa.clutch
   (:require [com.ashafa.clutch.utils :as utils]
-            [clojure.contrib.json :as json]
-            [clojure.contrib.io :as io]
+            [clojure.data.json :as json]
+            [clojure.java.io :as io]
             [clojure.contrib.http.agent :as h])
   (:use com.ashafa.clutch.http-client
         (clojure.contrib core def))
   (:import [java.io File FileInputStream BufferedInputStream]))
 
 
-(declare config)
+(declare ^:dynamic config)
 
 ;; default clutch configuration
 (def *defaults* (ref {:host     "localhost"
@@ -47,7 +47,7 @@
               as a wildcard suffix when querying views."}
   ; \ufff0 appears to be the highest character that couchdb can support
   ; discovered experimentally with v0.10 and v0.11 ~March 2010
-  *wildcard-collation-string* "\ufff0")
+  ^:const *wildcard-collation-string* "\ufff0")
 
 ;; dissoc should handle removing other parameters?
 (defn set-clutch-defaults!
@@ -70,13 +70,13 @@
   [configuration-map]
   (set-clutch-defaults! configuration-map))
 
-(def *clutch-host* (get (deref *defaults*) :host))
+(def ^:dynamic *clutch-host* (get (deref *defaults*) :host))
 
-(def *clutch-port* (get (deref *defaults*) :port))
+(def ^:dynamic *clutch-port* (get (deref *defaults*) :port))
 
-(def *clutch-ssl-port* (get (deref *defaults*) :ssl-port))
+(def ^:dynamic *clutch-ssl-port* (get (deref *defaults*) :ssl-port))
 
-(def *clutch-language* (get (deref *defaults*) :language))
+(def ^:dynamic *clutch-language* (get (deref *defaults*) :language))
 
 (defn set-clutch-host! [hostname]
   "Set Clutch default host"
@@ -301,7 +301,7 @@
 (defn- watch-changes-handler
   [url-str watch-key uid agnt]
   (if (h/success? agnt)
-    (loop [lines (io/read-lines (h/stream agnt))]
+    (loop [lines (utils/read-lines (h/stream agnt))]
       (if-let [watched-db (@watched-databases url-str)]
         (when (and (watched-db watch-key) (= uid (:uid (watched-db watch-key))) (not (empty? lines)))
           (future

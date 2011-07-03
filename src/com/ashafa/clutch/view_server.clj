@@ -27,7 +27,7 @@
 (ns #^{:author "Tunde Ashafa"}
   com.ashafa.clutch.view-server
   (:gen-class)
-  (:require [clojure.contrib.json :as json]))
+  (:require [clojure.data.json :as json]))
 
 (def functions (ref []))
 

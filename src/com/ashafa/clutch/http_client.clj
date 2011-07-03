@@ -25,18 +25,18 @@
 
 (ns #^{:author "Tunde Ashafa"}
   com.ashafa.clutch.http-client
-  (:require [clojure.contrib.json :as json]
-            [clojure.contrib.io :as io :only [spit]]
+  (:require [clojure.data.json :as json]
+            [clojure.contrib.io :as io]
             [com.ashafa.clutch.utils :as utils]) 
   (:import  (java.io IOException InputStream InputStreamReader PushbackReader)
             (java.net URL URLConnection HttpURLConnection MalformedURLException)
             (sun.misc BASE64Encoder)))
 
 
-(def *version* "0.0")
-(def ^String *encoding* "UTF-8")
-(def *default-data-type* "application/json")
-(def *configuration-defaults* {:read-timeout 0
+(def ^:private version "0.0")
+(def ^String *encoding* "UTF-8") ; are we ever reading anything other than UTF-8 from couch?
+(def ^:dynamic *default-data-type* "application/json")
+(def ^:dynamic *configuration-defaults* {:read-timeout 0
                                :connect-timeout 5000
                                :use-caches false
                                :follow-redirects true
@@ -44,7 +44,8 @@
 
 ; @todo - we'll be able to eliminate the atom requirement when thread-bound? is available in core
 ; http://www.assembla.com/spaces/clojure/tickets/243
-(def #^{:doc "When bound to an atom, will be reset! to the HTTP response code of the last couchdb request."}
+(def #^{:doc "When bound to an atom, will be reset! to the HTTP response code of the last couchdb request."
+        :dynamic true}
      *response-code* nil)
 
 
@@ -106,7 +107,7 @@
                          (str database command)))
         data      (if (map? raw-data) (json/json-str raw-data) raw-data)
         d-headers (merge {"Content-Type" data-type
-                          "User-Agent" (str "com.ashafa.clutch.http-client/" *version*)
+                          "User-Agent" (str "com.ashafa.clutch.http-client/" version)
                           "Accept" "*/*"}
                     headers)
         d-headers (if (string? data)

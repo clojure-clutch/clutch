@@ -44,9 +44,8 @@
             database if necessary."}
   com.ashafa.clutchapp
   (:require [clojure.java.io :as jio]
-    (clojure.contrib [logging :as log]))
-  (:use com.ashafa.clutch
-    (clojure.contrib [io :only (slurp*)]))
+            [clojure.tools.logging :as log])
+  (:use com.ashafa.clutch)
   (:import java.io.File java.net.URL))
 
 (def +language->ext+ {"javascript" "js"
@@ -54,7 +53,7 @@
                       "python" "py"
                       "ruby" "rb"})
 
-(declare *lang-ext*)
+(declare ^:dynamic *lang-ext*)
 
 (def #^{:doc "Bindable var to control whether design documents are overwritten
               when pushing. If false (it's true by default), and a design document
@@ -71,7 +70,7 @@
               dot (.lastIndexOf path ".")]
         :when (.exists f)]
     [(-> path (subs 0 (if (neg? dot) (count path) dot)) keyword)
-     (slurp* f)]))
+     (slurp f)]))
 
 (defn- load-view
   "Loads a view from a view directory, returning a map of
@@ -119,7 +118,7 @@
 
    Build-time: (-> \"some file path\" load-all-ddocs pr),
          and push the result into your war file
-   Runtime: (-> \"war rsrc path\" slurp* read (push-all \"http://dbhost:5984/dbname\"))
+   Runtime: (-> \"war rsrc path\" slurp read (push-all \"http://dbhost:5984/dbname\"))
    "
   [dir-or-ddocs]
   (cond

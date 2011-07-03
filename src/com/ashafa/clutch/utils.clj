@@ -25,7 +25,8 @@
 
 (ns #^{:author "Tunde Ashafa"}
   com.ashafa.clutch.utils
-  (:require [clojure.contrib.json :as json])
+  (:require [clojure.data.json :as json]
+            [clojure.java.io :as io])
   (:use clojure.contrib.core)
   (:import java.net.URLEncoder
            java.lang.Class
@@ -37,16 +38,19 @@
 
 (defn map-to-query-str
   ([m]
-     (map-to-query-str m (constantly true)))
+    (map-to-query-str m (constantly true)))
   ([m params-not-encoded-fn?]
-     (when-let [kws (keys m)]
-       (reduce 
-        (fn [q kw]
-          (let [k (if (keyword? kw) (name kw) kw)
-                v (if (params-not-encoded-fn? kw)(json/json-str (m kw)) (str (m kw)))
-                a (if (not (= (last kws) kw)) "&")]
-            (str q (uri-encode k) "=" (uri-encode v) a)))
-        "?" kws))))
+    (-?>> (seq m)
+          sort                     ; sorting makes testing a lot easier :-)
+          (map (fn [[k v]]
+                 [(uri-encode (if (keyword? k) (name k) k))
+                  "="
+                  (uri-encode (if (params-not-encoded-fn? k)
+                                (json/json-str v)
+                                (str v)))]))
+          (interpose "&")
+          flatten
+          (apply str "?"))))
 
 (defn options-to-map 
   [init options]
@@ -105,3 +109,17 @@
   [^bytes bytes]
   (.replaceAll
    (.encode (sun.misc.BASE64Encoder.) bytes) "\n" ""))
+
+(defn read-lines
+  "Like clojure.core/line-seq but opens f with reader.  Automatically
+  closes the reader AFTER YOU CONSUME THE ENTIRE SEQUENCE.
+
+  Pulled from clojure.contrib.io so as to avoid dependency on the old io
+  namespace."
+  [f]
+  (let [read-line (fn this [^java.io.BufferedReader rdr]
+                    (lazy-seq
+                     (if-let [line (.readLine rdr)]
+                       (cons line (this rdr))
+                       (.close rdr))))]
+    (read-line (io/reader f))))
