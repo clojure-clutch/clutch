@@ -1,6 +1,8 @@
 (ns #^{:author "Tunde Ashafa"}
   test-clutch
-  (:require [com.ashafa.clutch.http-client :as http-client]
+  (:require (com.ashafa.clutch
+              [http-client :as http-client]
+              [utils :as utils])
             [clojure.contrib.str-utils :as str]
             [clojure.contrib.io :as io])
   (:use com.ashafa.clutch 
@@ -33,14 +35,22 @@
 (declare ^:dynamic *clj-view-svr-config*
          ^:dynamic test-database)
 
+; don't squash existing canonical "clojure" view server config
+(def ^:private view-server-name "clutch-test")
+
 (use-fixtures
   :once
   #(binding [*clj-view-svr-config* (try
-                                     (http-client/couchdb-request @*defaults* :get :command "_config/query_servers/clojure")
-                                     (catch java.io.IOException e false))]
-     (when-not *clj-view-svr-config*
-       (println "Clojure view server not available, skipping tests that depend upon it!"))
-       (%)))
+                                     (http-client/couchdb-request @*defaults* :put
+                                         :command (str "_config/query_servers/" view-server-name)
+                                         :data (pr-str (utils/view-server-exec-string)))
+                                     (catch java.io.IOException e (.printStackTrace e)))]
+     (if *clj-view-svr-config*
+       (set-clutch-defaults! {:language view-server-name})
+       (println "Could not autoconfigure clutch view server,"
+                                              "skipping tests that depend upon it!"
+                                              (utils/view-server-exec-string)))
+     (%)))
 
 (defmacro defdbtest [name & body]
   `(deftest ~name

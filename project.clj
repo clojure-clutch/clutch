@@ -1,6 +1,5 @@
 (defproject com.ashafa/clutch "0.2.5-SNAPSHOT"
   :description "A Clojure library for Apache CouchDB."
-  :main com.ashafa.clutch.view-server
   :dependencies [[org.clojure/clojure "1.3.0-beta1"]
                  [org.clojure/clojure-contrib "1.2.0"]
                  [org.clojure/data.json "0.1.1"]

@@ -27,24 +27,57 @@ h3. Usage
 
 h3. Download and Installation
 
-Clutch uses Leiningen. For installation and help on using Leiningen visit the "github repo.":http://github.com/technomancy/leiningen/
+To include Clutch in your project, simply add the following to your @project.clj@:
 
-To include Clutch in your project, simply add the following to your project.clj:
-
-<pre>(:dependencies [com.ashafa/clutch "0.2.4"])</pre>
+<pre>(:dependencies [com.ashafa/clutch "0.2.5-SNAPSHOT"])</pre>
 
 and run...
 
 <pre>lein deps</pre>
 
+Or, if you're using Maven, add this dependency to your @pom.xml@:
+
+<pre>
+  <dependency>
+      <groupId>com.ashafa</groupId>
+      <artifactId>clutch</artifactId>
+      <version>0.2.5-SNAPSHOT</version>
+  </dependency>
+</pre>
+
 h3. Configuring your CouchDB installation to use the Clutch view server
 
-To use Clojure for views and filters, add the following to the 'local.ini' file of your CouchDB installation (replacing &lt;path to...&gt; with the appropiate paths to the jars which reside in the "lib" folder in your project folder).
+CouchDB needs to know how to exec Clutch's view server.  Getting this command string together can be tricky, especially given potential classpath complexity.  You can either (a) produce an uberjar of your project, in which case the exec string will be something like:
+
+<pre>java -cp <path to your uberjar> clojure.main -m com.ashafa.clutch.view-server</pre>
+
+or, (b) you can use the @com.ashafa.clutch.utils/view-server-exec-string@ function to dump a likely-to-work exec string.  For example:
+
+<pre>
+user=> (use '[com.ashafa.clutch.utils :only (view-server-exec-string)])
+nil
+user=> (println (view-server-exec-string))
+java -cp "clutch/src:clutch/test:clutch/classes:clutch/resources:clutch/lib/clojure-1.3.0-beta1.jar:clutch/lib/clojure-contrib-1.2.0.jar:clutch/lib/data.json-0.1.1.jar:clutch/lib/tools.logging-0.1.2.jar" clojure.main -m com.ashafa.clutch.view-server
+</pre>
+
+This function assumes that @java@ is on CouchDB's PATH, and it's entirely possible that the classpath might not be quite right (esp. on Windows — the above only tested on OS X and Linux so far).  In any case, you can test whether the view server exec string is working properly by trying it yourself and attempting to get it to echo back a log message:
+
+<pre>
+[catapult:~/dev/clutch] chas% java -cp "clutch/src:clutch/test:clutch/classes:clutch/resources:clutch/lib/clojure-1.3.0-beta1.jar:clutch/lib/clojure-contrib-1.2.0.jar:clutch/lib/data.json-0.1.1.jar:clutch/lib/tools.logging-0.1.2.jar" clojure.main -m com.ashafa.clutch.view-server
+["log" "echo, please"]
+["log",["echo, please"]]
+</pre>
+
+Enter the first JSON array, and hit return; the view server should immediately reply with the second JSON array.  Anything else, and your exec string is flawed, or something else is wrong.
+
+Once you have a working exec string, you can use Clojure for views and filters by adding it to the 'local.ini' file of your CouchDB installation:
 
 <pre>
   [query_servers]
-  clojure = java -cp <path to clojure.jar>/clojure.jar:<path to clojure-contrib.jar>/clojure-contrib.jar:clutch.jar com.ashafa.clutch.view_server
+  clojure = java -cp …rest of your exec string…
 </pre>
+
+Alternatively, use Futon to add the @clojure@ query server language to your CouchDB instance's config.
 
 h3. Contributors
 

@@ -26,7 +26,6 @@
  
 (ns #^{:author "Tunde Ashafa"}
   com.ashafa.clutch.view-server
-  (:gen-class)
   (:require [clojure.data.json :as json]))
 
 (def functions (ref []))
@@ -126,17 +125,18 @@
   []
   (try
    (flush)
-   (let [input      (json/read-json (read-line) true)
-         command    (first input)
-         handle     (handlers command)
-         return-str (if handle
-                      (handle (next input))
-                      ["error" "unknown_command" (str "No '" command "' command.")])]
-     (println (json/json-str return-str)))
+   (when-let [line (read-line)] ; don't throw an error if we just get EOF
+     (let [input      (json/read-json line true)
+           command    (first input)
+           handle     (handlers command)
+           return-str (if handle
+                        (handle (next input))
+                        ["error" "unknown_command" (str "No '" command "' command.")])]
+       (println (json/json-str return-str))))
    (catch Exception e
      (println (json/json-str ["fatal" "fatal_error" (let [w (java.io.StringWriter.)]
-                                                        (.printStackTrace e (java.io.PrintWriter. w))
-                                                        (.toString w))]))
+                                                      (.printStackTrace e (java.io.PrintWriter. w))
+                                                      (.toString w))]))
      (System/exit 1)))
   (recur))
  
@@ -144,6 +144,3 @@
 (defn -main
   [& args]
   (run))
- 
-(when *command-line-args*
-  (apply -main *command-line-args*))

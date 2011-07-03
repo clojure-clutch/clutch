@@ -123,3 +123,14 @@
                        (cons line (this rdr))
                        (.close rdr))))]
     (read-line (io/reader f))))
+
+(defn view-server-exec-string
+  "Generates a string that *should* work to configure a clutch view server
+   within your local CouchDB instance based on the current process'
+   java.class.path system property.  Assumes that `java` is on CouchDB's
+   PATH."
+  []
+  (format "java -cp \"%s\" %s %s"
+          (System/getProperty "java.class.path")
+          "clojure.main"
+          "-m com.ashafa.clutch.view-server"))
