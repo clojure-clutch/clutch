@@ -518,7 +518,7 @@ their values (see: #'clojure.core/update-in)."
   "Returns the meta (_id and _rev) of all documents in a database. By adding
    the key ':include_docs' with a value of true to the optional query params map
    you can also get the full documents, not just their meta. Also takes an optional
-   second map of {:key [keys]} to be POSTed.
+   second map of {:keys [keys]} to be POSTed.
    (see: http://bit.ly/gxObh)."
   ([]
      (get-all-documents-meta {} {}))
