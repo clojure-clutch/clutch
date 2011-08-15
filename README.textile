@@ -18,7 +18,7 @@ h3. Usage
            (bulk-update [{:test-grade 10}
                          {:test-grade 20}
                          {:test-grade 30}])
-           ;; create temporary or permanent views using clojure 
+           ;; create temporary (or permanent) views using clojure 
            (ad-hoc-view
              (with-clj-view-server
                 {:map    (fn [doc] [[nil (:test-grade doc)]])
