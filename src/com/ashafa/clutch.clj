@@ -280,7 +280,7 @@
                   (if-let [watched-db (@watched-databases url-str)]
                     (if (watched-db watch-key)
                       (alter watched-databases assoc-in [url-str watch-key :last-error]
-                             {:execption e :time (java.util.Date.) :data line}))))))))
+                             {:exception e :time (java.util.Date.) :data line}))))))))
           (recur (rest lines)))))))
 
 (defmethod watch-changes :string
