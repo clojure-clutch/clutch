@@ -60,41 +60,7 @@
   [configuration-map]
   (dosync (alter *defaults* merge configuration-map)))
 
-(defn set-clutch-config
-  "Sets Clutch configuration
-        {:host     <ip (defaults to \"localhost\")>
-         :port     <port (defaults to 5984)>
-         :language <language the CouchDB view server uses (see: README)>
-         :username <username (if http authentication is enabled)>
-         :password <password (if http authentication is enabled)>}"
-  [configuration-map]
-  (set-clutch-defaults! configuration-map))
-
-(def ^:dynamic *clutch-host* (get (deref *defaults*) :host))
-
-(def ^:dynamic *clutch-port* (get (deref *defaults*) :port))
-
-(def ^:dynamic *clutch-ssl-port* (get (deref *defaults*) :ssl-port))
-
-(def ^:dynamic *clutch-language* (get (deref *defaults*) :language))
-
-(defn set-clutch-host! [hostname]
-  "Set Clutch default host"
-  (set-clutch-defaults! {:host hostname}))
-
-(defn set-clutch-port! [port]
-  "Set Clutch default port"
-  (set-clutch-defaults! {:port port}))
-
-(defn set-clutch-ssl-port! [ssl-port]
-  "Set Clutch default ssl port"
-  (set-clutch-defaults! {:ssl-port ssl-port}))
-
-(defn set-clutch-language! [lang]
-  "Set Clutch default language"
-  (set-clutch-defaults! {:language lang}))
-
-(def #^{:private true} watched-databases (ref {}))
+(def ^{:private true} watched-databases (ref {}))
 
 (defn database-arg-type
   [& args]
