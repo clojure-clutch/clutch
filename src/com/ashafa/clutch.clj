@@ -24,7 +24,7 @@
 ;; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-(ns #^{:author "Tunde Ashafa"}
+(ns ^{:author "Tunde Ashafa"}
   com.ashafa.clutch
   (:require [com.ashafa.clutch.utils :as utils]
             [clojure.data.json :as json]
@@ -35,7 +35,7 @@
   (:import [java.io File FileInputStream BufferedInputStream]))
 
 
-(declare ^:dynamic config)
+(declare ^{:dynamic true} config)
 
 ;; default clutch configuration
 (def *defaults* (ref {:host     "localhost"
@@ -43,11 +43,12 @@
                       :ssl-port 443
                       :language "clojure"}))
 
-(def #^{:doc "A very 'high' unicode character that can be used
+(def ^{:doc "A very 'high' unicode character that can be used
               as a wildcard suffix when querying views."}
   ; \ufff0 appears to be the highest character that couchdb can support
   ; discovered experimentally with v0.10 and v0.11 ~March 2010
-  ^:const *wildcard-collation-string* "\ufff0")
+  ; now officially documented at http://wiki.apache.org/couchdb/View_collation
+  wildcard-collation-string "\ufff0")
 
 ;; dissoc should handle removing other parameters?
 (defn set-clutch-defaults!
@@ -75,7 +76,7 @@
 (defn url->db-meta
   "Given a java.net.URL, returns a map with slots aligned with *defaults*.
    Supports usage of URLs with with-db, etc."
-  [#^java.net.URL url]
+  [^java.net.URL url]
   {:host (.getHost url)
    :port (.getPort url)
    :name (.getPath url)})

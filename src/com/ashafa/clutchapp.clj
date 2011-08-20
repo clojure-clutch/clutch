@@ -24,7 +24,7 @@
 ;; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 (ns
- #^{:author "Chas Emerick"
+  ^{:author "Chas Emerick"
     :doc "This is a spike of a couchapp-compatible design document sync tool
           built on clutch. The objectives here are much less ambitious and
           not necessarily the same as couchapp's.
@@ -53,11 +53,12 @@
                       "python" "py"
                       "ruby" "rb"})
 
-(declare ^:dynamic *lang-ext*)
+(declare ^{:dynamic true} *lang-ext*)
 
-(def #^{:doc "Bindable var to control whether design documents are overwritten
+(def  ^{:doc "Bindable var to control whether design documents are overwritten
               when pushing. If false (it's true by default), and a design document
-              already exists, the push fns will become no-ops (logging that fact)."}
+              already exists, the push fns will become no-ops (logging that fact)."
+        :dynamic true}
   *push-overwrite?* true)
 
 (defn- load-files
@@ -202,7 +203,7 @@
   (with-db (jio/as-url db-url)
     (doseq [^String ddoc-id (->> (get-all-documents-meta
                                   {:startkey "_design/"
-                                   :endkey (str "_design/" *wildcard-collation-string*)})
+                                   :endkey (str "_design/" wildcard-collation-string)})
                                  :rows (map :id))
             :let [[_ ddoc-name] (.split ddoc-id "/")]]
       (clone

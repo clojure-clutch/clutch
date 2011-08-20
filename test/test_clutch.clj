@@ -1,4 +1,4 @@
-(ns #^{:author "Tunde Ashafa"}
+(ns ^{:author "Tunde Ashafa"}
   test-clutch
   (:require (com.ashafa.clutch
               [http-client :as http-client]
@@ -8,6 +8,8 @@
   (:use com.ashafa.clutch 
         clojure.test)
   (:import (java.io File ByteArrayInputStream)))
+
+(println "Testing using Clojure" *clojure-version*)
 
 (def resources-path "test")
 
@@ -32,11 +34,11 @@
 ; we should be able to push a clojure query_server cmd to the localhost couch
 ; without a problem (maybe using a test-only :language to avoid clobbering a "real" view svr?),
 ; but that's for another day
-(declare ^:dynamic *clj-view-svr-config*
-         ^:dynamic test-database)
+(declare ^{:dynamic true} *clj-view-svr-config*
+         ^{:dynamic true} test-database)
 
 ; don't squash existing canonical "clojure" view server config
-(def ^:private view-server-name "clutch-test")
+(def ^{:private true} view-server-name "clutch-test")
 
 (use-fixtures
   :once
@@ -46,8 +48,8 @@
      (if *clj-view-svr-config*
        (set-clutch-defaults! {:language view-server-name})
        (println "Could not autoconfigure clutch view server,"
-                                              "skipping tests that depend upon it!"
-                                              (utils/view-server-exec-string)))
+                "skipping tests that depend upon it!"
+                (utils/view-server-exec-string)))
      (%)))
 
 (defmacro defdbtest [name & body]

@@ -23,7 +23,7 @@
 ;; (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 ;; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-(ns #^{:author "Tunde Ashafa"}
+(ns ^{:author "Tunde Ashafa"}
   com.ashafa.clutch.utils
   (:require [clojure.data.json :as json]
             [clojure.java.io :as io])
@@ -130,7 +130,5 @@
    java.class.path system property.  Assumes that `java` is on CouchDB's
    PATH."
   []
-  (format "java -cp \"%s\" %s %s"
-          (System/getProperty "java.class.path")
-          "clojure.main"
-          "-m com.ashafa.clutch.view-server"))
+  (format "java -cp \"%s\" clojure.main -i @/com/ashafa/clutch/view_server.clj -e \"(com.ashafa.clutch.view-server/-main)\""
+          (System/getProperty "java.class.path")))
