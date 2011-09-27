@@ -1,4 +1,4 @@
-(defproject com.ashafa/clutch "0.2.5"
+(defproject com.ashafa/clutch "0.3.0-SNAPSHOT"
   :description "A Clojure library for Apache CouchDB."
   :url "http://github.com/ashafa/clutch"
   :dependencies [[org.clojure/clojure "1.3.0"]
