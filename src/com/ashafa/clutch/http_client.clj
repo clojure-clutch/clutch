@@ -72,10 +72,12 @@
 (defn- connect
   [url method config data]
   (let [^HttpURLConnection connection    (.openConnection (URL. url))
-        configuration (merge *configuration-defaults* config)]    
+        configuration (merge *configuration-defaults* config)]
     ; can't just use .setRequestMethod because it throws an exception on
     ; any "illegal" [sic] HTTP methods, including couchdb's COPY
-    (utils/set-field HttpURLConnection :method connection method)
+    (if (:ssl config)
+      (.setRequestMethod connection method)
+      (utils/set-field HttpURLConnection :method connection method))
     (doto connection
       (.setUseCaches (configuration :use-caches))
       (.setConnectTimeout (configuration :connect-timeout))
