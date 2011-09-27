@@ -237,6 +237,9 @@
    :delete
    :command (:name db-meta)))
 
+(defn get-uuid []
+  (str (. java.util.UUID randomUUID)))
+
 (defn replicate-database
   "Takes two arguments (a source and target for replication) which could be a
    string (name of a database in the default Clutch configuration) or a map that
@@ -300,7 +303,7 @@
                   (assoc options :since last-update))]
     (when last-update
       (dosync
-       (let [uid     (str (java.util.UUID/randomUUID))
+       (let [uid    (get-uuid)
              watcher {:uid        uid
                       :http-agent (h/http-agent 
                                    (str url-str "/_changes" (utils/map-to-query-str options (constantly false)))
@@ -403,10 +406,12 @@
   ([document-map]
      (create-document document-map nil))
   ([document-map id]
-     (if-let [new-document-meta (couchdb-request config (if (nil? id) :post :put)
-                                  :command (utils/uri-encode id)
-                                  :data document-map)]
-       (assoc document-map :_rev (new-document-meta :rev) :_id (new-document-meta :id)))))
+     (let [id (or id (get-uuid))]
+       (if-let [new-document-meta
+                (couchdb-request config :put
+                                 :command (utils/uri-encode id)
+                                 :data document-map)]
+         (assoc document-map :_rev (new-document-meta :rev) :_id (new-document-meta :id))))))
 
 (defn dissoc-meta
   "dissoc'es the :_id and :_rev slots from the provided map."
@@ -560,10 +565,13 @@ their values (see: #'clojure.core/update-in)."
      (bulk-update documents-vector update-map nil))
   ([documents-vector update-map options-map]
      (couchdb-request config :post
-       :command "_bulk_docs"
-       :data (merge {:docs (if update-map
-                             (map #(merge % update-map) documents-vector)
-                             documents-vector)} options-map))))
+                      :command "_bulk_docs"
+                      :data (merge {:docs (if update-map
+                                            (map #(merge % update-map) documents-vector)
+                                            (map #(if (:_id %)
+                                                    %
+                                                    (assoc % :_id (get-uuid)))
+                                                 documents-vector))} options-map))))
 
 (defn update-attachment
   "Takes a document, file (either a string path to the file, a java.io.File object, or an InputStream)
