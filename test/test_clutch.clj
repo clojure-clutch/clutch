@@ -38,12 +38,16 @@
          ^{:dynamic true} test-database)
 
 ; don't squash existing canonical "clojure" view server config
-(def ^{:private true} view-server-name "clutch-test")
+(def ^{:private true} view-server-name :clutch-test)
+
+(.addMethod view-transformer
+            view-server-name
+            (get-method view-transformer :clojure))
 
 (use-fixtures
   :once
   #(binding [*clj-view-svr-config* (try
-                                     (configure-view-server (utils/view-server-exec-string) view-server-name)
+                                     (configure-view-server (utils/view-server-exec-string) (str view-server-name))
                                      (catch java.io.IOException e (.printStackTrace e)))]
      (if *clj-view-svr-config*
        (set-clutch-defaults! {:language view-server-name})
@@ -237,9 +241,10 @@
 
 (defdbtest create-a-design-view
   (when *clj-view-svr-config*
-    (let [view-document (save-view "users" :names-with-score-over-70
-                                     (with-clj-view-server
-                                       {:map #(if (> (:score %) 70) [[nil (:name %)]])}))]
+    (let [view-document (save-view "users" 
+                                   (view-server-fns view-server-name
+                                     {:names-with-score-over-70
+                                      {:map #(if (> (:score %) 70) [[nil (:name %)]])}}))]
       (is (map? (-> (get-document (view-document :_id)) :views :names-with-score-over-70))))))
 
 (defdbtest use-a-design-view-with-spaces-in-key
@@ -248,9 +253,10 @@
     (create-document test-document-2)
     (create-document test-document-3)
     (create-document test-document-4)
-    (save-view "users" :names-and-scores
-		 (with-clj-view-server
-		  {:map (fn [doc] [[(:name doc) (:score doc)]])}))
+    (save-view "users"
+               (view-server-fns view-server-name
+                                {:names-and-scores
+                                 {:map (fn [doc] [[(:name doc) (:score doc)]])}}))
     (is (= [98]
              (map :value (:rows (get-view "users" :names-and-scores {:key "Jane Thompson"})))))))
 
@@ -260,18 +266,20 @@
     (create-document test-document-2)
     (create-document test-document-3)
     (create-document test-document-4)
-    (save-view "users" :names-with-score-over-70-sorted-by-score
-      (with-clj-view-server
-        {:map #(if (> (:score %) 70) [[(:score %) (:name %)]])}))
+    (save-view "users"
+      (view-server-fns view-server-name
+        {:names-with-score-over-70-sorted-by-score 
+         {:map #(if (> (:score %) 70) [[(:score %) (:name %)]])}}))
     (is (= ["Robert Jones" "Jane Thompson"]
           (map :value (:rows (get-view "users" :names-with-score-over-70-sorted-by-score)))))
     (create-document {:name "Test User 1" :score 55})
     (create-document {:name "Test User 2" :score 78})
     (is (= ["Test User 2" "Robert Jones" "Jane Thompson"]
           (map :value (:rows (get-view "users" :names-with-score-over-70-sorted-by-score)))))
-    (save-view "users" :names-with-score-less-than-70-sorted-by-name
-      (with-clj-view-server
-        {:map #(if (< (:score %) 70) [[(:name %) (:name %)]])}))
+    (save-view "users"
+      (view-server-fns view-server-name
+        {:names-with-score-less-than-70-sorted-by-name
+         {:map #(if (< (:score %) 70) [[(:name %) (:name %)]])}}))
     (is (= ["John Smith" "Sarah Parker" "Test User 1"]
           (map :value (:rows (get-view "users" :names-with-score-less-than-70-sorted-by-name)))))))
 
@@ -283,11 +291,12 @@
     (create-document test-document-4)
     (create-document {:name "Test User 1" :score 18})
     (create-document {:name "Test User 2" :score 7})
-    (save-view "users" :names-keyed-by-scores
-      (with-clj-view-server
-        {:map #(cond (< (:score %) 30) [[:low (:name %)]]
-                     (< (:score %) 70) [[:medium (:name %)]]
-                     :else [[:high (:name %)]])}))
+    (save-view "users"
+      (view-server-fns view-server-name
+        {:names-keyed-by-scores
+         {:map #(cond (< (:score %) 30) [[:low (:name %)]]
+                      (< (:score %) 70) [[:medium (:name %)]]
+                      :else [[:high (:name %)]])}}))
     (is (= #{"Sarah Parker" "John Smith" "Test User 1" "Test User 2"}
           (set (map :value (:rows (get-view "users" :names-keyed-by-scores {} {:keys [:medium :low]}))))))))
 
@@ -297,10 +306,11 @@
     (create-document test-document-2)
     (create-document test-document-3)
     (create-document test-document-4)
-    (save-view "scores" :sum-of-all-scores
-      (with-clj-view-server
-        {:map    (fn [doc] [[nil (:score doc)]])
-         :reduce (fn [keys values _] (apply + values))}))
+    (save-view "scores"
+      (view-server-fns view-server-name
+        {:sum-of-all-scores
+         {:map    (fn [doc] [[nil (:score doc)]])
+          :reduce (fn [keys values _] (apply + values))}}))
     (is (= 302 (-> (get-view "scores" :sum-of-all-scores) :rows first :value)))
     (create-document {:score 55})
     (is (= 357 (-> (get-view "scores" :sum-of-all-scores) :rows first :value)))))
@@ -311,10 +321,11 @@
     (create-document {:players ["Test User 4"]})
     (create-document {:players []})
     (create-document {:players ["Test User 5" "Test User 6" "Test User 7" "Test User 8"]})
-    (save-view "count" :number-of-players
-               (with-clj-view-server
-                 {:map (fn [doc] (map (fn [d] [d 1]) (:players doc)))
-                  :reduce (fn [keys values _] (reduce + values))}))
+    (save-view "count"
+               (view-server-fns view-server-name
+                 {:number-of-players
+                  {:map (fn [doc] (map (fn [d] [d 1]) (:players doc)))
+                   :reduce (fn [keys values _] (reduce + values))}}))
     (is (= 8 (-> (get-view "count" :number-of-players) :rows first :value)))))
 
 (defdbtest use-ad-hoc-view
@@ -324,9 +335,9 @@
     (create-document test-document-3)
     (create-document test-document-4)
     (let [view (ad-hoc-view
-                 (with-clj-view-server
+                 (view-server-fns view-server-name
                    {:map (fn [doc] (if (re-find #"example\.com$" (:email doc))
-                                     [[nil (:email doc)]]))}))]
+                                   [[nil (:email doc)]]))}))]
       (is (= #{"robert.jones@example.com" "sarah.parker@example.com"}
             (set (map :value (:rows view))))))))
 
@@ -336,8 +347,8 @@
   (create-document test-document-3)
   (create-document test-document-4)
   (let [view (ad-hoc-view
-              {:language "javascript"
-               :map      "function(doc){if(doc.email.indexOf('test.com')>0)emit(null,doc.email);}"})]
+               (view-server-fns :javascript
+                 {:map      "function(doc){if(doc.email.indexOf('test.com')>0)emit(null,doc.email);}"}))]
     (is (= #{"john.smith@test.com" "jane.thompson@test.com"}
            (set (map :value (:rows view)))))))
 
@@ -464,7 +475,7 @@
 
 (defdbtest changes-filter
   (save-filter "scores"
-               (with-clj-view-server
+               (view-server-fns view-server-name
                  {:less-than-50 (fn [document request] (if (< (:score document) 50) true false))}))
   (watch-changes test-database :check-id (partial check-id-changes-test "Filter")
                  :filter "scores/less-than-50")
@@ -473,7 +484,7 @@
 
 (defdbtest changes-filter-with-query-params
   (save-filter "scores"
-               (with-clj-view-server
+               (view-server-fns view-server-name
                  {:more-than-50-from-a-user (fn [document request]
                                                      (if (and (> (:score document) 50)
                                                               (= (:name document) (-> request :query :name)))
