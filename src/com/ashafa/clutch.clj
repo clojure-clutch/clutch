@@ -40,8 +40,7 @@
 ;; default clutch configuration
 (def *defaults* (ref {:host     "localhost"
                       :port     5984
-                      :ssl-port 443
-                      :language "clojure"}))
+                      :ssl-port 443}))
 
 (def ^{:doc "A very 'high' unicode character that can be used
               as a wildcard suffix when querying views."}
@@ -55,7 +54,6 @@
   "Sets Clutch default configuration:
         {:host     <ip (defaults to \"localhost\")>
          :port     <port (defaults to 5984)>
-         :language <language the CouchDB view server uses (see: README)>
          :username <username (if http authentication is enabled)>
          :password <password (if http authentication is enabled)>}"
   [configuration-map]
@@ -119,12 +117,6 @@
        (do ~@body))
      (throw
       (IllegalArgumentException. "A valid document is required."))))
-
-
-(defmacro with-clj-view-server
-  "Takes a map and serializes the values of each key as a string for use by the Clojure view server."
-  ([view-server-map]
-     (reduce #(assoc %1 %2 (pr-str (%2 view-server-map))) {} (keys view-server-map))))
 
 (defmacro with-db
   "Takes a string (database name) or map (database meta) with a body of forms. It
@@ -507,13 +499,42 @@ their values (see: #'clojure.core/update-in)."
       :command (str "_config/query_servers/" language)
       :data (pr-str exec-string))))
 
-(defn save-view
-  "Create a design document used for database queries."
-  [design-document-name view-key view-server-map]
+(defn- map-leaves
+  [f m]
+  (into {} (for [[k v] m]
+             (if (map? v)
+               [k (map-leaves f v)]
+               [k (f v)]))))
+
+(defmulti view-transformer identity)
+(defmethod view-transformer :clojure [_] (fn [options] pr-str))
+(defmethod view-transformer :default [_] (fn [options] str))
+
+(defmacro view-server-fns
+  [options fns]
+  (let [[language options] (if (map? options)
+                             [(or (:language options) :javascript) (dissoc options :language)]
+                             [options])]
+    [language `(#'map-leaves ((view-transformer ~language) ~options) '~fns)]))
+
+(defn save-design-document
+  "Create/update a design document containing functions used for database
+   queries/filtering/validation/etc."
+  [fn-type design-document-name [language view-server-fns]]
   (let [design-doc-id (str "_design/" design-document-name)]
     (if-let [design-doc (get-document design-doc-id)]
-      (update-document design-doc (update-in design-doc [:views] #(assoc % view-key view-server-map)))
-      (create-document {:language (config :language) :views (hash-map view-key view-server-map)} design-doc-id))))
+      (update-document design-doc (update-in design-doc [fn-type] merge view-server-fns))
+      (create-document {fn-type view-server-fns
+                        :language language
+                        :_id design-doc-id}))))
+
+(def save-view
+  "Create or update a design document containing views used for database queries."
+  (partial save-design-document :views))
+
+(def save-filter
+  "Create a filter for use with CouchDB change notifications API via 'watch-changes'."
+  (partial save-design-document :filters))
 
 (defn get-view
   "Get documents associated with a design document. Also takes an optional map
@@ -531,25 +552,19 @@ their values (see: #'clojure.core/update-in)."
        :data (if (empty? post-data-map) nil post-data-map))))
 
 (defn ad-hoc-view
-  "One-off queries (i.e. views you don't want to save in the CouchDB database). Ad-hoc
+  "DEPRECATED — future versions of CouchDB will not support ad-hoc views. They should
+   not be used in general.
+   
+   One-off queries (i.e. views you don't want to save in the CouchDB database). Ad-hoc
    views should be used during development. Also takes an optional map for querying
    options (see: http://bit.ly/gxObh)."
-  ([map-reduce-fns-map]
-     (ad-hoc-view map-reduce-fns-map {}))
-  ([map-reduce-fns-map query-params-map]
+  ([view-server-fns]
+     (ad-hoc-view view-server-fns {}))
+  ([[language view-server-fns] query-params-map]
+    (into {:language language} view-server-fns)
      (couchdb-request config :post
        :command (str "_temp_view" (utils/map-to-query-str query-params-map))
-       :data (if-not (contains? map-reduce-fns-map :language)
-               (assoc map-reduce-fns-map :language (config :language))
-               map-reduce-fns-map))))
-
-(defn save-filter
-  "Create a filter for use with CouchDB change notifications API via 'watch-changes'."
-  [design-document-name view-server-map]
-  (let [design-doc-id (str "_design/" design-document-name)]
-    (if-let [design-doc (get-document design-doc-id)]
-      (update-document design-doc (update-in design-doc [:filters] #(merge %1 view-server-map)))
-      (create-document {:language (config :language) :filters view-server-map} design-doc-id))))
+       :data (into {:language language} view-server-fns))))
 
 (defn bulk-update
   "Takes a vector of documents (maps) and inserts or updates (if \"_id\" and \"_rev\" keys
