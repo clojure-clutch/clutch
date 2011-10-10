@@ -548,7 +548,7 @@ their values (see: #'clojure.core/update-in)."
      (couchdb-request config
        (if (empty? post-data-map) :get :post)
        :command (str "_design/" design-document "/_view/" (name view-key)
-                  (utils/map-to-query-str query-params-map))
+                  (utils/map-to-query-str query-params-map #(if (#{:stale "stale"} %) nil %)))
        :data (if (empty? post-data-map) nil post-data-map))))
 
 (defn ad-hoc-view
