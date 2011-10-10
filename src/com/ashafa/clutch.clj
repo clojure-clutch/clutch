@@ -507,15 +507,22 @@ their values (see: #'clojure.core/update-in)."
                [k (f v)]))))
 
 (defmulti view-transformer identity)
-(defmethod view-transformer :clojure [_] (fn [options] pr-str))
-(defmethod view-transformer :default [_] (fn [options] str))
+(defmethod view-transformer :clojure
+  [_]
+  {:language :clojure
+   :compiler (fn [options] pr-str)})
+(defmethod view-transformer :default
+  [language]
+  {:language language
+   :compiler (fn [options] str)})
 
 (defmacro view-server-fns
   [options fns]
   (let [[language options] (if (map? options)
                              [(or (:language options) :javascript) (dissoc options :language)]
                              [options])]
-    [language `(#'map-leaves ((view-transformer ~language) ~options) '~fns)]))
+    [(:language (view-transformer language))
+     `(#'map-leaves ((:compiler (view-transformer ~language)) ~options) '~fns)]))
 
 (defn save-design-document
   "Create/update a design document containing functions used for database
