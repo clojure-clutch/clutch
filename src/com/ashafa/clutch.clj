@@ -559,11 +559,8 @@ their values (see: #'clojure.core/update-in)."
        :data (if (empty? post-data-map) nil post-data-map))))
 
 (defn ad-hoc-view
-  "DEPRECATED — future versions of CouchDB will not support ad-hoc views. They should
-   not be used in general.
-   
-   One-off queries (i.e. views you don't want to save in the CouchDB database). Ad-hoc
-   views should be used during development. Also takes an optional map for querying
+  "One-off queries (i.e. views you don't want to save in the CouchDB database). Ad-hoc
+   views should be used only during development. Also takes an optional map for querying
    options (see: http://bit.ly/gxObh)."
   ([view-server-fns]
      (ad-hoc-view view-server-fns {}))
