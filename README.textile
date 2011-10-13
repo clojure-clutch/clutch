@@ -54,7 +54,7 @@ CouchDB needs to know how to exec Clutch's view server.  Getting this command st
 or, (b) you can use the @com.ashafa.clutch.utils/view-server-exec-string@ function to dump a likely-to-work exec string.  For example:
 
 <pre>
-user=> (use '[com.ashafa.clutch.utils :only (view-server-exec-string)])
+user=> (use '[com.ashafa.clutch.view-server :only (view-server-exec-string)])
 nil
 user=> (println (view-server-exec-string))
 java -cp "clutch/src:clutch/test:clutch/classes:clutch/resources:clutch/lib/clojure-1.3.0-beta1.jar:clutch/lib/clojure-contrib-1.2.0.jar:clutch/lib/data.json-0.1.1.jar:clutch/lib/tools.logging-0.1.2.jar" clojure.main -m com.ashafa.clutch.view-server
@@ -84,6 +84,18 @@ In the end, both of these methods add the exec string you provide it to the 'loc
   [query_servers]
   clojure = java -cp …rest of your exec string…
 </pre>
+
+h3. (Partial) Changelog
+
+h5. 0.3.0-SNAPSHOT
+
+Many breaking changes to refine/simplify the API, clean up the implementation, and add additional features.
+
+* elimination of inconsistency between APIs between @save-view@ and @save-filter@.  The names of individual views and filters are now part of the map provided to these functions, instead of sometimes being provided separately.
+* @:language@ has been eliminated as part of the dynamically-bound configuration map
+* @with-clj-view-server@ has been replaced by the more generic @view-server-fns@ macro, which takes a @:language@ keyword or map of options that includes a @:language@ slot (e.g. @:clojure@, @:javascript@, etc), and a map of view/filter/validator names => functions.
+* A @view-transformer@ multimethod is now available, which opens up clutch to dynamically support additional view server languages. 
+* Moved @view-server-exec-string@ to @com.ashafa.clutch.view-server@ namespace
 
 h3. Contributors
 
