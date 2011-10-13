@@ -32,25 +32,48 @@
            java.lang.Class
            [java.io File InputStream]))
 
+(defn str*
+  "Same as str, but keeps keyword colons out."
+  [v]
+  (str (if (keyword? v)
+         (name v)
+         v)))
+
+(defn forgiving-keyset
+  "Returns a set that contains all of the given keys, but including string,
+   keyword, and symbol variants as necessary."
+  [& keys]
+  (->> (map str* keys)
+    (map #(vector % (symbol %) (keyword %)))
+    flatten
+    set))
+
+(defn encode-compound-values
+  [k v]
+  (coll? v))
+
 (defn uri-encode
   [string]
-  (-?> string (URLEncoder/encode "UTF-8") (.replace "+" "%20")))
+  (-?> string str (URLEncoder/encode "UTF-8") (.replace "+" "%20")))
 
 (defn map-to-query-str
   ([m]
     (map-to-query-str m (constantly true)))
-  ([m params-not-encoded-fn?]
-    (-?>> (seq m)
-          sort                     ; sorting makes testing a lot easier :-)
-          (map (fn [[k v]]
-                 [(uri-encode (if (keyword? k) (name k) k))
-                  "="
-                  (uri-encode (if (params-not-encoded-fn? k)
-                                (json/json-str v)
-                                (str v)))]))
-          (interpose "&")
-          flatten
-          (apply str "?"))))
+  ([m encode?]
+    (let [encode? (if (set? encode?)
+                    (fn [k _] (encode? k))
+                    encode?)]
+      (-?>> (seq m)
+            sort                     ; sorting makes testing a lot easier :-)
+            (map (fn [[k v]]
+                   [(uri-encode (str* k))
+                    "="
+                    (uri-encode (if (encode? k v)
+                                  (json/json-str v)
+                                  (str v)))]))
+            (interpose "&")
+            flatten
+            (apply str)))))
 
 (defn options-to-map 
   [init options]
@@ -58,36 +81,57 @@
     (apply (partial assoc init) options) 
     init))
 
-(defn set-field
-  "Set to private or protected field. field-name is a symbol or keyword.
-   This will presumably be added to clojure.contrib.reflect eventually...?"
-  [^Class klass field-name obj value]
-  (-> klass
-    (.getDeclaredField (name field-name))
-    (doto (.setAccessible true))
-    (.set obj value)))
+(declare url-creds)
 
-(defn db-meta->url
-  [db-meta]
-  (str "http://"
-       (if (:username db-meta)
-         (str (:username db-meta) ":" (:password db-meta) "@"))
-       (:host db-meta) ":" (:port db-meta) "/" (:name db-meta)))
+(defrecord URL
+  [protocol username password host port path query]
+  Object
+  (toString [this]
+    (let [creds (url-creds this)]
+      (apply str
+        protocol "://"
+        creds
+        (when creds \@)
+        host
+        \: (cond
+             (and port (not= -1 port)) port
+             (= protocol "https") 443
+             :else 5984)
+        \/ path
+        (when query (str \? query))))))
 
-(defn url->db-meta
-  "Given a url, returns a map with slots aligned with *defaults*.
-   Supports usage of URLs with with-db, etc."
-  [url]
-  (let [java-url      (java.net.URL. url)
-        userinfo      (.getUserInfo java-url)
-        [m user pass] (if userinfo (re-matches #"([^:]+):(.*$)" userinfo))
-        url-port      (.getPort java-url)
-        port          (if (> url-port -1) url-port 5984)]
-    {:host     (.getHost java-url)
-     :port     port
-     :username user
-     :password pass
-     :name     (.getPath java-url)}))
+(defn url
+  ([db]
+    (if (instance? URL db)
+      db
+      (try
+        (let [url (java.net.URL. db)
+              [_ user pass] (re-matches #"([^:]+):(.*$)" (or (.getUserInfo url) ""))]
+          (URL. (.getProtocol url)
+                user
+                pass
+                (.getHost url)
+                (.getPort url)
+                (-> url .getPath (.replaceAll "^/" ""))
+                (.getQuery url)))
+        (catch java.net.MalformedURLException e
+          (url (str "http://localhost/" db))))))
+  ([base & path-segments]
+    (let [base (if (instance? URL base) base (url base))]
+      (assoc base
+        :path (->> path-segments
+                (cons (:path base))
+                (interpose \/)
+                (apply str))))))
+
+(defn server-url
+  [db]
+  (assoc db :path nil :query nil))
+
+(defn url-creds
+  [^URL url]
+  (and (:username url)
+    (str (:username url) ":" (:password url))))
 
 (defn get-mime-type
   [^File file]
@@ -105,11 +149,24 @@
           (recur (.read input barr)))))
     (.toByteArray out)))
 
+;; TODO use commons-codec, or data.codec in new contrib 
 (defn encode-bytes-to-base64
   [^bytes bytes]
   (.replaceAll
    (.encode (sun.misc.BASE64Encoder.) bytes) "\n" ""))
 
+;; TODO eliminate when sane http client is integrated
+(defn set-field
+  "Set to private or protected field. field-name is a symbol or keyword.
+   This will presumably be added to clojure.contrib.reflect eventually...?"
+  [^Class klass field-name obj value]
+  (-> klass
+    (.getDeclaredField (name field-name))
+    (doto (.setAccessible true))
+    (.set obj value)))
+
+;; TODO should be replaced with a java.io.Closeable Seq implementation and used
+;; in conjunction with with-open on the client side
 (defn read-lines
   "Like clojure.core/line-seq but opens f with reader.  Automatically
   closes the reader AFTER YOU CONSUME THE ENTIRE SEQUENCE.
