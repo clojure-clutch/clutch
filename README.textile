@@ -89,7 +89,17 @@ h3. (Partial) Changelog
 
 h5. 0.3.0-SNAPSHOT
 
-Many breaking changes to refine/simplify the API, clean up the implementation, and add additional features.
+Many breaking changes to refine/simplify the API, clean up the implementation, and add additional features:
+
+Core API:
+
+* Renamed @create-document@ => @put-document@; @put-document@ now supports both creation and update of a document depending upon whether  @:_id@ and @:_rev@ slots are present in the document you are saving.
+* @update-document@ semantics have been simplified for the case where an "update function" and arguments are supplied to work well with core Clojure functions like @update-in@ and @assoc@ (fixes issue #8) — e.g. can be used like @swap!@ et al.
+* Optional `:id` and `:attachment` arguments to @put-document@ (was @create-document@) are now specified via keyword arguments
+* Removed "update map" argument from @bulk-update@ fn (replace with e.g. @(bulk-update db (map #(merge % update-map) documents)@)
+* Renamed @get-all-documents-meta@ => @all-documents@
+
+View-related API:
 
 * elimination of inconsistency between APIs between @save-view@ and @save-filter@.  The names of individual views and filters are now part of the map provided to these functions, instead of sometimes being provided separately.
 * @:language@ has been eliminated as part of the dynamically-bound configuration map

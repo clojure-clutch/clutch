@@ -33,7 +33,7 @@
             (sun.misc BASE64Encoder)))
 
 
-(def ^{:private true} version "0.0")
+(def ^{:private true} version "0.3.0")
 (def ^String *encoding* "UTF-8") ; are we ever reading anything other than UTF-8 from couch?
 (def ^{:dynamic true} *default-data-type* "application/json")
 (def ^{:dynamic true} *configuration-defaults* {:read-timeout 0
@@ -56,7 +56,7 @@
     (if (instance? InputStream data) (.close ^InputStream data))))
 
 (defn- get-response
-  [^HttpURLConnection connection {:keys [read-json-response] :as config}]
+  [^HttpURLConnection connection {:keys [read-json-response]}]
   (let [response-code (.getResponseCode connection)]
     (when *response-code* (reset! *response-code* response-code))
     (cond (< response-code 400)
@@ -70,12 +70,13 @@
                   (str "CouchDB Response Error: " response-code " " (.getResponseMessage connection)))))))
 
 (defn- connect
-  [url method config data]
-  (let [^HttpURLConnection connection    (.openConnection (URL. url))
-        configuration (merge *configuration-defaults* config)]
+  [^com.ashafa.clutch.utils.URL {:as request
+                                 :keys [method data]}]
+  (let [^HttpURLConnection connection (.openConnection (URL. (str request)))
+        configuration (merge *configuration-defaults* request)]
     ; can't just use .setRequestMethod because it throws an exception on
     ; any "illegal" [sic] HTTP methods, including couchdb's COPY
-    (if (:ssl config)
+    (if (= "https" (:protocol request))
       (.setRequestMethod connection method)
       (utils/set-field HttpURLConnection :method connection method))
     (doto connection
@@ -83,8 +84,8 @@
       (.setConnectTimeout (configuration :connect-timeout))
       (.setReadTimeout (configuration :read-timeout))
       (.setInstanceFollowRedirects (configuration :follow-redirects)))
-    (doseq [key-words (keys (configuration :headers))]
-      (.setRequestProperty connection key-words ((configuration :headers) key-words)))
+    (doseq [[k v] (:headers configuration)]
+      (.setRequestProperty connection k v))
     (if data
       (do
         (.setDoOutput connection true)
@@ -95,18 +96,9 @@
 (defn couchdb-request
   "Prepare request for CouchDB server by forming the required url, setting headers, and
    if required, the post/put body and its mime type."
-  [config method & {:keys [command data data-type headers]}]
-  (let [command   (when command (str "/" command))
-        raw-data  data
-        data-type (or data-type *default-data-type*)
-        database  (if (config :name) (str "/" (config :name)))
-        url       (str "http"
-                       (if (config :ssl) "s") "://" (config :host)
-                       ":"
-                       (if (config :ssl) (config :ssl-port) (config :port))
-                       (if (and database (re-find #"\?" database))
-                         (.replace database "?" (str command "?"))
-                         (str database command)))
+  [method url & {:keys [data data-type headers]}]
+  (let [raw-data  data
+        data-type (or data-type *default-data-type*)       
         data      (if (map? raw-data) (json/json-str raw-data) raw-data)
         d-headers (merge {"Content-Type" data-type
                           "User-Agent" (str "com.ashafa.clutch.http-client/" version)
@@ -115,12 +107,12 @@
         d-headers (if (string? data)
                     (assoc d-headers "Content-Length" (-> data count str))
                     d-headers)
-        headers   (if (:username config)
+        headers   (if-let [creds (utils/url-creds url)]
                     (assoc d-headers
                       "Authorization"
-                      (str "Basic "
-                           (.encode (BASE64Encoder.)
-                                    (.getBytes (str (config :username) ":" (:password config))))))
-                    d-headers)
-        method    (.toUpperCase (name method))]
-    (connect url method (assoc config :headers headers) data)))
+                      (str "Basic " (.encode (BASE64Encoder.) (.getBytes creds))))
+                    d-headers)]
+    (connect (assoc url
+                    :headers headers
+                    :data data
+                    :method (.toUpperCase (name method))))))
