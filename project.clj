@@ -12,4 +12,6 @@
   :multi-deps {"clojure-1.2.0" [[org.clojure/clojure "1.2.0"]
                                 [org.clojure/clojure-contrib "1.2.0"]
                                 [org.clojure/data.json "0.1.1"]
-                                [org.clojure/tools.logging "0.1.2"]]})
+                                [org.clojure/tools.logging "0.1.2"]]}
+  :test-selectors {:default (constantly true)
+                   :no-encoding #(not= 'test-docid-encoding (:name %))})
