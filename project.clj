@@ -3,7 +3,7 @@
   :url "http://github.com/ashafa/clutch"
   :dependencies [[org.clojure/clojure "1.3.0"]
                  [org.clojure/clojure-contrib "1.2.0"]
-                 [org.clojure/data.json "0.1.1"]
+                 [org.clojure/data.json "0.1.2"]
                  [org.clojure/tools.logging "0.1.2"]]
   :dev-dependencies [#_[autodoc "0.9.0-SNAPSHOT"]  ;; commented deps because they were pulling in clojure 1.1.0...
                      #_[swank-clojure "1.2.1"]
