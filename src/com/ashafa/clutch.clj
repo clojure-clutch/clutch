@@ -66,7 +66,8 @@
                 vec)]
     `(let ~dbops
        (defn ~(with-meta name (assoc (meta name)
-                                     :dbop true))
+                                     :dbop true
+                                     :dynamic true))
          ~@body)
        (alter-var-root (var ~name)
          (fn [fn#]
@@ -315,10 +316,10 @@
     [(:language (view-transformer language))
      `(#'map-leaves ((:compiler (view-transformer ~language)) ~options) '~fns)]))
 
-(defn save-design-document
+(defdbop save-design-document
   "Create/update a design document containing functions used for database
    queries/filtering/validation/etc."
-  [fn-type db design-document-name [language view-server-fns]]
+  [db fn-type design-document-name [language view-server-fns]]
   (let [design-doc-id (str "_design/" design-document-name)]
     (if-let [design-doc (get-document db design-doc-id)]
       (update-document db design-doc update-in [fn-type] merge view-server-fns)
@@ -326,13 +327,15 @@
                         :language language
                         :_id design-doc-id}))))
 
-(def ^{:dbop true} save-view
+(defdbop save-view
   "Create or update a design document containing views used for database queries."
-  (partial save-design-document :views))
+  [db & args]
+  (apply save-design-document db :views args))
 
-(def ^{:dbop true} save-filter
+(defdbop save-filter
   "Create a filter for use with CouchDB change notifications API via 'watch-changes'."
-  (partial save-design-document :filters))
+  [db & args]
+  (apply save-design-document db :filters args))
 
 (defn- get-view*
   "Get documents associated with a design document. Also takes an optional map
@@ -425,10 +428,7 @@
                          (utils/url attachment-name)
                          (assoc :read-json-response false))))))
 
-(def ^{:private true} all-database-operations
-  (->> (database-operations)
-    (map #(.setDynamic %))
-    doall))
+(def ^{:private true} all-database-operations (doall (database-operations)))
 
 (defmacro with-db
   "Takes a URL, database name (useful for localhost only), or an instance of
