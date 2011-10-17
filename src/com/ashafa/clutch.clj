@@ -52,9 +52,12 @@
     vals
     (filter (comp :dbop meta))))
 
-(defmacro defdbop
-  "Same as defn, but attaches :dbop metadata to the defined var and provides
-   implicit coercion of the first `db` argument to a URL instance."
+(defmacro ^{:private true} defdbop
+  "Same as defn, but attaches :dbop metadata to the defined var, provides
+   implicit coercion of the first `db` argument to a URL instance, and
+   pushes the defn declaration within a closure containing the root values
+   of all other :dbop vars, so as to avoid calling other public API functions
+   that have already had their db configuration partially applied via with-db."
   [name & body]
   (let [dbops (->> (database-operations)
                 (map (comp :name meta))
