@@ -96,12 +96,11 @@
                   id-desc (str x " " id)]]
       (send-off (agents (mod x (count agents)))
         (fn [& args]
-          (binding [http-client/*response-code* (atom nil)]
-            (try
-              (is (= id (:_id (put-document {} :id id))) id-desc)
-              (is (= {} (dissoc (get-document id) :_id :_rev)) id-desc)
-              (catch Exception e
-                (is false (str "Error for " id-desc ": " (.getMessage e)))))))))
+          (try
+            (is (= id (:_id (put-document {} :id id))) id-desc)
+            (is (= {} (dissoc (get-document id) :_id :_rev)) id-desc)
+            (catch Exception e
+              (is false (str "Error for " id-desc ": " (.getMessage e))))))))
     (apply await agents)))
 
 (defdbtest create-a-document
@@ -142,9 +141,9 @@
 
 (defdbtest verify-response-code-access
   (put-document test-document-1 :id "some_id")
-  (binding [http-client/*response-code* (atom nil)]
+  (binding [http-client/*response-code* nil]
     (is (thrown? java.io.IOException (put-document test-document-1 :id "some_id")))
-    (is (== 409 @http-client/*response-code*))))
+    (is (== 409 http-client/*response-code*))))
 
 (defdbtest update-a-document
   (let [id (:_id (put-document test-document-4))]
@@ -208,9 +207,9 @@
 (defdbtest copy-document-fail-overwrite
   (put-document test-document-1 :id "src")
   (put-document test-document-2 :id "overwrite")
-  (binding [http-client/*response-code* (atom nil)]
+  (binding [http-client/*response-code* nil]
     (is (thrown? java.io.IOException (copy-document "src" "overwrite")))
-    (is (== 409 @http-client/*response-code*))))
+    (is (== 409 http-client/*response-code*))))
 
 (defdbtest get-all-documents-with-query-parameters
   (put-document test-document-1 :id "a")

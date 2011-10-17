@@ -98,6 +98,7 @@ Core API:
 * Optional `:id` and `:attachment` arguments to @put-document@ (was @create-document@) are now specified via keyword arguments
 * Removed "update map" argument from @bulk-update@ fn (replace with e.g. @(bulk-update db (map #(merge % update-map) documents)@)
 * Renamed @get-all-documents-meta@ => @all-documents@
+* @com.ashafa.clutch.http-client/*response-code*@ is no longer assumed to be an atom. Rather, it is @set!@-ed directly when it is thread-bound. (Fixes issue #29)
 
 View-related API:
 
