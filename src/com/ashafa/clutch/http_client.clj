@@ -37,14 +37,12 @@
 (def ^String *encoding* "UTF-8") ; are we ever reading anything other than UTF-8 from couch?
 (def ^{:dynamic true} *default-data-type* "application/json")
 (def ^{:dynamic true} *configuration-defaults* {:read-timeout 0
-                               :connect-timeout 5000
-                               :use-caches false
-                               :follow-redirects true
-                               :read-json-response true})
+                                                :connect-timeout 5000
+                                                :use-caches false
+                                                :follow-redirects true
+                                                :read-json-response true})
 
-; @todo - we'll be able to eliminate the atom requirement when thread-bound? is available in core
-; http://www.assembla.com/spaces/clojure/tickets/243
-(def  ^{:doc "When bound to an atom, will be reset! to the HTTP response code of the last couchdb request."
+(def  ^{:doc "When thread-bound to any value, will be reset! to the HTTP response code of the last couchdb request."
         :dynamic true}
      *response-code* nil)
 
@@ -58,7 +56,7 @@
 (defn- get-response
   [^HttpURLConnection connection {:keys [read-json-response]}]
   (let [response-code (.getResponseCode connection)]
-    (when *response-code* (reset! *response-code* response-code))
+    (when (thread-bound? #'*response-code*) (set! *response-code* response-code))
     (cond (< response-code 400)
           (if read-json-response
             (with-open [input (.getInputStream connection)]
