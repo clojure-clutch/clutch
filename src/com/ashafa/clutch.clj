@@ -46,18 +46,29 @@
 
 (def ^{:private true} watched-databases (ref {}))
 
+(defn- database-operations
+  []
+  (->> (ns-publics *ns*)
+    vals
+    (filter (comp :dbop meta))))
+
 (defmacro defdbop
   "Same as defn, but attaches :dbop metadata to the defined var and provides
    implicit coercion of the first `db` argument to a URL instance."
   [name & body]
-  `(do
-     (defn ~(with-meta name (assoc (meta name)
-                              :dbop true))
-       ~@body)
-     (alter-var-root (var ~name)
-       (fn [fn#]
-         (fn [db# & args#]
-           (apply fn# (utils/url db#) args#))))))
+  (let [dbops (->> (database-operations)
+                (map (comp :name meta))
+                (map (partial repeat 2))
+                flatten
+                vec)]
+    `(let ~dbops
+       (defn ~(with-meta name (assoc (meta name)
+                                     :dbop true))
+         ~@body)
+       (alter-var-root (var ~name)
+         (fn [fn#]
+           (fn [db# & args#]
+             (apply fn# (utils/url db#) args#)))))))
 
 (defdbop couchdb-info
   "Returns information about a CouchDB instance."
@@ -252,20 +263,19 @@
       :headers {"Destination" dest})))
 
 ;; TODO update-document doesn't provide a lot, now that put-document is here and can update or create as necessary
-(let [put-document put-document]
-  (defdbop update-document
-    "Takes document and a map and merges it with the original. When a function
-     and a vector of keys are supplied as the second and third argument, the
-     value of the keys supplied are updated with the result of the function of
-     their values (see: #'clojure.core/update-in)."
-    [db document & [mod & args]]
-    (let [document (cond
-                     (map? mod) (merge document mod)
-                     (fn? mod) (apply mod document args)
-                     (nil? mod) document
-                     :else (throw (IllegalArgumentException.
-                                    "A map or function is needed to update a document.")))]
-      (put-document db document))))
+(defdbop update-document
+  "Takes document and a map and merges it with the original. When a function
+   and a vector of keys are supplied as the second and third argument, the
+   value of the keys supplied are updated with the result of the function of
+   their values (see: #'clojure.core/update-in)."
+  [db document & [mod & args]]
+  (let [document (cond
+                   (map? mod) (merge document mod)
+                   (fn? mod) (apply mod document args)
+                   (nil? mod) document
+                   :else (throw (IllegalArgumentException.
+                                  "A map or function is needed to update a document.")))]
+    (put-document db document)))
 
 (defdbop configure-view-server
   "Sets the query server exec string for views written in the specified :language
@@ -302,18 +312,16 @@
     [(:language (view-transformer language))
      `(#'map-leaves ((:compiler (view-transformer ~language)) ~options) '~fns)]))
 
-(let [get-document get-document
-      put-document put-document]
-  (defn save-design-document
-    "Create/update a design document containing functions used for database
-     queries/filtering/validation/etc."
-    [fn-type db design-document-name [language view-server-fns]]
-    (let [design-doc-id (str "_design/" design-document-name)]
-      (if-let [design-doc (get-document db design-doc-id)]
-        (update-document db design-doc update-in [fn-type] merge view-server-fns)
-        (put-document db {fn-type view-server-fns
-                          :language language
-                          :_id design-doc-id})))))
+(defn save-design-document
+  "Create/update a design document containing functions used for database
+   queries/filtering/validation/etc."
+  [fn-type db design-document-name [language view-server-fns]]
+  (let [design-doc-id (str "_design/" design-document-name)]
+    (if-let [design-doc (get-document db design-doc-id)]
+      (update-document db design-doc update-in [fn-type] merge view-server-fns)
+      (put-document db {fn-type view-server-fns
+                        :language language
+                        :_id design-doc-id}))))
 
 (def ^{:dbop true} save-view
   "Create or update a design document containing views used for database queries."
@@ -414,10 +422,8 @@
                          (utils/url attachment-name)
                          (assoc :read-json-response false))))))
 
-(def ^{:private true} database-operations
-  (->> (ns-publics *ns*)
-    vals
-    (filter (comp :dbop meta))
+(def ^{:private true} all-database-operations
+  (->> (database-operations)
     (map #(.setDynamic %))
     doall))
 
@@ -426,6 +432,6 @@
    com.ashafa.clutch.utils.URL.  That value is used to configure the subject
    of all of the operations within the dynamic scope of body of code."
   [database & body]
-  `(with-bindings (into {} (for [var @#'com.ashafa.clutch/database-operations]
+  `(with-bindings (into {} (for [var @#'com.ashafa.clutch/all-database-operations]
                              [var (partial @var (utils/url ~database))]))
      ~@body))
