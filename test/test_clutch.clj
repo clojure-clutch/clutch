@@ -494,3 +494,12 @@
   (put-document {:name "tester 1" :score 51} :id "target-id")
   (put-document {:name "tester 2" :score 48} :id "not-target-id"))
 
+(deftest direct-db-config-usage
+  (let [db "direct-db-config-usage"]
+    (try
+      (create-database db)
+      (let [doc (put-document db test-document-1 :id "foo")]
+        (update-document db doc {:a 5})
+        (is (= (assoc test-document-1 :a 5) (dissoc-meta (get-document db "foo")))))
+      (finally
+        (delete-database "direct-db-config-usage")))))

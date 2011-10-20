@@ -46,33 +46,27 @@
 
 (def ^{:private true} watched-databases (ref {}))
 
-(defn- database-operations
-  []
-  (->> (ns-publics *ns*)
-    vals
-    (filter (comp :dbop meta))))
+(def ^{:dynamic true :private true} *database* nil)
+
+(defn- with-db*
+  [f]
+  (fn [& [maybe-db & rest :as args]]
+    (if (and (thread-bound? #'*database*)
+             (not (identical? maybe-db *database*)))
+      (apply f *database* args)
+      (apply f (utils/url maybe-db) rest))))
 
 (defmacro ^{:private true} defdbop
-  "Same as defn, but attaches :dbop metadata to the defined var, provides
-   implicit coercion of the first `db` argument to a URL instance, and
-   pushes the defn declaration within a closure containing the root values
-   of all other :dbop vars, so as to avoid calling other public API functions
-   that have already had their db configuration partially applied via with-db."
+  "Same as defn, but wraps the defined function in another that transparently
+   allows for dynamic or explicit application of database configuration as well
+   as implicit coercion of the first `db` argument to a URL instance."
   [name & body]
-  (let [dbops (->> (database-operations)
-                (map (comp :name meta))
-                (map (partial repeat 2))
-                flatten
-                vec)]
-    `(let ~dbops
-       (defn ~(with-meta name (assoc (meta name)
-                                     :dbop true
-                                     :dynamic true))
-         ~@body)
-       (alter-var-root (var ~name)
-         (fn [fn#]
-           (fn [db# & args#]
-             (apply fn# (utils/url db#) args#)))))))
+  `(do
+     (defn ~name ~@body)
+     (alter-var-root (var ~name) with-db*)
+     (alter-meta! (var ~name) update-in [:doc] str
+       "\n\n  When used within the dynamic scope of `with-db`, the initial `db`"
+       "\n  argument is automatically provided.")))
 
 (defdbop couchdb-info
   "Returns information about a CouchDB instance."
@@ -428,13 +422,10 @@
                          (utils/url attachment-name)
                          (assoc :read-json-response false))))))
 
-(def ^{:private true} all-database-operations (doall (database-operations)))
-
 (defmacro with-db
   "Takes a URL, database name (useful for localhost only), or an instance of
    com.ashafa.clutch.utils.URL.  That value is used to configure the subject
    of all of the operations within the dynamic scope of body of code."
   [database & body]
-  `(with-bindings (into {} (for [var @#'com.ashafa.clutch/all-database-operations]
-                             [var (partial @var (utils/url ~database))]))
+  `(binding [*database* (utils/url ~database)]
      ~@body))
