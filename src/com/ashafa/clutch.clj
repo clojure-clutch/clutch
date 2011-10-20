@@ -197,7 +197,7 @@
    {} files))
 
 (defdbop put-document
-  [db document & {:keys [id attachments]}]
+  [db document & {:keys [id attachments request-params]}]
   (let [document (merge document
                         (when id {:_id id})
                         (when (seq attachments)
@@ -209,7 +209,9 @@
                                             "`java.io.File`s or string paths that name readable "
                                             "files that exist: " attachments)))))))
         result (couchdb-request (if (:_id document) :put :post)
-                                (utils/url db (utils/uri-encode (:_id document)))
+                                (utils/url
+                                  (assoc db :query (utils/map-to-query-str request-params utils/encode-compound-values))
+                                  (utils/uri-encode (:_id document)))
                                 :data document)]
     (and (:ok result)
       (assoc document :_rev (:rev result) :_id (:id result)))))
