@@ -514,7 +514,11 @@
           (try
             (is (= db2 (:db_name (get-database))))
             (is (nil? (get-document "1")))
+            (let [doc (put-document {} :id "2")]
+              (update-document doc {:a 5})
+              (is (= {:a 5} (dissoc-meta (get-document "2")))))
             (finally
               (delete-database))))
+        (is (nil? (get-document "2")))
         (finally
           (delete-database))))))
