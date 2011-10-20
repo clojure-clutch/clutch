@@ -52,9 +52,13 @@
                 (view-server/view-server-exec-string)))
      (%)))
 
+(defn- test-database-name
+  [test-name]
+  (str "test-db-" (str/re-sub #"[^$]+\$([^@]+)@.*" "$1" (str test-name))))
+
 (defmacro defdbtest [name & body]
   `(deftest ~name
-     (binding [test-database (get-database (utils/url (str "test-db-" (str/re-sub #"[^$]+\$([^@]+)@.*" "$1" (str ~name)))))]
+     (binding [test-database (get-database (utils/url (test-database-name ~name)))]
        (try
         (with-db test-database ~@body)
         (finally
@@ -89,19 +93,14 @@
 (defdbtest test-docid-encoding
   ; doing a lot of requests here -- the test is crazy-slow if delayed_commit=false,
   ; so let's use the iron we've got
-  (let [agents (vec (repeatedly 100 #(agent nil)))]
-    (doseq [x (range 0xffff)
-            :when (valid-id-charcode? x)
-            :let [id (str "a" (char x)) ; doc ids can't start with _, so prefix everything
-                  id-desc (str x " " id)]]
-      (send-off (agents (mod x (count agents)))
-        (fn [& args]
-          (try
-            (is (= id (:_id (put-document {} :id id))) id-desc)
-            (is (= {} (dissoc (get-document id) :_id :_rev)) id-desc)
-            (catch Exception e
-              (is false (str "Error for " id-desc ": " (.getMessage e))))))))
-    (apply await agents)))
+  (doseq [x (range 0xffff)
+          :when (valid-id-charcode? x)
+          :let [id (str "a" (char x)) ; doc ids can't start with _, so prefix everything
+                id-desc (str x " " id)]]
+    (try
+      (is (= id (:_id (put-document {} :id id :request-params {:batch "ok"}))) id-desc)
+      (catch Exception e
+        (is false (str "Error for " id-desc ": " (.getMessage e)))))))
 
 (defdbtest create-a-document
   (let [document (put-document test-document-1)]
