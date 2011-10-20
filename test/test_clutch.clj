@@ -502,3 +502,19 @@
         (is (= (assoc test-document-1 :a 5) (dissoc-meta (get-document db "foo")))))
       (finally
         (delete-database "direct-db-config-usage")))))
+
+(deftest multiple-binding-levels
+  (let [db1 "multiple-binding-levels"
+        db2 (str db1 2)]
+    (with-db db1
+      (try
+        (is (= db1 (:db_name (get-database))))
+        (put-document {} :id "1")
+        (with-db db2
+          (try
+            (is (= db2 (:db_name (get-database))))
+            (is (nil? (get-document "1")))
+            (finally
+              (delete-database))))
+        (finally
+          (delete-database))))))
