@@ -119,8 +119,8 @@
    with-db, set-clutch-defaults!, or set-clutch-config!."
   [database]
   (let [arg-type (database-arg-type database)]
-    (merge @*defaults* 
-      (cond (= :string arg-type) (if (re-find #"^https?:" database) 
+    (merge @*defaults*
+      (cond (= :string arg-type) (if (re-find #"^https?:" database)
                                     (utils/url->db-meta database)
                                     {:name database})
         (= :meta arg-type) database
@@ -129,7 +129,7 @@
 (defn set-clutch-config!
   "Sets the configuration to be used by Clutch, eliminating the need to
    use with-db.
-   
+
    This should *only* ever be used as a convenience on the REPL, and
    even then, only with caution."
   [config-map]
@@ -189,9 +189,9 @@
 
 (defmethod create-database :string
   [db-string]
-  (create-database (if (re-find #"^https?:" db-string)
-                     (utils/url->db-meta db-string)
-                     (assoc @*defaults* :name db-string))))
+  (create-database (if (re-find #"^https?:" (java.net.URLEncoder/encode  db-string "utf-8"))
+                     (utils/url->db-meta (java.net.URLEncoder/encode db-string "utf-8"))
+                     (assoc @*defaults* :name (java.net.URLEncoder/encode db-string "utf-8")))))
 
 (defmethod create-database :url
   [^java.net.URL url]
@@ -335,7 +335,7 @@
       (dosync
        (let [uid     (str (java.util.UUID/randomUUID))
              watcher {:uid        uid
-                      :http-agent (h/http-agent 
+                      :http-agent (h/http-agent
                                    (str url-str "/_changes" (utils/map-to-query-str options (constantly false)))
                                    :method "GET"
                                    :handler (partial watch-changes-handler url-str watch-key uid))
@@ -643,4 +643,3 @@ their values (see: #'clojure.core/update-in)."
     (when (-?> doc :_attachments (get (keyword attachment-name)))
       (check-and-use-document doc
         (couchdb-request (assoc config :read-json-response false) :get :command attachment-name)))))
-
