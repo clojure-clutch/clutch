@@ -397,9 +397,10 @@
     (couchdb-request :put
       (-> db
         (document-url document)
-        (utils/url (if (keyword? file-name)
-                     (name file-name)
-                     file-name)))
+        (utils/url (utils/uri-encode
+                    (if (keyword? file-name)
+                      (name file-name)
+                      file-name))))
       :data stream
       :data-type (or mime-type (and file (utils/get-mime-type file))))))
 
