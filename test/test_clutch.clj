@@ -397,6 +397,17 @@
     (is (thrown? IllegalArgumentException (update-attachment document (Object.))))
     (is (thrown? IllegalArgumentException (update-attachment document (ByteArrayInputStream. (make-array Byte/TYPE 0)))))))
 
+(defdbtest escaped-attachments
+  (let [document                  (put-document test-document-1)
+        updated-document-meta     (update-attachment document (str resources-path "/couch db.png"))
+        document-with-attachments (get-document (updated-document-meta :id) :attachments true)
+        attachment-key (keyword "couch db.png")]
+    (is (= [attachment-key] (keys (document-with-attachments :_attachments))))
+    (is (= "image/png" (-> document-with-attachments :_attachments attachment-key :content_type)))
+    (is (contains? (-> document-with-attachments :_attachments attachment-key) :data))
+    (is (thrown? IllegalArgumentException (update-attachment document (Object.))))
+    (is (thrown? IllegalArgumentException (update-attachment document (ByteArrayInputStream. (make-array Byte/TYPE 0)))))))
+
 (defdbtest stream-attachments
   (let [document                  (put-document test-document-4)
         updated-document-meta     (update-attachment document (str resources-path "/couchdb.png") :couchdb-image "other/mimetype")
