@@ -373,7 +373,8 @@
                 [(%) (- (System/currentTimeMillis) t)])
         [f tf] (time #(first (all-documents)))
         [l tl] (time #(last (all-documents)))]
-    (is (< 100 (/ tl tf)))))
+    ; any other way to check that the returned seq is properly lazy?
+    (is (< 10 (/ tl tf)))))
 
 (defdbtest inline-attachments
   (let [clojure-img-file (str resources-path "/clojure.png")
