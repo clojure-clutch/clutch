@@ -238,13 +238,16 @@
   "Returns the document identified by the given id. Optional CouchDB document API query parameters
    (rev, attachments, may be provided as keyword arguments."
   [db id & {:as get-params}]
-  (when (seq id)
-    (couchdb-request :get
-      (-> db
-        (utils/url (utils/uri-encode id))
-        (assoc :query (utils/map-to-query-str
-                        get-params
-                        utils/encode-compound-values))))))
+  (couchdb-request :get
+    (-> db
+      (utils/url (utils/uri-encode id))
+      (assoc :query (utils/map-to-query-str
+                      get-params
+                      utils/encode-compound-values)))))
+
+(defn- document?
+  [x]
+  (and (map? x) (:_id x) (:_rev x)))
 
 (defn- document-url
   [database-url document]
