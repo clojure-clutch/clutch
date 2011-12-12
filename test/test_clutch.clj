@@ -8,7 +8,7 @@
             [clojure.contrib.io :as io])
   (:use com.ashafa.clutch 
         clojure.test)
-  (:import (java.io File ByteArrayInputStream)
+  (:import (java.io File ByteArrayInputStream FileInputStream)
            (java.net URL)))
 
 (println "Testing using Clojure" *clojure-version*)
@@ -195,7 +195,7 @@
 (defdbtest copy-document-attachments
   (let [doc (put-document test-document-1 :id "src")
         file (File. (str resources-path "/couchdb.png"))
-        doc (put-attachment doc file :image)
+        doc (put-attachment doc file :filename :image)
         doc (-> doc :id get-document)]
     (copy-document "src" "dest")
     (let [copy (get-document "dest")
@@ -371,35 +371,45 @@
 (defdbtest inline-attachments
   (let [clojure-img-file (str resources-path "/clojure.png")
         couchdb-img-file (str resources-path "/couchdb.png")
-        created-document (put-document test-document-4 :attachments [clojure-img-file couchdb-img-file])
+        created-document (put-document test-document-4
+                           :attachments [clojure-img-file
+                                         {:data (FileInputStream. couchdb-img-file)
+                                          :filename "couchdb.png" :mime-type "image/png"}])
         fetched-document (get-document (created-document :_id))]
     (are [attachment-keys] (= #{:clojure.png :couchdb.png} attachment-keys) 
          (set (keys (created-document :_attachments)))
          (set (keys (fetched-document :_attachments))))
-    (are [content-type] (= "image/png" content-type)
-         (-> created-document :_attachments :clojure.png :content_type)
-         (-> created-document :_attachments :couchdb.png :content_type)
-         (-> fetched-document :_attachments :clojure.png :content_type)
-         (-> fetched-document :_attachments :couchdb.png :content_type))
-    (are [file-length document-attachment-length] (= file-length document-attachment-length)
-         (.length (java.io.File. clojure-img-file)) (-> created-document :_attachments :clojure.png :length)
-         (.length (java.io.File. couchdb-img-file)) (-> created-document :_attachments :couchdb.png :length)
-         (.length (java.io.File. clojure-img-file)) (-> fetched-document :_attachments :clojure.png :length)
-         (.length (java.io.File. couchdb-img-file)) (-> fetched-document :_attachments :couchdb.png :length))))
+    (are [doc file-key] (= "image/png" (-> doc :_attachments file-key :content_type))
+         created-document :clojure.png
+         fetched-document :clojure.png
+         created-document :couchdb.png
+         fetched-document :couchdb.png)
+    (are [path file-key] (= (.length (File. path)) (-> fetched-document :_attachments file-key :length))
+         clojure-img-file :clojure.png
+         couchdb-img-file :couchdb.png)))
 
 (defdbtest standalone-attachments
-  (let [document                  (put-document test-document-1)
-        updated-document-meta     (put-attachment document (str resources-path "/couchdb.png") :couchdb-image)
+  (let [document (put-document test-document-1)
+        path (str resources-path "/couchdb.png")
+        updated-document-meta (put-attachment document path :filename :couchdb-image)
+        updated-document-meta (put-attachment (assoc document :_rev (:rev updated-document-meta))
+                                (FileInputStream. path) :filename "couchdb-image2" :mime-type "image/png")
         document-with-attachments (get-document (updated-document-meta :id) :attachments true)]
-    (is (= [:couchdb-image] (keys (document-with-attachments :_attachments))))
+    (is (= #{:couchdb-image :couchdb-image2} (set (keys (:_attachments document-with-attachments)))))
     (is (= "image/png" (-> document-with-attachments :_attachments :couchdb-image :content_type)))
     (is (contains? (-> document-with-attachments :_attachments :couchdb-image) :data))
+    
+    (is (= (-> document-with-attachments :_attachments :couchdb-image (select-keys [:data :content_type :length]))
+           (-> document-with-attachments :_attachments :couchdb-image2 (select-keys [:data :content_type :length]))))
+    
     (is (thrown? IllegalArgumentException (put-attachment document (Object.))))
     (is (thrown? IllegalArgumentException (put-attachment document (ByteArrayInputStream. (make-array Byte/TYPE 0)))))))
 
 (defdbtest stream-attachments
   (let [document                  (put-document test-document-4)
-        updated-document-meta     (put-attachment document (str resources-path "/couchdb.png") :couchdb-image "other/mimetype")
+        updated-document-meta     (put-attachment document (str resources-path "/couchdb.png")
+                                    :filename :couchdb-image
+                                    :mime-type "other/mimetype")
         document-with-attachments (get-document (updated-document-meta :id) :attachments true)
         data (io/to-byte-array (java.io.File. (str resources-path "/couchdb.png")))]
       (is (= "other/mimetype" (-> document-with-attachments :_attachments :couchdb-image :content_type)))

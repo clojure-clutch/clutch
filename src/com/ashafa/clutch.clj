@@ -32,7 +32,7 @@
             [clojure.contrib.http.agent :as h])
   (:use com.ashafa.clutch.http-client
         (clojure.contrib core def))
-  (:import (java.io File FileInputStream BufferedInputStream)
+  (:import (java.io File FileInputStream BufferedInputStream InputStream)
            (java.net URL)))
 
 (def ^{:private true} highest-supported-charcode 0xfff0)
@@ -183,36 +183,49 @@
         (alter watched-databases dissoc url-key))))
   db)
 
-(defn- generate-attachment-map
-  [files]
-  (reduce
-   (fn [map ^File file]
-     (assoc map
-       (keyword (.getName file))
-       {:content_type (utils/get-mime-type file)
-        :data (-> file FileInputStream. BufferedInputStream.
-                utils/convert-input-to-bytes
-                utils/encode-bytes-to-base64)
-        :length (.length file)}))
-   {} files))
+(defn- attachment-info
+  ([{:keys [data filename mime-type]}] (attachment-info data filename mime-type))
+  ([data filename mime-type]
+    (let [data (if (string? data)
+                 (File. ^String data)
+                 data)]
+      (cond
+        (instance? File data)
+        [(-> data FileInputStream. BufferedInputStream.)
+         (or filename (.getName data))
+         (or mime-type (utils/get-mime-type data))]
+        
+        (instance? InputStream data)
+        (letfn [(check [k v]
+                       (if v v
+                         (throw (IllegalArgumentException. (str k " must be provided if attachment data is an InputStream")))))]
+               [data (check :filename filename) (check :mime-type mime-type)])
+        
+        :default
+        (throw (IllegalArgumentException. (str "Cannot handle attachment data of type " (class data))))))))
 
 (defdbop put-document
   [db document & {:keys [id attachments request-params]}]
   (let [document (merge document
                         (when id {:_id id})
                         (when (seq attachments)
-                          (let [files (map #(if (string? %) (File. ^String %) %) attachments)]
-                            (if (every? #(and (instance? File %) (.exists ^File %)) files)
-                              {:_attachments (generate-attachment-map files)}
-                              (throw (IllegalArgumentException.
-                                       (str ":attachments provided to put-document must be "
-                                            "`java.io.File`s or string paths that name readable "
-                                            "files that exist: " attachments)))))))
-        result (couchdb-request (if (:_id document) :put :post)
-                                (utils/url
-                                  (assoc db :query (utils/map-to-query-str request-params utils/encode-compound-values))
-                                  (utils/uri-encode (:_id document)))
-                                :data document)]
+                          (->> attachments
+                            (map #(if (map? %) % {:data %}))
+                            (map attachment-info)
+                            (reduce (fn [m [data filename mime]]
+                                      (assoc m (keyword filename)
+                                        {:content_type mime
+                                         :data (-> data
+                                                 utils/to-byte-array
+                                                 utils/encode-bytes-to-base64)}))
+                                    {})
+                            (hash-map :_attachments))))
+        result (couchdb-request
+                 (if (:_id document) :put :post)
+                 (utils/url
+                   (assoc db :query (utils/map-to-query-str request-params utils/encode-compound-values))
+                   (utils/uri-encode (:_id document)))
+                 :data document)]
     (and (:ok result)
       (assoc document :_rev (:rev result) :_id (:id result)))))
 
@@ -380,28 +393,25 @@
     :data (assoc options :docs documents)))
 
 (defdbop put-attachment
-  "Takes a document, file (either a string path to the file, a java.io.File object, or an InputStream)
-   and optionally, a new file name in lieu of the file name of the file argument and a mime type
-   then inserts (or updates if the file name of the attachment already exists in the document)
-   the file as an attachment to the document."
-  [db document attachment & [file-key mime-type]]
-  (let [^File file (cond (string? attachment) (java.io.File. ^String attachment)
-                         (instance? java.io.File attachment) attachment)
-        stream (cond
-                 file (-> file java.io.FileInputStream. java.io.BufferedInputStream.)
-                 (instance? java.io.InputStream attachment) attachment
-                 :else (throw (IllegalArgumentException.
-                                "Path string, java.io.File, or InputStream object is expected.")))
-        file-name (or file-key (and file (.getName file))
-                    (throw (IllegalArgumentException. "Must provide a file-key if using InputStream as attachment data.")))]
+  "Updates (or creates) the attachment for the given document.  `data` can be a string path
+   to a file, a java.io.File, or an InputStream.
+   
+   If `data` is an InputStream, you _must_ include the following otherwise-optional kwargs:
+
+       :filename — name to be given to the attachment in the document
+       :mime-type — type of attachment data
+
+   These are derived from a file path or File if not provided.  (Mime types are derived from 
+   filename extensions; see com.ashafa.clutch.utils/get-mime-type for determining mime type
+   yourself from a File object.)"
+  [db document data & {:keys [filename mime-type]}]
+  (let [[stream filename mime-type] (attachment-info data filename mime-type)]
     (couchdb-request :put
       (-> db
         (document-url document)
-        (utils/url (if (keyword? file-name)
-                     (name file-name)
-                     file-name)))
+        (utils/url (name filename)))
       :data stream
-      :data-type (or mime-type (and file (utils/get-mime-type file))))))
+      :data-type mime-type)))
 
 (defdbop delete-attachment
   "Deletes an attachemnt from a document."

@@ -30,7 +30,7 @@
   (:use clojure.contrib.core)
   (:import java.net.URLEncoder
            java.lang.Class
-           [java.io File InputStream]))
+           [java.io File InputStream ByteArrayOutputStream]))
 
 (defn str*
   "Same as str, but keeps keyword colons out."
@@ -138,15 +138,15 @@
   (.getContentType
    (javax.activation.MimetypesFileTypeMap.) file))
 
-(defn convert-input-to-bytes
+(defn to-byte-array
   [^InputStream input]
   (let [barr (make-array Byte/TYPE 1024)
-        out  (java.io.ByteArrayOutputStream.)]
-    (loop [r (.read input barr)]
-      (if (> r 0)
-        (do
-          (.write out barr 0 r)
-          (recur (.read input barr)))))
+        out (ByteArrayOutputStream.)]
+    (loop []
+      (let [size (.read input barr)]
+        (when (pos? size)
+          (do (.write out barr 0 size)
+            (recur)))))
     (.toByteArray out)))
 
 ;; TODO use commons-codec, or data.codec in new contrib 
