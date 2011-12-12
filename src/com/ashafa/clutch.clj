@@ -424,7 +424,7 @@
     (couchdb-request :put
       (-> db
         (document-url document)
-        (utils/url (name filename)))
+        (utils/url (-> filename name utils/uri-encode)))
       :data stream
       :data-type mime-type)))
 
@@ -439,14 +439,14 @@
 
    Hint: use the copy or to-byte-array fns in c.c.io to easily redirect the result."
   [db doc-or-id attachment-name]
-  (let [doc (if (map? doc-or-id) doc-or-id (get-document doc-or-id))
+  (let [doc (if (map? doc-or-id) doc-or-id (get-document db doc-or-id))
         attachment-name (if (keyword? attachment-name)
                           (name attachment-name)
                           attachment-name)]
     (when (-?> doc :_attachments (get (keyword attachment-name)))
       (couchdb-request :get
                        (-> (document-url db doc)
-                         (utils/url attachment-name)
+                         (utils/url (utils/uri-encode attachment-name))
                          (assoc :read-json-response false))))))
 
 (defmacro with-db
