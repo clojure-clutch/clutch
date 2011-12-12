@@ -217,7 +217,8 @@
                                       (assoc m (keyword filename)
                                         {:content_type mime
                                          :data (-> data
-                                                 utils/to-byte-array
+                                                 ; make sure streams are closed so we don't hold locks on files on Windows
+                                                 (#(with-open [stream %] (utils/to-byte-array stream)))
                                                  utils/encode-bytes-to-base64)}))
                                     {})
                             (hash-map :_attachments))))

@@ -51,7 +51,8 @@
   [^URLConnection connection data]
   (with-open [output (.getOutputStream connection)]
     (io/copy data output)
-    (if (instance? InputStream data) (.close ^InputStream data))))
+    ; make sure streams are closed so we don't hold locks on files on Windows
+    (when (instance? InputStream data) (.close ^InputStream data))))
 
 (defn- get-response
   [^HttpURLConnection connection {:keys [read-json-response]}]
