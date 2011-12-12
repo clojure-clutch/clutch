@@ -85,10 +85,10 @@
 
 (defdbop database-info
   [db]
-  (let [watched-databases @watched-databases]
-    (merge (when-let [watchers (watched-databases (str db))]
-             {:watchers (keys watchers)})
-           (couchdb-request :get db))))
+  (when-let [info (couchdb-request :get db)]
+    (merge info
+           (when-let [watchers (@watched-databases (str db))]
+             {:watchers (keys watchers)}))))
 
 (defdbop get-database
   "Returns a database meta information if it already exists else creates a new database and returns
