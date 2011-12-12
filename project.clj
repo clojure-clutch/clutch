@@ -5,8 +5,7 @@
                  [org.clojure/clojure-contrib "1.2.0"]
                  [org.clojure/data.json "0.1.2"]
                  [org.clojure/tools.logging "0.1.2"]]
-  :dev-dependencies [#_[autodoc "0.9.0-SNAPSHOT"]  ;; commented deps because they were pulling in clojure 1.1.0...
-                     #_[swank-clojure "1.2.1"]
+  :dev-dependencies [[swank-clojure "1.3.3"]
                      [lein-clojars "0.7.0"]
                      [lein-multi "1.1.0-SNAPSHOT"]]
   :multi-deps {"clojure-1.2.0" [[org.clojure/clojure "1.2.0"]
