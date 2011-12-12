@@ -29,7 +29,8 @@
   (:require [com.ashafa.clutch.utils :as utils]
             [clojure.data.json :as json]
             [clojure.java.io :as io]
-            [clojure.contrib.http.agent :as h])
+            [clojure.contrib.http.agent :as h]
+            clojure.string)
   (:use com.ashafa.clutch.http-client
         (clojure.contrib core def))
   (:import (java.io File FileInputStream BufferedInputStream InputStream)
@@ -354,10 +355,21 @@
    for querying options, and a second map of {:key [keys]} to be POSTed.
    (see: http://wiki.apache.org/couchdb/HTTP_view_API)."
   [db path & [query-params-map post-data-map]]
-  (couchdb-request (if (empty? post-data-map) :get :post)
-    (assoc (utils/url db path)
-      :query (utils/map-to-query-str query-params-map (apply utils/forgiving-keyset '[key startkey endkey])))
-    :data (when (seq post-data-map) post-data-map)))
+  (let [resp (couchdb-request (if (empty? post-data-map) :get :post)
+               (assoc (utils/url db path)
+                 :query (utils/map-to-query-str query-params-map (apply utils/forgiving-keyset '[key startkey endkey]))
+                 :read-json-response false)
+               :data (when (seq post-data-map) post-data-map))
+        lines (utils/read-lines resp)
+        meta (-> (first lines)
+               (clojure.string/replace #",?\"rows\":\[\s*$" "}")  ; TODO this is going to break eventually :-/ 
+               json/read-json)]
+    (with-meta (->> (rest lines)
+                 (map (fn [^String line]
+                        (when (= \{ (.charAt line 0))
+                          (json/read-json line))))
+                 drop-last)
+      (dissoc meta :rows))))
 
 (defdbop get-view
   "Get documents associated with a design document. Also takes an optional map

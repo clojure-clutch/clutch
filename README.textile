@@ -134,16 +134,21 @@ h4. View server configuration & view API usage
                                               {:sum {:map (fn [doc] [[nil (:test-grade doc)]])
                                                      :reduce (fn [keys values _] (apply + values))}}))
 {:_rev "1-ddc80a2c95e06b62dd2923663dc855aa", :views {:sum {:map "(fn [doc] [[nil (:test-grade doc)]])", :reduce "(fn [keys values _] (apply + values))"}}, :language :clojure, :_id "_design/demo_views"}
-=> (-> (get-view "clutch_example" "demo_views" :sum) :rows first :value)
+=> (-> (get-view "clutch_example" "demo_views" :sum) first :value)
 60
 => (get-view "clutch_example" "demo_views" :sum {:reduce false})
-{:total_rows 3, :offset 0, :rows [{:id "0896fbf57128d7f1a1b238a52b0ec372", :key nil, :value 20}
-                                  {:id "0896fbf57128d7f1a1b238a52b0ecda8", :key nil, :value 30}
-                                  {:id "foo", :key nil, :value 10}]}
-=> (->> (get-view "clutch_example" "demo_views" :sum {:reduce false})
-     :rows
-     (map :value))
+({:id "0896fbf57128d7f1a1b238a52b0ec372", :key nil, :value 20}
+ {:id "0896fbf57128d7f1a1b238a52b0ecda8", :key nil, :value 30}
+ {:id "foo", :key nil, :value 10})
+=> (map :value (get-view "clutch_example" "demo_views" :sum {:reduce false}))
 (20 30 10)
+</pre>
+
+Note that all view access functions (i.e. @get-view@, @all-documents@, etc) return a lazy seq of their results (corresponding to the @:rows@ slot in the data that couchdb returns in its view data).  Other values (e.g. @total_rows@, @offset@, etc) are added to the returned lazy seq as metadata. 
+
+<pre>
+=> (meta (all-documents "databasename"))
+{:total_rows 20000, :offset 0}
 </pre>
 
 h3. (Partial) Changelog
@@ -164,6 +169,7 @@ Core API:
 
 View-related API:
 
+* All views (@get-view@, @all-documents@, etc) now return lazy seqs corresponding to the @:rows@ slot in the view data returned by couch. Other values (e.g. @total_rows@, @offset@, etc) are added to the returned lazy seq as metadata.
 * elimination of inconsistency between APIs between @save-view@ and @save-filter@.  The names of individual views and filters are now part of the map provided to these functions, instead of sometimes being provided separately.
 * @:language@ has been eliminated as part of the dynamically-bound configuration map
 * @with-clj-view-server@ has been replaced by the more generic @view-server-fns@ macro, which takes a @:language@ keyword or map of options that includes a @:language@ slot (e.g. @:clojure@, @:javascript@, etc), and a map of view/filter/validator names => functions.

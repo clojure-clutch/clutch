@@ -216,12 +216,12 @@
   (put-document test-document-3 :id "c")
   (let [all-documents-descending (all-documents {:include_docs true :descending true})
         all-documents-ascending  (all-documents {:include_docs true :descending false})]
-    (are [total_rows] (= 3 total_rows)
-         (:total_rows all-documents-descending)
-         (:total_rows all-documents-ascending))
+    (are [results] (= 3 (:total_rows (meta results)))
+         all-documents-descending
+         all-documents-ascending)
     (are [name] (= "Robert Jones" name)
-         (-> all-documents-descending :rows first :doc :name)
-         (-> all-documents-ascending :rows last :doc :name))))
+         (-> all-documents-descending first :doc :name)
+         (-> all-documents-ascending last :doc :name))))
 
 (defdbtest get-all-documents-with-post-keys
   (put-document test-document-1 :id "1")
@@ -229,10 +229,10 @@
   (put-document test-document-3 :id "3")
   (put-document test-document-3 :id "4")
   (let [all-documents               (all-documents {:include_docs true} {:keys ["1" "2"]})
-        all-documents-matching-keys (:rows all-documents)]
+        all-documents-matching-keys all-documents]
     (is (= ["John Smith" "Jane Thompson"]
            (map #(-> % :doc :name) all-documents-matching-keys)))
-    (is (= 4 (:total_rows all-documents)))))
+    (is (= 4 (:total_rows (meta all-documents))))))
 
 (defdbtest create-a-design-view
   (when *clj-view-svr-config*
@@ -253,7 +253,7 @@
                                 {:names-and-scores
                                  {:map (fn [doc] [[(:name doc) (:score doc)]])}}))
     (is (= [98]
-             (map :value (:rows (get-view "users" :names-and-scores {:key "Jane Thompson"})))))))
+             (map :value (get-view "users" :names-and-scores {:key "Jane Thompson"}))))))
 
 (defdbtest use-a-design-view-with-map-only
   (when *clj-view-svr-config*
@@ -266,17 +266,17 @@
         {:names-with-score-over-70-sorted-by-score 
          {:map #(if (> (:score %) 70) [[(:score %) (:name %)]])}}))
     (is (= ["Robert Jones" "Jane Thompson"]
-          (map :value (:rows (get-view "users" :names-with-score-over-70-sorted-by-score)))))
+          (map :value (get-view "users" :names-with-score-over-70-sorted-by-score))))
     (put-document {:name "Test User 1" :score 55})
     (put-document {:name "Test User 2" :score 78})
     (is (= ["Test User 2" "Robert Jones" "Jane Thompson"]
-          (map :value (:rows (get-view "users" :names-with-score-over-70-sorted-by-score)))))
+          (map :value (get-view "users" :names-with-score-over-70-sorted-by-score))))
     (save-view "users"
       (view-server-fns view-server-name
         {:names-with-score-less-than-70-sorted-by-name
          {:map #(if (< (:score %) 70) [[(:name %) (:name %)]])}}))
     (is (= ["John Smith" "Sarah Parker" "Test User 1"]
-          (map :value (:rows (get-view "users" :names-with-score-less-than-70-sorted-by-name)))))))
+          (map :value (get-view "users" :names-with-score-less-than-70-sorted-by-name))))))
 
 (defdbtest use-a-design-view-with-post-keys
   (when *clj-view-svr-config*
@@ -294,7 +294,6 @@
                       :else [[:high (:name %)]])}}))
     (is (= #{"Sarah Parker" "John Smith" "Test User 1" "Test User 2"}
            (->> (get-view "users" :names-keyed-by-scores {} {:keys [:medium :low]})
-             :rows
              (map :value)
              set)))))
 
@@ -309,9 +308,9 @@
         {:sum-of-all-scores
          {:map    (fn [doc] [[nil (:score doc)]])
           :reduce (fn [keys values _] (apply + values))}}))
-    (is (= 302 (-> (get-view "scores" :sum-of-all-scores) :rows first :value)))
+    (is (= 302 (-> (get-view "scores" :sum-of-all-scores) first :value)))
     (put-document {:score 55})
-    (is (= 357 (-> (get-view "scores" :sum-of-all-scores) :rows first :value)))))
+    (is (= 357 (-> (get-view "scores" :sum-of-all-scores) first :value)))))
 
 (defdbtest use-a-design-view-with-multiple-emits
   (when *clj-view-svr-config*
@@ -324,7 +323,7 @@
                  {:number-of-players
                   {:map (fn [doc] (map (fn [d] [d 1]) (:players doc)))
                    :reduce (fn [keys values _] (reduce + values))}}))
-    (is (= 8 (-> (get-view "count" :number-of-players) :rows first :value)))))
+    (is (= 8 (-> (get-view "count" :number-of-players) first :value)))))
 
 (defdbtest use-ad-hoc-view
   (when *clj-view-svr-config*
@@ -337,7 +336,7 @@
                    {:map (fn [doc] (if (re-find #"example\.com$" (:email doc))
                                    [[nil (:email doc)]]))}))]
       (is (= #{"robert.jones@example.com" "sarah.parker@example.com"}
-            (set (map :value (:rows view))))))))
+            (set (map :value view)))))))
 
 (defdbtest use-ad-hoc-view-with-javascript-view-server
   (put-document test-document-1)
@@ -348,14 +347,14 @@
                (view-server-fns :javascript
                  {:map      "function(doc){if(doc.email.indexOf('test.com')>0)emit(null,doc.email);}"}))]
     (is (= #{"john.smith@test.com" "jane.thompson@test.com"}
-           (set (map :value (:rows view)))))))
+           (set (map :value view))))))
 
 (defdbtest bulk-update-new-documents
   (bulk-update [test-document-1
                 test-document-2
                 test-document-3
                 test-document-4])
-  (is (= 4 (:total_rows (all-documents)))))
+  (is (= 4 (:total_rows (meta (all-documents))))))
 
 (defdbtest bulk-update-documents
   (bulk-update [test-document-1
@@ -363,10 +362,18 @@
                 test-document-3
                 test-document-4])
   (bulk-update (->> (all-documents {:include_docs true})
-                 :rows
                  (map :doc)
                  (map #(assoc % :updated true))))
-  (is (every? true? (map #(-> % :doc :updated) (:rows (all-documents {:include_docs true}))))))
+  (is (every? true? (map #(-> % :doc :updated) (all-documents {:include_docs true})))))
+
+(defdbtest lazy-view-results
+  (bulk-update (map (comp (partial hash-map :_id) str) (range 50000)))
+  (is (= {:total_rows 50000 :offset 0} (meta (all-documents))))
+  (let [time #(let [t (System/currentTimeMillis)]
+                [(%) (- (System/currentTimeMillis) t)])
+        [f tf] (time #(first (all-documents)))
+        [l tl] (time #(last (all-documents)))]
+    (is (< 100 (/ tl tf)))))
 
 (defdbtest inline-attachments
   (let [clojure-img-file (str resources-path "/clojure.png")
@@ -426,7 +433,7 @@
                       test-document-4]))
       (replicate-database source-database target-database)
       (with-db target-database
-        (is (= 4 (:total_rows (all-documents))))))
+        (is (= 4 (:total_rows (meta (all-documents)))))))
     (finally
       (delete-database "source_test_db")
       (delete-database "target_test_db"))))
