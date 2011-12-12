@@ -76,6 +76,18 @@
     (is (= name (:db_name (database-info url))))
     (is (:ok (delete-database url)))
     (is (nil? ((set (all-databases url)) name)))))
+ 
+(deftest database-name-escaping
+  (let [name (test-database-name "foo_$()+-/bar")]
+    (try
+      (let [dbinfo (get-database name)]
+        (is (= name (:db_name dbinfo))))
+      (put-document name {:_id "a" :b 0})
+      (is (= 0 (:b (get-document name "a"))))
+      (delete-document name (get-document name "a"))
+      (is (nil? (get-document name "a")))
+      (finally
+        (delete-database name)))))
 
 (defn- valid-id-charcode?
   [code]
