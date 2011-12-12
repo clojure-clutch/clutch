@@ -5,27 +5,32 @@ Clutch is a "Clojure":http://clojure.org library for "Apache CouchDB":http://cou
 h3. Usage
 
 <pre>
-  (ns #^{:author "Tunde Ashafa"}
-      clutch-example
-      (:use com.ashafa.clutch))
+=> (get-database "clutch_example")  ;; creates database if it's not available yet
+#com.ashafa.clutch.utils.URL{:protocol "http", :username nil, :password nil, :host "localhost", :port -1,
+:path "clutch_example", :query nil, :disk_format_version 5, :db_name "clutch_example", :doc_del_count 0,
+:committed_update_seq 0, :disk_size 79, :update_seq 0, :purge_seq 0, :compact_running false,
+:instance_start_time "1323701753566374", :doc_count 0}
 
-  (def example-database
-    (get-database {:name     "clutch_test_db"
-                   :language "clojure"}))     ; use Clutch (Clojure) view server
+=> (bulk-update "clutch_example" [{:test-grade 10 :_id "foo"}
+                                  {:test-grade 20}
+                                  {:test-grade 30}])
+[{:id "foo", :rev "1-8a15da0db077cd05b45ec93b3a207d09"}
+ {:id "0896fbf57128d7f1a1b238a52b0ec372", :rev "1-796ebf042b42fa3585332c3aa4a6f706"}
+ {:id "0896fbf57128d7f1a1b238a52b0ecda8", :rev "1-01f063c5aeb1b63992c90c72c7a515ed"}]
+=> (get-document "clutch_example" "foo")
+{:_id "foo", :_rev "1-8a15da0db077cd05b45ec93b3a207d09", :test-grade 10}
 
-  (with-db example-database
-           ;; insert or update multiple documents
-           (bulk-update [{:test-grade 10}
-                         {:test-grade 20}
-                         {:test-grade 30}])
-           ;; create temporary (or permanent) views using clojure 
-           (ad-hoc-view
-             (view-server-fns :clojure
-                {:map    (fn [doc] [[nil (:test-grade doc)]])
-                 :reduce (fn [keys values _] (apply + values))}))) ; => 60
+;; optionally configure using dynamic scope w/ with-db 
+=> (with-db "clutch_example"
+     (put-document {:_id "a" :a 5})
+     (put-document {:_id "b" :b 6})
+     (-> (get-document "a")
+       (merge (get-document "b"))
+       (dissoc-meta)))
+{:b 6, :a 5}
 </pre>
 
-h3. Download and Installation
+h3. "Installation"
 
 To include Clutch in your project, simply add the following to your @project.clj@:
 
@@ -87,6 +92,27 @@ In the end, both of these methods add the exec string you provide it to the 'loc
   clojure = java -cp …rest of your exec string…
 </pre>
 
+h4. View server configuration & view API usage
+
+<pre>
+=> (configure-view-server "clutch_example" (com.ashafa.clutch.view-server/view-server-exec-string))
+""
+=> (save-view "clutch_example" "demo_views" (view-server-fns :clojure
+                                              {:sum {:map (fn [doc] [[nil (:test-grade doc)]])
+                                                     :reduce (fn [keys values _] (apply + values))}}))
+{:_rev "1-ddc80a2c95e06b62dd2923663dc855aa", :views {:sum {:map "(fn [doc] [[nil (:test-grade doc)]])", :reduce "(fn [keys values _] (apply + values))"}}, :language :clojure, :_id "_design/demo_views"}
+=> (-> (get-view "clutch_example" "demo_views" :sum) :rows first :value)
+60
+=> (get-view "clutch_example" "demo_views" :sum {:reduce false})
+{:total_rows 3, :offset 0, :rows [{:id "0896fbf57128d7f1a1b238a52b0ec372", :key nil, :value 20}
+                                  {:id "0896fbf57128d7f1a1b238a52b0ecda8", :key nil, :value 30}
+                                  {:id "foo", :key nil, :value 10}]}
+=> (->> (get-view "clutch_example" "demo_views" :sum {:reduce false})
+     :rows
+     (map :value))
+(20 30 10)
+</pre>
+
 h3. (Partial) Changelog
 
 h5. 0.3.0-SNAPSHOT
@@ -96,6 +122,7 @@ Many breaking changes to refine/simplify the API, clean up the implementation, a
 Core API:
 
 * Renamed @create-document@ => @put-document@; @put-document@ now supports both creation and update of a document depending upon whether  @:_id@ and @:_rev@ slots are present in the document you are saving.
+* Renamed @update-attachment@ => @put-attachment@; @filename@ and @mime-type@ arguments now kwargs, @InputStream@ can now be provided as attachment data
 * @update-document@ semantics have been simplified for the case where an "update function" and arguments are supplied to work well with core Clojure functions like @update-in@ and @assoc@ (fixes issue #8) — e.g. can be used like @swap!@ et al.
 * Optional `:id` and `:attachment` arguments to @put-document@ (was @create-document@) are now specified via keyword arguments
 * Removed "update map" argument from @bulk-update@ fn (replace with e.g. @(bulk-update db (map #(merge % update-map) documents)@)
