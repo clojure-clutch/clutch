@@ -192,8 +192,8 @@
                  data)]
       (cond
         (instance? File data)
-        [(-> data FileInputStream. BufferedInputStream.)
-         (or filename (.getName data))
+        [(-> ^File data FileInputStream. BufferedInputStream.)
+         (or filename (.getName ^File data))
          (or mime-type (utils/get-mime-type data))]
         
         (instance? InputStream data)
@@ -218,7 +218,7 @@
                                         {:content_type mime
                                          :data (-> data
                                                  ; make sure streams are closed so we don't hold locks on files on Windows
-                                                 (#(with-open [stream %] (utils/to-byte-array stream)))
+                                                 (#(with-open [^InputStream s %] (utils/to-byte-array s)))
                                                  utils/encode-bytes-to-base64)}))
                                     {})
                             (hash-map :_attachments))))
@@ -367,7 +367,7 @@
                json/read-json)]
     (with-meta (->> (rest lines)
                  (map (fn [^String line]
-                        (when (= \{ (.charAt line 0))
+                        (when (.startsWith line "{")
                           (json/read-json line))))
                  drop-last)
       (dissoc meta :rows))))
