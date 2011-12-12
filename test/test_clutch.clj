@@ -180,11 +180,11 @@
 
 (defdbtest copy-a-document
   (let [doc (put-document test-document-1 :id "src")]
-  (copy-document "src" "dst")
-  (copy-document doc "dst2")
-  (is (= (dissoc-meta doc)
-        (-> "dst" get-document dissoc-meta)
-        (-> "dst2" get-document dissoc-meta)))))
+    (copy-document "src" "dst")
+    (copy-document doc "dst2")
+    (is (= (dissoc-meta doc)
+           (-> "dst" get-document dissoc-meta)
+           (-> "dst2" get-document dissoc-meta)))))
 
 (defdbtest copy-document-overwrite
   (let [doc (put-document test-document-1 :id "src")
@@ -195,7 +195,7 @@
 (defdbtest copy-document-attachments
   (let [doc (put-document test-document-1 :id "src")
         file (File. (str resources-path "/couchdb.png"))
-        doc (update-attachment doc file :image)
+        doc (put-attachment doc file :image)
         doc (-> doc :id get-document)]
     (copy-document "src" "dest")
     (let [copy (get-document "dest")
@@ -389,17 +389,17 @@
 
 (defdbtest standalone-attachments
   (let [document                  (put-document test-document-1)
-        updated-document-meta     (update-attachment document (str resources-path "/couchdb.png") :couchdb-image)
+        updated-document-meta     (put-attachment document (str resources-path "/couchdb.png") :couchdb-image)
         document-with-attachments (get-document (updated-document-meta :id) :attachments true)]
     (is (= [:couchdb-image] (keys (document-with-attachments :_attachments))))
     (is (= "image/png" (-> document-with-attachments :_attachments :couchdb-image :content_type)))
     (is (contains? (-> document-with-attachments :_attachments :couchdb-image) :data))
-    (is (thrown? IllegalArgumentException (update-attachment document (Object.))))
-    (is (thrown? IllegalArgumentException (update-attachment document (ByteArrayInputStream. (make-array Byte/TYPE 0)))))))
+    (is (thrown? IllegalArgumentException (put-attachment document (Object.))))
+    (is (thrown? IllegalArgumentException (put-attachment document (ByteArrayInputStream. (make-array Byte/TYPE 0)))))))
 
 (defdbtest stream-attachments
   (let [document                  (put-document test-document-4)
-        updated-document-meta     (update-attachment document (str resources-path "/couchdb.png") :couchdb-image "other/mimetype")
+        updated-document-meta     (put-attachment document (str resources-path "/couchdb.png") :couchdb-image "other/mimetype")
         document-with-attachments (get-document (updated-document-meta :id) :attachments true)
         data (io/to-byte-array (java.io.File. (str resources-path "/couchdb.png")))]
       (is (= "other/mimetype" (-> document-with-attachments :_attachments :couchdb-image :content_type)))

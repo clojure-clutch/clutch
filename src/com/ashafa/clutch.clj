@@ -379,7 +379,7 @@
     (utils/url db "_bulk_docs")
     :data (assoc options :docs documents)))
 
-(defdbop update-attachment
+(defdbop put-attachment
   "Takes a document, file (either a string path to the file, a java.io.File object, or an InputStream)
    and optionally, a new file name in lieu of the file name of the file argument and a mime type
    then inserts (or updates if the file name of the attachment already exists in the document)
