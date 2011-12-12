@@ -225,7 +225,7 @@
                  (if (:_id document) :put :post)
                  (utils/url
                    (assoc db :query (utils/map-to-query-str request-params utils/encode-compound-values))
-                   (utils/uri-encode (:_id document)))
+                   (:_id document))
                  :data document)]
     (and (:ok result)
       (assoc document :_rev (:rev result) :_id (:id result)))))
@@ -241,7 +241,7 @@
   [db id & {:as get-params}]
   (couchdb-request :get
     (-> db
-      (utils/url (utils/uri-encode id))
+      (utils/url id)
       (assoc :query (utils/map-to-query-str
                       get-params
                       utils/encode-compound-values)))))
@@ -254,7 +254,7 @@
   [database-url document]
   (when-not (:_id document)
     (throw (IllegalArgumentException. "A valid document with an :_id slot is required.")))
-  (let [with-id (utils/url database-url (utils/uri-encode (:_id document)))]
+  (let [with-id (utils/url database-url (:_id document))]
     (if-let [rev (:_rev document)]
       (assoc with-id :query (str "rev=" rev))
       with-id)))
@@ -354,9 +354,9 @@
   "Get documents associated with a design document. Also takes an optional map
    for querying options, and a second map of {:key [keys]} to be POSTed.
    (see: http://wiki.apache.org/couchdb/HTTP_view_API)."
-  [db path & [query-params-map post-data-map]]
+  [db path-segments & [query-params-map post-data-map]]
   (let [resp (couchdb-request (if (empty? post-data-map) :get :post)
-               (assoc (utils/url db path)
+               (assoc (apply utils/url db path-segments)
                  :query (utils/map-to-query-str query-params-map (apply utils/forgiving-keyset '[key startkey endkey]))
                  :read-json-response false)
                :data (when (seq post-data-map) post-data-map))
@@ -377,7 +377,7 @@
    (see: http://wiki.apache.org/couchdb/HTTP_view_API)."
   [db design-document view-key & [query-params-map post-data-map :as args]]
   (apply get-view* db
-         (:path (utils/url "_design" design-document "_view" (utils/str* view-key)))
+         ["_design" design-document "_view" (utils/str* view-key)]
          args))
 
 (defdbop all-documents
@@ -387,14 +387,14 @@
    second map of {:keys [keys]} to be POSTed.
    (see: http://wiki.apache.org/couchdb/HTTP_view_API)."
   [db & [query-params-map post-data-map :as args]]
-  (apply get-view* db "_all_docs" args))
+  (apply get-view* db ["_all_docs"] args))
 
 (defdbop ad-hoc-view
   "One-off queries (i.e. views you don't want to save in the CouchDB database). Ad-hoc
    views should be used only during development. Also takes an optional map for querying
    options (see: http://wiki.apache.org/couchdb/HTTP_view_API)."
   [db [language view-server-fns] & [query-params-map]]
-  (get-view* db "_temp_view"  query-params-map (into {:language language} view-server-fns)))
+  (get-view* db ["_temp_view"]  query-params-map (into {:language language} view-server-fns)))
 
 (defdbop bulk-update
   "Takes a sequential collection of documents (maps) and inserts or updates (if \"_id\" and \"_rev\" keys
@@ -424,7 +424,7 @@
     (couchdb-request :put
       (-> db
         (document-url document)
-        (utils/url (-> filename name utils/uri-encode)))
+        (utils/url (name filename)))
       :data stream
       :data-type mime-type)))
 
@@ -446,7 +446,7 @@
     (when (-?> doc :_attachments (get (keyword attachment-name)))
       (couchdb-request :get
                        (-> (document-url db doc)
-                         (utils/url (utils/uri-encode attachment-name))
+                         (utils/url attachment-name)
                          (assoc :read-json-response false))))))
 
 (defmacro with-db

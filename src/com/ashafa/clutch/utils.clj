@@ -115,15 +115,14 @@
                 (-> url .getPath (.replaceAll "^/" ""))
                 (.getQuery url)))
         (catch java.net.MalformedURLException e
-          (url "http://localhost/" db)))))
+          (url "http://localhost" db)))))
   ([base & path-segments]
     (let [base (if (instance? URL base) base (url base))]
       (assoc base
-        :path (->> path-segments
-                (map uri-encode)
-                (cons (:path base))
+        :path (->> (map uri-encode path-segments)
                 (interpose \/)
-                (apply str))))))
+                (apply str (when (seq (:path base))
+                             (str (:path base) \/))))))))
 
 (defn server-url
   [db]
