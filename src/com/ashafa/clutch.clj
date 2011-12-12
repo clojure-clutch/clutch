@@ -334,12 +334,12 @@
   "Create/update a design document containing functions used for database
    queries/filtering/validation/etc."
   [db fn-type design-document-name [language view-server-fns]]
-  (let [design-doc-id (str "_design/" design-document-name)]
+  (let [design-doc-id (str "_design/" design-document-name)
+        ddoc {fn-type view-server-fns
+              :language (name language)}]
     (if-let [design-doc (get-document db design-doc-id)]
-      (update-document db design-doc update-in [fn-type] merge view-server-fns)
-      (put-document db {fn-type view-server-fns
-                        :language language
-                        :_id design-doc-id}))))
+      (update-document db design-doc merge ddoc)
+      (put-document db (assoc ddoc :_id design-doc-id)))))
 
 (defdbop save-view
   "Create or update a design document containing views used for database queries."
