@@ -369,7 +369,7 @@
                  (map (fn [^String line]
                         (when (.startsWith line "{")
                           (json/read-json line))))
-                 drop-last)
+                 (remove nil?))
       (dissoc meta :rows))))
 
 (defdbop get-view
