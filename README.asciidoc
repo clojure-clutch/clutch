@@ -34,7 +34,7 @@ Although it's in an early stage of development (Clutch API subject to change), C
 
 ==== Tests / CI
 
-Clutch's test suite is run on every commit thanks to Travis[http://travis-ci.org/#!/cemerick/clutch/builds].
+Clutch's test suite is run on every commit thanks to http://travis-ci.org/#!/cemerick/clutch/builds[Travis].
 
 === Usage
 
