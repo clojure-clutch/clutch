@@ -1,0 +1,2 @@
+language: clojure
+script: "lein multi deps && lein multi test :no-encoding && lein multi test"
