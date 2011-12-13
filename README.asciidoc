@@ -194,10 +194,10 @@ View-related API:
 
 Appreciations go out to:
 
-* Chas Emerick[http://github.com/cemerick]
-* Pierre Larochelle[http://github.com/pierrel]
-* Matt Wilson[http://github.com/mattdw]
-* Patrick Sullivan[http://github.com/WizardofWestmarch]
-* Toni Batchelli[http://tbatchelli.org]
-* Hugo Duncan[http://github.com/hugoduncan]
-* Ryan Senior[http://github.com/senior]
+* http://cemerick.com[Chas Emerick]
+* http://github.com/pierrel[Pierre Larochelle]
+* http://github.com/mattdw[Matt Wilson]
+* http://github.com/WizardofWestmarch[Patrick Sullivan]
+* http://tbatchelli.org[Toni Batchelli]
+* http://github.com/hugoduncan[Hugo Duncan]
+* http://github.com/senior[Ryan Senior]
