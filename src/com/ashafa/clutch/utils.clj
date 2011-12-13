@@ -98,7 +98,9 @@
              (= protocol "https") 443
              :else 5984)
         \/ path
-        (when query (str \? query))))))
+        (when query (str \? (if (string? query)
+                              query
+                              (map-to-query-str query encode-compound-values))))))))
 
 (defn url
   ([db]

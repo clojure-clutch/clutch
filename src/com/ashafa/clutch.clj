@@ -224,9 +224,8 @@
                             (hash-map :_attachments))))
         result (couchdb-request
                  (if (:_id document) :put :post)
-                 (utils/url
-                   (assoc db :query (utils/map-to-query-str request-params utils/encode-compound-values))
-                   (:_id document))
+                 (assoc (utils/url db (:_id document))
+                   :query request-params)
                  :data document)]
     (and (:ok result)
       (assoc document :_rev (:rev result) :_id (:id result)))))
@@ -243,9 +242,7 @@
   (couchdb-request :get
     (-> db
       (utils/url id)
-      (assoc :query (utils/map-to-query-str
-                      get-params
-                      utils/encode-compound-values)))))
+      (assoc :query get-params))))
 
 (defn- document?
   [x]
