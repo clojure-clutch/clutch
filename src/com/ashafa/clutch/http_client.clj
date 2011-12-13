@@ -27,6 +27,7 @@
   com.ashafa.clutch.http-client
   (:require [clojure.data.json :as json]
             [clojure.contrib.io :as io]
+            clojure.string
             [com.ashafa.clutch.utils :as utils]) 
   (:import  (java.io IOException InputStream InputStreamReader PushbackReader)
             (java.net URL URLConnection HttpURLConnection MalformedURLException)
@@ -115,3 +116,21 @@
                     :headers headers
                     :data data
                     :method (.toUpperCase (name method))))))
+
+(defn view-request
+  "Accepts the same arguments as couchdb-request, but processes the result assuming that the
+   requested resource is a view.  Returns a lazy sequence of the view result's :rows slot,
+   with other values (:total_rows, :offset, etc) added as metadata to the lazy seq."
+  [method url & args]
+  (let [resp (apply couchdb-request method (assoc url :read-json-response false) args) 
+        lines (utils/read-lines resp)
+        meta (-> (first lines)
+               (clojure.string/replace #",?\"rows\":\[\s*$" "}")  ; TODO this is going to break eventually :-/ 
+               json/read-json)]
+    (with-meta (->> (rest lines)
+                 (map (fn [^String line]
+                        (when (.startsWith line "{")
+                          (json/read-json line))))
+                 (remove nil?))
+      (dissoc meta :rows))))
+
