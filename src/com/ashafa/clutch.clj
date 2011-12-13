@@ -152,7 +152,7 @@
        (let [uid     (str (java.util.UUID/randomUUID))
              watcher {:uid        uid
                       :http-agent (h/http-agent 
-                                   (str url-str "/_changes" (utils/map-to-query-str options (constantly false)))
+                                   (str url-str "/_changes?" (utils/map-to-query-str options (constantly false)))
                                    :method "GET"
                                    :handler (partial watch-changes-handler url-str watch-key uid))
                       :callback   callback}]
