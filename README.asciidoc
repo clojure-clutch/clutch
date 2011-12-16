@@ -1,4 +1,4 @@
-== Clutch
+== Clutch +++<a href="http://travis-ci.org/#!/cemerick/clutch/builds">+++image:https://secure.travis-ci.org/cemerick/clutch.png[]+++</a>+++
 
 Clutch is a http://clojure.org:[Clojure] library for http://couchdb.apache.org/[Apache CouchDB]. 
 
@@ -31,10 +31,6 @@ Clutch is compatible with Clojure 1.2.0 and 1.3.0.
 === Status
 
 Although it's in an early stage of development (Clutch API subject to change), Clutch supports most of the Apache CouchDB API:
-
-==== Tests / CI
-
-Clutch's test suite is run on every commit thanks to http://travis-ci.org/#!/cemerick/clutch/builds[Travis].
 
 === Usage
 
