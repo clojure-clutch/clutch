@@ -1,6 +1,6 @@
 == Clutch +++<a href="http://travis-ci.org/#!/cemerick/clutch/builds">+++image:https://secure.travis-ci.org/cemerick/clutch.png[]+++</a>+++
 
-Clutch is a http://clojure.org:[Clojure] library for http://couchdb.apache.org/[Apache CouchDB]. 
+Clutch is a http://clojure.org:[Clojure] library for http://couchdb.apache.org/[Apache CouchDB].
 
 === "Installation"
 
@@ -31,6 +31,21 @@ Clutch is compatible with Clojure 1.2.0 and 1.3.0.
 === Status
 
 Although it's in an early stage of development (Clutch API subject to change), Clutch supports most of the Apache CouchDB API:
+
+* Essentially all of the http://wiki.apache.org/couchdb/HTTP_Document_API[core document API]
+* http://wiki.apache.org/couchdb/HTTP_Bulk_Document_API[Bulk document APIs]
+* Most of the http://wiki.apache.org/couchdb/HTTP_database_API[Database API], including `_changes` (implemented using watches)
+* http://wiki.apache.org/couchdb/HTTP_view_API[Views], including access, update, and a Clojure view server implementation
+
+At the moment, you'll have to look at the source or introspect the docs once you've loaded Clutch up to get around the API.  Proper API documentation (via autodoc or marginalia) coming soon.
+
+Clutch does not currently provide any direct support for the various couchapp-related APIs, including update handlers and validation, shows and lists, and so on.
+
+That said, it is very easy to call whatever CouchDB API feature that Clutch doesn't support using the lower-level `com.ashafa.clutch.http-client/couchdb-request` function.
+
+==== Tests / CI
+
+Clutch's test suite is run on every commit thanks to http://travis-ci.org/#!/cemerick/clutch/builds[Travis].
 
 === Usage
 
@@ -163,7 +178,7 @@ Note that all view access functions (i.e. `get-view`, `all-documents`, etc) retu
 
 === (Partial) Changelog
 
-===== 0.3.0-SNAPSHOT
+===== 0.3.0
 
 Many breaking changes to refine/simplify the API, clean up the implementation, and add additional features:
 
