@@ -35,7 +35,6 @@
 
 
 (def ^{:private true} version "0.3.0")
-(def ^String *encoding* "UTF-8") ; are we ever reading anything other than UTF-8 from couch?
 (def ^{:dynamic true} *default-data-type* "application/json")
 (def ^{:dynamic true} *configuration-defaults* {:read-timeout 0
                                                 :connect-timeout 5000
@@ -69,7 +68,7 @@
     (cond (< response-code 400)
           (if read-json-response
             (with-open [input (.getInputStream connection)]
-              (json/read-json (PushbackReader. (InputStreamReader. input *encoding*)) true))
+              (json/read-json (PushbackReader. (InputStreamReader. input "UTF-8")) true))
             (.getInputStream connection))
           (= response-code 404) nil
           :else (throw
