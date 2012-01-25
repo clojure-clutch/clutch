@@ -9,7 +9,8 @@
   (:use com.ashafa.clutch 
         clojure.test)
   (:import (java.io File ByteArrayInputStream FileInputStream)
-           (java.net URL)))
+           (java.net URL))
+  (:refer-clojure :exclude (conj! assoc! dissoc!)))
 
 (println "Testing using Clojure" *clojure-version*)
 
