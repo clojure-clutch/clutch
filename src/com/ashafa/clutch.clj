@@ -26,7 +26,7 @@
 
 (ns ^{:author "Tunde Ashafa"}
   com.ashafa.clutch
-  (:require [com.ashafa.clutch.utils :as utils]
+  (:require [com.ashafa.clutch [utils :as utils]]
             [clojure.data.json :as json]
             [clojure.java.io :as io]
             [clojure.contrib.http.agent :as h]
@@ -34,7 +34,8 @@
   (:use com.ashafa.clutch.http-client
         (clojure.contrib core def))
   (:import (java.io File FileInputStream BufferedInputStream InputStream)
-           (java.net URL)))
+           (java.net URL))
+  (:refer-clojure :exclude (conj! assoc! dissoc!)))
 
 (def ^{:private true} highest-supported-charcode 0xfff0)
 
@@ -444,3 +445,73 @@
   [database & body]
   `(binding [*database* (utils/url ~database)]
      ~@body))
+
+
+(defprotocol CouchOps
+  "Defines side-effecting operations on a CouchDB database.
+   All operations return the CouchDB database reference —
+   with the return value from the underlying clutch function
+   added to its :result metadata — for easy threading and
+   reduction usage.
+   (EXPERIMENTAL!)"
+  (create! [this] "Ensures that the database exists, and returns the database's meta info.")
+  (conj! [this document]
+         "PUTs a document into CouchDB. Accepts either a document map (using an :_id value
+          if present as the document id), or a vector/map entry consisting of a
+          [id document-map] pair.")
+  (assoc! [this id document]
+          "PUTs a document into CouchDB. Equivalent to (conj! couch [id document]).")
+  (dissoc! [this id-or-doc]
+           "DELETEs a document from CouchDB. Uses a given document map's :_id and :_rev
+            if provided; alternatively, if passed a string, will blindly attempt to 
+            delete the current revision of the corresponding document."))
+
+(defn- with-result-meta
+  [couch result]
+  (vary-meta couch assoc :result result))
+
+(deftype CouchDB [url meta]
+  com.ashafa.clutch.CouchOps
+  (create! [this] (with-result-meta this (get-database url)))
+  (conj! [this doc]
+    (let [[id doc] (cond
+                     (map? doc)  [(:_id doc) doc]
+                     (or (vector? doc) (instance? java.util.Map$Entry)) doc)]
+      (->> (put-document url doc :id id)
+        (fail-on-404 url)
+        (with-result-meta this))))
+  (assoc! [this id document] (conj! this [id document]))
+  (dissoc! [this id]
+    (if-let [d (if (document? id)
+                   id
+                   (this id))]
+      (with-result-meta this (delete-document url d))
+      (with-result-meta this nil)))
+  
+  clojure.lang.ILookup
+  (valAt [this k] (get-document url k))
+  (valAt [this k default] (or (.valAt this k) default))
+  
+  clojure.lang.Counted
+  (count [this] (->> (database-info url) (fail-on-404 url) :doc_count))
+  
+  clojure.lang.Seqable
+  (seq [this]
+    (->> (all-documents url {:include_docs true})
+      (map :doc)
+      (map #(clojure.lang.MapEntry. (:_id %) %))))
+  
+  clojure.lang.IFn
+  (invoke [this key] (.valAt this key))
+  (invoke [this key default] (.valAt this key default))
+  
+  clojure.lang.IMeta
+  (meta [this] meta)
+  clojure.lang.IObj
+  (withMeta [this meta] (CouchDB. url meta)))
+
+(defn couch
+  "Returns an instance of an implementation of CouchOps.
+   (EXPERIMENTAL!)"
+  ([url] (CouchDB. url nil))
+  ([url meta] (CouchDB. url meta)))

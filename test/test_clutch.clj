@@ -32,7 +32,7 @@
                       :score 59})
 
 (declare ^{:dynamic true} *clj-view-svr-config*
-         ^{:dynamic true} test-database)
+         ^{:dynamic true} *test-database*)
 
 ; don't squash existing canonical "clojure" view server config
 (def ^{:private true} view-server-name :clutch-test)
@@ -52,17 +52,17 @@
                 (view-server/view-server-exec-string)))
      (%)))
 
-(defn- test-database-name
+(defn test-database-name
   [test-name]
   (str "test-db-" (str/re-sub #"[^$]+\$([^@]+)@.*" "$1" (str test-name))))
 
 (defmacro defdbtest [name & body]
   `(deftest ~name
-     (binding [test-database (get-database (utils/url (test-database-name ~name)))]
+     (binding [*test-database* (get-database (utils/url (test-database-name ~name)))]
        (try
-        (with-db test-database ~@body)
+        (with-db *test-database* ~@body)
         (finally
-         (delete-database test-database))))))
+         (delete-database *test-database*))))))
 
 (deftest check-couchdb-connection
   (is (= "Welcome" (:couchdb (couchdb-info (utils/url "foo"))))))
@@ -70,8 +70,8 @@
 (deftest get-list-check-and-delete-database
   (let [name "clutch_test_db"
         url (utils/url name)
-        test-database (get-database url)]
-    (is (= name (:db_name test-database)))
+        *test-database* (get-database url)]
+    (is (= name (:db_name *test-database*)))
     (is ((set (all-databases url)) name))
     (is (= name (:db_name (database-info url))))
     (is (:ok (delete-database url)))
@@ -484,7 +484,7 @@
 (defdbtest ensure-stop-changes
   (watch-changes :foo println)
   (letfn [(tracking-changes? [] (-> @@#'com.ashafa.clutch/watched-databases
-                                  (get (str test-database))
+                                  (get (str *test-database*))
                                   :foo))]
     (is (tracking-changes?))
     (stop-changes :foo)
