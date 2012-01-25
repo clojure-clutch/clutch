@@ -108,6 +108,72 @@ You can optionally provide configuration using dynamic scope via `with-db`:
 {:b 6, :a 5}
 ----
 
+=== Experimental: a Clojure-idiomatic CouchDB type
+
+Clutch provides a pretty comprehensive API, but 95% of database
+interactions require using something other than the typical Clojure vocabulary of
+`assoc`, `conj, `dissoc`, `get`, `seq`, `reduce`, etc, even though those semantics are entirely appropriate
+(modulo the whole stateful database thing).
+
+This is (the start of) an attempt to create a type to provide most of the
+functionality of Clutch with a more pleasant, concise API (it uses the Clutch API
+under the covers, and rare operations will generally remain accessible only
+at that lower level).
+
+Would like to eventually add:
+
+* support for views (aside from `_all_docs` via `seq`)
+* support for `_changes` (via a `seque`?), maybe a more natural place than the (free-for-all) pool of watches in Clutch's current API
+* support for bulk update, maybe via `IReduce`?
+* Other CouchDB types:
+** to provide specialized query interfaces e.g. cloudant indexes
+** to return custom map and vector types to support e.g.
+
+----
+(assoc-in! db ["ID" :key :key array-index] x)
+(update-in! db ["ID" :key :key array-index] assoc :key y)
+----
+
+Feedback wanted on the mailing list: http://groups.google.com/group/clojure-clutch
+
+This part of the API is subject to change at any time, so no detailed examples.  For now, just a REPL interaction will do:
+
+----
+=> (use 'com.ashafa.clutch)     ;; My apologies for the bare `use`!
+nil
+=> (def db (couch "test"))
+#'user/db
+=> (create! db)
+#<CouchDB user.CouchDB@3f460a4a>
+=> (:result (meta *1))
+#com.ashafa.clutch.utils.URL{:protocol "http", :username nil, :password nil,
+:host "localhost", :port -1, :path "test", :query nil, :disk_format_version 5,
+:db_name "test", :doc_del_count 0, :committed_update_seq 0, :disk_size 79,
+:update_seq 0, :purge_seq 0, :compact_running false, :instance_start_time
+"1324037686108297", :doc_count 0}
+=> (reduce conj! db (for [x (range 5000)]
+                      {:_id (str x) :a [1 2 x]}))
+#<CouchDB user.CouchDB@71d1be4e>
+=> (count db)
+5000
+=> (get-in db ["68" :a 2])
+68
+=> (def copy (into {} db))
+#'user/copy
+=> (get-in copy ["68" :a 2])
+68
+=> (first db)
+["0" {:_id "0", :_rev "1-79fe783154bff972172bc30732783a68", :a [1 2 0]}]
+=> (dissoc! db "68")
+#<CouchDB user.CouchDB@48f50903>
+=> (get db "68")
+nil
+=> (assoc! db :foo {:a 6 :b 7})
+#<CouchDB user.CouchDB@79d7999e>
+=> (:result (meta *1))
+{:_rev "1-ac3fe57a7604cfd6dcca06b25204b590", :_id ":foo", :a 6, :b 7}
+----
+
 === Configuring your CouchDB installation to use the Clutch view server
 
 CouchDB needs to know how to exec Clutch's view server.  Getting this command string together can be tricky, especially given potential classpath complexity.  You can either (a) produce an uberjar of your project, in which case the exec string will be something like:
