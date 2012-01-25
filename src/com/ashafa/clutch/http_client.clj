@@ -47,6 +47,13 @@
         :dynamic true}
      *response-code* nil)
 
+(defmacro fail-on-404
+  [db expr]
+  `(binding [*response-code* nil]
+     (let [resp# ~expr]
+       (if (= 404 *response-code*)
+         (throw (IllegalStateException. (format "Database %s does not exist" ~db)))
+         resp#))))
 
 (defn- send-body
   [^URLConnection connection data]
@@ -122,7 +129,7 @@
    requested resource is a view.  Returns a lazy sequence of the view result's :rows slot,
    with other values (:total_rows, :offset, etc) added as metadata to the lazy seq."
   [method url & args]
-  (let [resp (apply couchdb-request method (assoc url :read-json-response false) args) 
+  (let [resp (fail-on-404 url (apply couchdb-request method (assoc url :read-json-response false) args)) 
         lines (utils/read-lines resp)
         meta (-> (first lines)
                (clojure.string/replace #",?\"rows\":\[\s*$" "}")  ; TODO this is going to break eventually :-/ 
