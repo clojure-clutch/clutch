@@ -1,4 +1,4 @@
-== Clutch +++<a href="http://travis-ci.org/#!/cemerick/clutch/builds">+++image:https://secure.travis-ci.org/cemerick/clutch.png[]+++</a>+++
+== Clutch +++<a href="http://travis-ci.org/#!/clojure-clutch/clutch/builds">+++image:https://secure.travis-ci.org/clojure-clutch/clutch.png[]+++</a>+++
 
 Clutch is a http://clojure.org:[Clojure] library for http://couchdb.apache.org/[Apache CouchDB].
 
@@ -45,7 +45,7 @@ That said, it is very easy to call whatever CouchDB API feature that Clutch does
 
 ==== Tests / CI
 
-Clutch's test suite is run on every commit thanks to http://travis-ci.org/#!/cemerick/clutch/builds[Travis].
+Clutch's test suite is run on every commit thanks to http://travis-ci.org/#!/clojure-clutch/clutch/builds[Travis].
 
 === Usage
 
