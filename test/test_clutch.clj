@@ -540,7 +540,7 @@
   (put-document {:name "tester 2" :score 48} :id "not-target-id"))
 
 (deftest direct-db-config-usage
-  (let [db (test-database-url "direct-db-con\"fig-usage")]
+  (let [db (test-database-url "direct-db-config-usage")]
     (try
       (create-database db)
       (let [doc (put-document db test-document-1 :id "foo")]
