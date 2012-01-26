@@ -1,14 +1,16 @@
 (ns clutch.test-type
   (:use clojure.test
         com.ashafa.clutch
-        [test-clutch :only (defdbtest test-database-name *test-database*)])
+        [test-clutch :only (defdbtest test-database-name test-database-url *test-database*)])
   (:refer-clojure :exclude (conj! assoc! dissoc!)))
 
 (deftest create
-  (let [name (test-database-name "create-type")
+  (let [name (test-database-url (test-database-name "create-type"))
         db (couch name)]
     (try
-      (is (= (-> db create! meta :result) (get-database name)))
+      ; :update_seq can change anytime, esp. in cloudant
+      (is (= (-> db create! meta :result (dissoc :update_seq))
+             (dissoc (get-database name) :update_seq)))
       (finally
         (delete-database name)))))
 
