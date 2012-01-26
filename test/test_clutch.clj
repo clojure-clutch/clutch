@@ -119,7 +119,7 @@
 (defdbtest test-docid-encoding
   ; doing a lot of requests here -- the test is crazy-slow if delayed_commit=false,
   ; so let's use the iron we've got
-  (doseq [x (range 1)
+  (doseq [x (range 0xffff)
           :when (valid-id-charcode? x)
           :let [id (str "a" (char x)) ; doc ids can't start with _, so prefix everything
                 id-desc (str x " " id)]]
