@@ -1,41 +1,41 @@
-== Clutch +++<a href="http://travis-ci.org/#!/clojure-clutch/clutch/builds">+++image:https://secure.travis-ci.org/clojure-clutch/clutch.png[]+++</a>+++
+# Clutch  [![Travis CI status](https://secure.travis-ci.org/clojure-clutch/clutch.png)](http://travis-ci.org/#!/clojure-clutch/clutch/builds)
 
-Clutch is a http://clojure.org:[Clojure] library for http://couchdb.apache.org/[Apache CouchDB].
+Clutch is a [Clojure](http://clojure.org) library for [Apache CouchDB](http://couchdb.apache.org/).
 
-=== "Installation"
+### "Installation"
 
 To include Clutch in your project, simply add the following to your `project.clj` dependencies:
 
-----
+```clojure
 [com.ashafa/clutch "0.3.1-SNAPSHOT"]
-----
+```
 
 and run...
 
-----
+```
 lein deps
-----
+```
 
 Or, if you're using Maven, add this dependency to your `pom.xml`:
 
-----
+```
 <dependency>
     <groupId>com.ashafa</groupId>
     <artifactId>clutch</artifactId>
     <version>0.3.1-SNAPSHOT</version>
 </dependency>
-----
+```
 
-Clutch is compatible with Clojure 1.2.0 and 1.3.0.  The most recent release was `0.3.0`; but, be a mensch and use the SNAPSHOT, and report issues to the http://groups.google.com/group/clojure-clutch[Clutch mailing list].
+Clutch is compatible with Clojure 1.2.0 and 1.3.0.  The most recent release was `0.3.0`; but, be a mensch and use the SNAPSHOT, and report issues to the [Clutch mailing list](http://groups.google.com/group/clojure-clutch).
 
-=== Status
+### Status
 
 Although it's in an early stage of development (Clutch API subject to change), Clutch supports most of the Apache CouchDB API:
 
-* Essentially all of the http://wiki.apache.org/couchdb/HTTP_Document_API[core document API]
-* http://wiki.apache.org/couchdb/HTTP_Bulk_Document_API[Bulk document APIs]
-* Most of the http://wiki.apache.org/couchdb/HTTP_database_API[Database API], including `_changes` (implemented using watches)
-* http://wiki.apache.org/couchdb/HTTP_view_API[Views], including access, update, and a Clojure view server implementation
+* Essentially all of the [core document API](http://wiki.apache.org/couchdb/HTTP_Document_API)
+* [Bulk document APIs](http://wiki.apache.org/couchdb/HTTP_Bulk_Document_API)
+* Most of the [Database API](http://wiki.apache.org/couchdb/HTTP_database_API), including `_changes` (implemented using watches)
+* [Views](http://wiki.apache.org/couchdb/HTTP_view_API), including access, update, and a Clojure view server implementation
 
 At the moment, you'll have to look at the source or introspect the docs once you've loaded Clutch up to get around the API.  Proper API documentation (via autodoc or marginalia) coming soon.
 
@@ -43,13 +43,13 @@ Clutch does not currently provide any direct support for the various couchapp-re
 
 That said, it is very easy to call whatever CouchDB API feature that Clutch doesn't support using the lower-level `com.ashafa.clutch.http-client/couchdb-request` function.
 
-==== Tests / CI
+#### Tests / CI
 
-Clutch's test suite is run on every commit thanks to http://travis-ci.org/#!/clojure-clutch/clutch/builds[Travis].
+Clutch's test suite is run on every commit thanks to [Travis](http://travis-ci.org/#!/clojure-clutch/clutch/builds).
 
-=== Usage
+### Usage
 
-----
+```clojure
 => (get-database "clutch_example")  ;; creates database if it's not available yet
 #com.ashafa.clutch.utils.URL{:protocol "http", :username nil, :password nil, :host "localhost", :port -1,
 :path "clutch_example", :query nil, :disk_format_version 5, :db_name "clutch_example", :doc_del_count 0,
@@ -64,29 +64,29 @@ Clutch's test suite is run on every commit thanks to http://travis-ci.org/#!/clo
  {:id "0896fbf57128d7f1a1b238a52b0ecda8", :rev "1-01f063c5aeb1b63992c90c72c7a515ed"}]
 => (get-document "clutch_example" "foo")
 {:_id "foo", :_rev "1-8a15da0db077cd05b45ec93b3a207d09", :test-grade 10}
-----
+```
 
 All Clutch functions accept a first argument indicating the database API endpoint for that operation.
 This argument can be a string URL, or, if the string is provided without a protocol, etc., it is assumed to be
 the name of a database on localhost:5984 as above:
 
-----
+```clojure
 => (put-document "https://username:password`XXX.cloudant.com/databasename/" {:a 5 :b 6})
 {:_id "36b807aacf227f921aa256b06ab094e5", :_rev "1-d4d04a5b59bcd73893a84de2d9595c4c", :a 5, :b 6}
-----
+```
 
 Alternatively, Clutch defines its own record type for URLs:
 
-----
+```clojure
 => (com.ashafa.clutch.utils/url "databasename")
 #com.ashafa.clutch.utils.URL{:protocol "http", :username nil, :password nil,
 :host "localhost", :port -1, :path "databasename", :query nil}
-----
+```
 
 You can `assoc` in whatever you like to a `URL` record, which is handy for keeping database URLs and
 credentials separate:
 
-----
+```clojure
 => (def db (assoc (utils/url "https://XXX.cloudant.com/")
                   :username "username"
                   :password "password"
@@ -94,11 +94,11 @@ credentials separate:
 #'test-clutch/db
 => (put-document db {:a 5 :b [0 6]})
 {:_id "17e55bcc31e33dd30c3313cc2e6e5bb4", :_rev "1-a3517724e42612f9fbd350091a96593c", :a 5, :b [0 6]}
-----
+```
 
 You can optionally provide configuration using dynamic scope via `with-db`:
 
-----
+```clojure
 => (with-db "clutch_example"
      (put-document {:_id "a" :a 5})
      (put-document {:_id "b" :b 6})
@@ -106,9 +106,9 @@ You can optionally provide configuration using dynamic scope via `with-db`:
        (merge (get-document "b"))
        (dissoc-meta)))
 {:b 6, :a 5}
-----
+```
 
-=== Experimental: a Clojure-idiomatic CouchDB type
+### Experimental: a Clojure-idiomatic CouchDB type
 
 Clutch provides a pretty comprehensive API, but 95% of database
 interactions require using something other than the typical Clojure vocabulary of
@@ -129,16 +129,16 @@ Would like to eventually add:
 ** to provide specialized query interfaces e.g. cloudant indexes
 ** to return custom map and vector types to support e.g.
 
-----
+```clojure
 (assoc-in! db ["ID" :key :key array-index] x)
 (update-in! db ["ID" :key :key array-index] assoc :key y)
-----
+```
 
 Feedback wanted on the mailing list: http://groups.google.com/group/clojure-clutch
 
 This part of the API is subject to change at any time, so no detailed examples.  For now, just a REPL interaction will do:
 
-----
+```clojure
 => (use 'com.ashafa.clutch)     ;; My apologies for the bare `use`!
 nil
 => (def db (couch "test"))
@@ -172,53 +172,53 @@ nil
 #<CouchDB user.CouchDB@79d7999e>
 => (:result (meta *1))
 {:_rev "1-ac3fe57a7604cfd6dcca06b25204b590", :_id ":foo", :a 6, :b 7}
-----
+```
 
-=== Configuring your CouchDB installation to use the Clutch view server
+### Configuring your CouchDB installation to use the Clutch view server
 
 CouchDB needs to know how to exec Clutch's view server.  Getting this command string together can be tricky, especially given potential classpath complexity.  You can either (a) produce an uberjar of your project, in which case the exec string will be something like:
 
-----
+```
 java -cp <path to your uberjar> clojure.main -m com.ashafa.clutch.view-server
-----
+```
 
 or, (b) you can use the `com.ashafa.clutch.utils/view-server-exec-string` function to dump a likely-to-work exec string.  For example:
 
-----
+```clojure
 user=> (use '[com.ashafa.clutch.view-server :only (view-server-exec-string)])
 nil
 user=> (println (view-server-exec-string))
 java -cp "clutch/src:clutch/test:clutch/classes:clutch/resources:clutch/lib/clojure-1.3.0-beta1.jar:clutch/lib/clojure-contrib-1.2.0.jar:clutch/lib/data.json-0.1.1.jar:clutch/lib/tools.logging-0.1.2.jar" clojure.main -m com.ashafa.clutch.view-server
-----
+```
 
 This function assumes that `java` is on CouchDB's PATH, and it's entirely possible that the classpath might not be quite right (esp. on Windows — the above only tested on OS X and Linux so far).  In any case, you can test whether the view server exec string is working properly by trying it yourself and attempting to get it to echo back a log message:
 
-----
+```
 [catapult:~/dev/clutch] chas% java -cp "clutch/src:clutch/test:clutch/classes:clutch/resources:clutch/lib/clojure-1.3.0-beta1.jar:clutch/lib/clojure-contrib-1.2.0.jar:clutch/lib/data.json-0.1.1.jar:clutch/lib/tools.logging-0.1.2.jar" clojure.main -m com.ashafa.clutch.view-server
 ["log" "echo, please"]
 ["log",["echo, please"]]
-----
+```
 
 Enter the first JSON array, and hit return; the view server should immediately reply with the second JSON array.  Anything else, and your exec string is flawed, or something else is wrong.
 
 Once you have a working exec string, you can use Clojure for views and filters by adding a view server configuration to CouchDB.  This can be as easy as passing the exec string to the `com.ashafa.clutch/configure-view-server` function:
 
-----
+```clojure
 (configure-view-server (view-server-exec-string))
-----
+```
 
 Alternatively, use Futon to add the `clojure` query server language to your CouchDB instance's config.
 
 In the end, both of these methods add the exec string you provide it to the `local.ini` file of your CouchDB installation, which you can modify directly if you like (this is likely what you'll need to do for non-local/production CouchDB instances):
 
-----
+```
   [query_servers]
   clojure = java -cp …rest of your exec string…
-----
+```
 
-==== View server configuration & view API usage
+#### View server configuration & view API usage
 
-----
+```clojure
 => (configure-view-server "clutch_example" (com.ashafa.clutch.view-server/view-server-exec-string))
 ""
 => (save-view "clutch_example" "demo_views" (view-server-fns :clojure
@@ -233,18 +233,18 @@ In the end, both of these methods add the exec string you provide it to the `loc
  {:id "foo", :key nil, :value 10})
 => (map :value (get-view "clutch_example" "demo_views" :sum {:reduce false}))
 (20 30 10)
-----
+```
 
 Note that all view access functions (i.e. `get-view`, `all-documents`, etc) return a lazy seq of their results (corresponding to the `:rows` slot in the data that couchdb returns in its view data).  Other values (e.g. `total_rows`, `offset`, etc) are added to the returned lazy seq as metadata. 
 
-----
+```clojure
 => (meta (all-documents "databasename"))
 {:total_rows 20000, :offset 0}
-----
+```
 
-=== (Partial) Changelog
+### (Partial) Changelog
 
-===== 0.3.0
+##### 0.3.0
 
 Many breaking changes to refine/simplify the API, clean up the implementation, and add additional features:
 
@@ -267,14 +267,15 @@ View-related API:
 * A `view-transformer` multimethod is now available, which opens up clutch to dynamically support additional view server languages. 
 * Moved `view-server-exec-string` to `com.ashafa.clutch.view-server` namespace
 
-=== Contributors
+### Contributors
 
 Appreciations go out to:
 
-* http://cemerick.com[Chas Emerick]
-* http://github.com/pierrel[Pierre Larochelle]
-* http://github.com/mattdw[Matt Wilson]
-* http://github.com/WizardofWestmarch[Patrick Sullivan]
-* http://tbatchelli.org[Toni Batchelli]
-* http://github.com/hugoduncan[Hugo Duncan]
-* http://github.com/senior[Ryan Senior]
+* [Chas Emerick](http://cemerick.com)
+* [Tunde Ashafa](http://ashafa.com/)
+* [Pierre Larochelle](http://github.com/pierrel)
+* [Matt Wilson](http://github.com/mattdw)
+* [Patrick Sullivan](http://github.com/WizardofWestmarch)
+* [Toni Batchelli](http://tbatchelli.org)
+* [Hugo Duncan](http://github.com/hugoduncan)
+* [Ryan Senior](http://github.com/senior)
