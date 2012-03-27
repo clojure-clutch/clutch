@@ -48,11 +48,13 @@
 
 (defmacro fail-on-404
   [db expr]
-  `(binding [*response-code* nil]
-     (let [resp# ~expr]
-       (if (= 404 *response-code*)
-         (throw (IllegalStateException. (format "Database %s does not exist" ~db)))
-         resp#))))
+  `(let [f# #(let [resp# ~expr]
+               (if (= 404 *response-code*)
+                 (throw (IllegalStateException. (format "Database %s does not exist" ~db)))
+                 resp#))]
+     (if (thread-bound? #'*response-code*)
+       (f#)
+       (binding [*response-code* nil] (f#)))))
 
 (defn- send-body
   [^URLConnection connection data]
