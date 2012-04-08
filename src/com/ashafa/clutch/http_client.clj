@@ -28,7 +28,8 @@
   (:require [clojure.data.json :as json]
             [clojure.contrib.io :as io]
             clojure.string
-            [com.ashafa.clutch.utils :as utils]) 
+            [com.ashafa.clutch.utils :as utils]
+            [cemerick.url :as url]) 
   (:import  (java.io IOException InputStream InputStreamReader PushbackReader)
             (java.net URL URLConnection HttpURLConnection MalformedURLException)
             (sun.misc BASE64Encoder)))
@@ -115,7 +116,7 @@
         d-headers (if (string? data)
                     (assoc d-headers "Content-Length" (-> data count str))
                     d-headers)
-        headers   (if-let [creds (utils/url-creds url)]
+        headers   (if-let [creds (#'url/url-creds (:username url) (:password url))]
                     (assoc d-headers
                       "Authorization"
                       (str "Basic " (.encode (BASE64Encoder.) (.getBytes ^String creds))))

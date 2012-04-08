@@ -14,13 +14,12 @@
 
 (println "Testing using Clojure" *clojure-version*)
 
-
 ; Can be e.g.
 ; "https://username:password@account.cloudant.com" or
 ;   (assoc (utils/url "localhost")
 ;     :username "username"
 ;     :password "password")
-(def test-host nil)
+(def test-host "http://localhost:5984")
 
 (def resources-path "test")
 
@@ -53,7 +52,9 @@
 (use-fixtures
   :once
   #(binding [*clj-view-svr-config* (try
-                                     (configure-view-server (utils/url "") (view-server/view-server-exec-string) :language view-server-name)
+                                     (configure-view-server (utils/url "http://localhost:5984")
+                                                            (view-server/view-server-exec-string)
+                                                            :language view-server-name)
                                      (catch java.io.IOException e (.printStackTrace e)))]
      (when-not *clj-view-svr-config*
        (println "Could not autoconfigure clutch view server,"
@@ -75,7 +76,7 @@
        (try
         (with-db *test-database* ~@body)
         (finally
-         (delete-database *test-database*))))))
+          (delete-database *test-database*))))))
 
 (deftest check-couchdb-connection
   (is (= "Welcome" (:couchdb (couchdb-info (test-database-url nil))))))

@@ -30,6 +30,7 @@
             [clojure.data.json :as json]
             [clojure.java.io :as io]
             [clojure.contrib.http.agent :as h]
+            [cemerick.url :as url]
             clojure.string)
   (:use com.ashafa.clutch.http-client
         (clojure.contrib core def))
@@ -78,7 +79,7 @@
 (defdbop all-databases
   "Returns a list of all databases on the CouchDB server."
   [db]
-  (couchdb-request :get (-> db utils/server-url (assoc :path "_all_dbs"))))
+  (couchdb-request :get (url/url db "/_all_dbs")))
 
 (defdbop create-database
   [db]
@@ -113,7 +114,7 @@
    source database on the target databse."
   [srcdb tgtdb]
   (couchdb-request :post
-    (assoc (utils/server-url tgtdb) :path "_replicate")
+    (url/url tgtdb "/_replicate")
     :data {:source (str srcdb)
            :target (str tgtdb)}))
 
@@ -142,24 +143,24 @@
    to a document in the given database, using the meta of the changed document as the only
    argument of the callback."
   [db watch-key callback & {:as options}]
-  (let [url-str (str db)
-        last-update (:update_seq (database-info db))
+  (let [last-update (:update_seq (database-info db))
         options (merge {:heartbeat 30000 :feed "continuous"} options)
         options (if (:since options)
                   options
-                  (assoc options :since last-update))]
+                  (assoc options :since last-update))
+        db-url-key (str db)]
     (when last-update
       (dosync
        (let [uid     (str (java.util.UUID/randomUUID))
              watcher {:uid        uid
-                      :http-agent (h/http-agent 
-                                   (str url-str "/_changes?" (utils/map-to-query-str options (constantly false)))
-                                   :method "GET"
-                                   :handler (partial watch-changes-handler url-str watch-key uid))
+                      :http-agent (h/http-agent
+                                    (-> (url/url db "_changes") (assoc :query options) str)
+                                    :method "GET"
+                                    :handler (partial watch-changes-handler db-url-key watch-key uid))
                       :callback   callback}]
-         (if (@watched-databases url-str)
-           (alter watched-databases assoc-in [url-str watch-key] watcher)
-           (alter watched-databases assoc url-str {watch-key watcher}))))
+         (if (@watched-databases db-url-key)
+           (alter watched-databases assoc-in [db-url-key watch-key] watcher)
+           (alter watched-databases assoc db-url-key {watch-key watcher}))))
       db)))
 
 (defdbop changes-error
@@ -225,7 +226,7 @@
                             (hash-map :_attachments))))
         result (couchdb-request
                  (if (:_id document) :put :post)
-                 (assoc (utils/url db (:_id document))
+                 (assoc (url/url db (:_id document))
                    :query request-params)
                  :data document)]
     (and (:ok result)
@@ -241,8 +242,7 @@
    (rev, attachments, may be provided as keyword arguments."
   [db id & {:as get-params}]
   (couchdb-request :get
-    (-> db
-      (utils/url id)
+    (-> (url/url db id)
       (assoc :query get-params))))
 
 (defn- document?
@@ -300,7 +300,7 @@
    up CouchDB to be Clutch-view-server-ready in general terms."
   [db exec-string & {:keys [language] :or {language "clojure"}}]
   (couchdb-request :put
-    (assoc db :path (str "_config/query_servers/" (utils/str* language)))
+    (url/url db "/_config/query_servers/" (-> language name url/url-encode))
     :data (pr-str exec-string)))
 
 (defn- map-leaves
@@ -357,7 +357,10 @@
   (view-request
     (if (empty? post-data-map) :get :post)
     (assoc (apply utils/url db path-segments)
-           :query (utils/map-to-query-str query-params-map (apply utils/forgiving-keyset '[key startkey endkey])))
+           :query (into {} (for [[k v] query-params-map]
+                             [k (if (#{"key" "keys" "startkey" "endkey"} (name k))
+                                  (json/json-str v)
+                                  v)])))
     :data (when (seq post-data-map) post-data-map)))
 
 (defdbop get-view
@@ -366,7 +369,7 @@
    (see: http://wiki.apache.org/couchdb/HTTP_view_API)."
   [db design-document view-key & [query-params-map post-data-map :as args]]
   (apply get-view* db
-         ["_design" design-document "_view" (utils/str* view-key)]
+         ["_design" design-document "_view" (name view-key)]
          args))
 
 (defdbop all-documents

@@ -4,6 +4,11 @@
 .#*
 \#*
 nb-configuration.xml
+.externalToolBuilders
+.lein*
+.project
+.settings
+.classpath
 
 # build artifacts
 *.jar

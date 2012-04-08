@@ -26,114 +26,25 @@
 (ns ^{:author "Tunde Ashafa"}
   com.ashafa.clutch.utils
   (:require [clojure.data.json :as json]
-            [clojure.java.io :as io])
+            [clojure.java.io :as io]
+            [cemerick.url :as url])
   (:use clojure.contrib.core)
   (:import java.net.URLEncoder
            java.lang.Class
            [java.io File InputStream ByteArrayOutputStream]))
 
-(defn str*
-  "Same as str, but keeps keyword colons out."
-  [v]
-  (str (if (keyword? v)
-         (name v)
-         v)))
-
-(defn forgiving-keyset
-  "Returns a set that contains all of the given keys, but including string,
-   keyword, and symbol variants as necessary."
-  [& keys]
-  (->> (map str* keys)
-    (map #(vector % (symbol %) (keyword %)))
-    flatten
-    set))
-
-(defn encode-compound-values
-  [k v]
-  (coll? v))
-
-(defn uri-encode
-  [string]
-  (-?> string str (URLEncoder/encode "UTF-8") (.replace "+" "%20")))
-
-(defn map-to-query-str
-  ([m]
-    (map-to-query-str m (constantly true)))
-  ([m encode?]
-    (let [encode? (if (set? encode?)
-                    (fn [k _] (encode? k))
-                    encode?)]
-      (-?>> (seq m)
-            sort                     ; sorting makes testing a lot easier :-)
-            (map (fn [[k v]]
-                   [(uri-encode (str* k))
-                    "="
-                    (uri-encode (if (encode? k v)
-                                  (json/json-str v)
-                                  (str v)))]))
-            (interpose "&")
-            flatten
-            (apply str)))))
-
-(defn options-to-map 
-  [init options]
-  (if (nth options 0)
-    (apply (partial assoc init) options) 
-    init))
-
-(declare url-creds)
-
-(defrecord URL
-  [protocol username password host port path query]
-  Object
-  (toString [this]
-    (let [creds (url-creds this)]
-      (apply str
-        protocol "://"
-        creds
-        (when creds \@)
-        host
-        \: (cond
-             (and port (not= -1 port)) port
-             (= protocol "https") 443
-             :else 5984)
-        \/ path
-        (when query (str \? (if (string? query)
-                              query
-                              (map-to-query-str query encode-compound-values))))))))
-
 (defn url
-  ([db]
-    (if (instance? URL db)
-      db
-      (try
-        (let [url (java.net.URL. db)
-              [_ user pass] (re-matches #"([^:]+):(.*$)" (or (.getUserInfo url) ""))]
-          (URL. (.getProtocol url)
-                user
-                pass
-                (.getHost url)
-                (.getPort url)
-                (-> url .getPath (.replaceAll "^/" ""))
-                (.getQuery url)))
-        (catch java.net.MalformedURLException e
-          (url "http://localhost" db)))))
-  ([base & path-segments]
-    (let [base (if (instance? URL base) base (url base))]
-      (assoc base
-        :path (->> (map uri-encode path-segments)
-                (interpose \/)
-                (apply str (when (seq (:path base))
-                             (str (:path base) \/))))))))
+  "Thin layer on top of cemerick.url/url that defaults otherwise unqualified
+   database urls to use `http://localhost:5984`."
+  [& [base & parts :as args]]
+  (try
+    (apply url/url base (map url/url-encode parts))
+    (catch java.net.MalformedURLException e
+      (apply url/url "http://localhost:5984" (map url/url-encode args)))))
 
 (defn server-url
   [db]
   (assoc db :path nil :query nil))
-
-(defn url-creds
-  [^URL url]
-  (and (:username url)
-    (str (:username url) ":" (:password url))))
 
 (defn get-mime-type
   [^File file]
