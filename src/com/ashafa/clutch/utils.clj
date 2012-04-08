@@ -62,12 +62,6 @@
             (recur)))))
     (.toByteArray out)))
 
-;; TODO use commons-codec, or data.codec in new contrib 
-(defn encode-bytes-to-base64
-  [^bytes bytes]
-  (.replaceAll
-   (.encode (sun.misc.BASE64Encoder.) bytes) "\n" ""))
-
 ;; TODO eliminate when sane http client is integrated
 (defn set-field
   "Set to private or protected field. field-name is a symbol or keyword.

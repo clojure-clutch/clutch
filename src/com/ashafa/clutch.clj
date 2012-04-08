@@ -221,7 +221,7 @@
                                          :data (-> data
                                                  ; make sure streams are closed so we don't hold locks on files on Windows
                                                  (#(with-open [^InputStream s %] (utils/to-byte-array s)))
-                                                 utils/encode-bytes-to-base64)}))
+                                                 org.apache.commons.codec.binary.Base64/encodeBase64String)}))
                                     {})
                             (hash-map :_attachments))))
         result (couchdb-request
