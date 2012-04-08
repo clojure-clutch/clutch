@@ -31,7 +31,7 @@
   (:use clojure.contrib.core)
   (:import java.net.URLEncoder
            java.lang.Class
-           [java.io File InputStream ByteArrayOutputStream]))
+           [java.io File]))
 
 (defn url
   "Thin layer on top of cemerick.url/url that defaults otherwise unqualified
@@ -50,17 +50,6 @@
   [^File file]
   (.getContentType
    (javax.activation.MimetypesFileTypeMap.) file))
-
-(defn to-byte-array
-  [^InputStream input]
-  (let [barr (make-array Byte/TYPE 1024)
-        out (ByteArrayOutputStream.)]
-    (loop []
-      (let [size (.read input barr)]
-        (when (pos? size)
-          (do (.write out barr 0 size)
-            (recur)))))
-    (.toByteArray out)))
 
 ;; TODO eliminate when sane http client is integrated
 (defn set-field

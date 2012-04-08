@@ -406,23 +406,29 @@
 (defdbtest inline-attachments
   (let [clojure-img-file (str resources-path "/clojure.png")
         couchdb-img-file (str resources-path "/couchdb.png")
-        couch-filename (keyword "couchdb 2.png")
+        couch-filename :couchdb.png
+        bytes-filename :couchdbbytes.png
         created-document (put-document test-document-4
                            :attachments [clojure-img-file
+                                         {:data (#'com.ashafa.clutch/to-byte-array (FileInputStream. couchdb-img-file))
+                                          :filename bytes-filename :mime-type "image/png"}
                                          {:data (FileInputStream. couchdb-img-file)
                                           :filename couch-filename :mime-type "image/png"}])
         fetched-document (get-document (created-document :_id))]
-    (are [attachment-keys] (= #{:clojure.png couch-filename} attachment-keys) 
+    (are [attachment-keys] (= #{:clojure.png couch-filename bytes-filename} attachment-keys) 
          (set (keys (created-document :_attachments)))
          (set (keys (fetched-document :_attachments))))
     (are [doc file-key] (= "image/png" (-> doc :_attachments file-key :content_type))
          created-document :clojure.png
          fetched-document :clojure.png
          created-document couch-filename
-         fetched-document couch-filename)
+         fetched-document couch-filename
+         created-document bytes-filename
+         fetched-document bytes-filename)
     (are [path file-key] (= (.length (File. path)) (-> fetched-document :_attachments file-key :length))
          clojure-img-file :clojure.png
-         couchdb-img-file couch-filename)))
+         couchdb-img-file couch-filename
+         couchdb-img-file bytes-filename)))
 
 (defdbtest standalone-attachments
   (let [document (put-document test-document-1)
@@ -431,13 +437,17 @@
         updated-document-meta (put-attachment document path :filename :couchdb-image)
         updated-document-meta (put-attachment (assoc document :_rev (:rev updated-document-meta))
                                 (FileInputStream. path) :filename filename-with-space :mime-type "image/png")
+        updated-document-meta (put-attachment (assoc document :_rev (:rev updated-document-meta))
+                                (#'com.ashafa.clutch/to-byte-array (FileInputStream. path))
+                                :filename :bytes-image :mime-type "image/png")
         document-with-attachments (get-document (updated-document-meta :id) :attachments true)]
-    (is (= #{:couchdb-image filename-with-space} (set (keys (:_attachments document-with-attachments)))))
+    (is (= #{:couchdb-image filename-with-space :bytes-image} (set (keys (:_attachments document-with-attachments)))))
     (is (= "image/png" (-> document-with-attachments :_attachments :couchdb-image :content_type)))
     (is (contains? (-> document-with-attachments :_attachments :couchdb-image) :data))
     
     (is (= (-> document-with-attachments :_attachments :couchdb-image (select-keys [:data :content_type :length]))
-           (-> document-with-attachments :_attachments filename-with-space (select-keys [:data :content_type :length]))))
+           (-> document-with-attachments :_attachments filename-with-space (select-keys [:data :content_type :length]))
+           (-> document-with-attachments :_attachments :bytes-image (select-keys [:data :content_type :length]))))
     
     (is (thrown? IllegalArgumentException (put-attachment document (Object.))))
     (is (thrown? IllegalArgumentException (put-attachment document (ByteArrayInputStream. (make-array Byte/TYPE 0)))))))

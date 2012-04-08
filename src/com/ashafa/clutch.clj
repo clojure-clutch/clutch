@@ -34,7 +34,7 @@
             clojure.string)
   (:use com.ashafa.clutch.http-client
         (clojure.contrib core def))
-  (:import (java.io File FileInputStream BufferedInputStream InputStream)
+  (:import (java.io File FileInputStream BufferedInputStream InputStream ByteArrayOutputStream)
            (java.net URL))
   (:refer-clojure :exclude (conj! assoc! dissoc!)))
 
@@ -186,12 +186,18 @@
         (alter watched-databases dissoc url-key))))
   db)
 
+(def ^{:private true} byte-array-class (Class/forName "[B"))
+
 (defn- attachment-info
   ([{:keys [data filename mime-type]}] (attachment-info data filename mime-type))
   ([data filename mime-type]
     (let [data (if (string? data)
                  (File. ^String data)
-                 data)]
+                 data)
+          check (fn [k v]
+                  (if v v
+                    (throw (IllegalArgumentException.
+                             (str k " must be provided if attachment data is an InputStream or byte[]")))))]
       (cond
         (instance? File data)
         [(-> ^File data FileInputStream. BufferedInputStream.)
@@ -199,13 +205,28 @@
          (or mime-type (utils/get-mime-type data))]
         
         (instance? InputStream data)
-        (letfn [(check [k v]
-                       (if v v
-                         (throw (IllegalArgumentException. (str k " must be provided if attachment data is an InputStream")))))]
-               [data (check :filename filename) (check :mime-type mime-type)])
+        [data (check :filename filename) (check :mime-type mime-type)]
+        
+        (= byte-array-class (class data))
+        [(java.io.ByteArrayInputStream. data) (check :filename filename) (check :mime-type mime-type)]
         
         :default
         (throw (IllegalArgumentException. (str "Cannot handle attachment data of type " (class data))))))))
+
+(defn- to-byte-array
+  [input]
+  (if (= byte-array-class (class input))
+    input
+    ; make sure streams are closed so we don't hold locks on files on Windows
+    (with-open [^InputStream input input]
+      (let [barr (make-array Byte/TYPE 1024)
+            out (ByteArrayOutputStream.)]
+        (loop []
+          (let [size (.read input barr)]
+            (when (pos? size)
+              (do (.write out barr 0 size)
+                (recur)))))
+        (.toByteArray out)))))
 
 (defdbop put-document
   [db document & {:keys [id attachments request-params]}]
@@ -219,8 +240,7 @@
                                       (assoc m (keyword filename)
                                         {:content_type mime
                                          :data (-> data
-                                                 ; make sure streams are closed so we don't hold locks on files on Windows
-                                                 (#(with-open [^InputStream s %] (utils/to-byte-array s)))
+                                                 to-byte-array
                                                  org.apache.commons.codec.binary.Base64/encodeBase64String)}))
                                     {})
                             (hash-map :_attachments))))
