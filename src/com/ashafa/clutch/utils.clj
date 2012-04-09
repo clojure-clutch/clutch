@@ -38,9 +38,9 @@
    database urls to use `http://localhost:5984`."
   [& [base & parts :as args]]
   (try
-    (apply url/url base (map url/url-encode parts))
+    (apply url/url base (map (comp url/url-encode str) parts))
     (catch java.net.MalformedURLException e
-      (apply url/url "http://localhost:5984" (map url/url-encode args)))))
+      (apply url/url "http://localhost:5984" (map (comp url/url-encode str) args)))))
 
 (defn server-url
   [db]

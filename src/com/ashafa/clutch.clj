@@ -246,7 +246,7 @@
                             (hash-map :_attachments))))
         result (couchdb-request
                  (if (:_id document) :put :post)
-                 (assoc (url/url db (:_id document))
+                 (assoc (utils/url db (:_id document))
                    :query request-params)
                  :data document)]
     (and (:ok result)
