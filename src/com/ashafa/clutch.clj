@@ -421,9 +421,10 @@
 
 (defdbop put-attachment
   "Updates (or creates) the attachment for the given document.  `data` can be a string path
-   to a file, a java.io.File, or an InputStream.
+   to a file, a java.io.File, a byte array, or an InputStream.
    
-   If `data` is an InputStream, you _must_ include the following otherwise-optional kwargs:
+   If `data` is a byte array or InputStream, you _must_ include the following otherwise-optional
+   kwargs:
 
        :filename — name to be given to the attachment in the document
        :mime-type — type of attachment data
