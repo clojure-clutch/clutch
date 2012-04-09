@@ -31,8 +31,7 @@
             [com.ashafa.clutch.utils :as utils]
             [cemerick.url :as url]) 
   (:import  (java.io IOException InputStream InputStreamReader PushbackReader)
-            (java.net URL URLConnection HttpURLConnection MalformedURLException)
-            (sun.misc BASE64Encoder)))
+            (java.net URL URLConnection HttpURLConnection MalformedURLException)))
 
 
 (def ^{:private true} version "0.3.0")
@@ -119,7 +118,7 @@
         headers   (if-let [creds (#'url/url-creds (:username url) (:password url))]
                     (assoc d-headers
                       "Authorization"
-                      (str "Basic " (.encode (BASE64Encoder.) (.getBytes ^String creds))))
+                      (str "Basic " (org.apache.commons.codec.binary.Base64/encodeBase64String creds)))
                     d-headers)]
     (connect (assoc url
                     :headers headers
