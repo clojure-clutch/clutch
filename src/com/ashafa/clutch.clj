@@ -342,21 +342,33 @@
 
 (defmacro view-server-fns
   [options fns]
-  (let [[language options] (if (map? options)
-                             [(or (:language options) :javascript) (dissoc options :language)]
-                             [options])]
-    [(:language (view-transformer language))
-     `(#'map-leaves ((:compiler (view-transformer ~language)) ~options) '~fns)]))
+  (let [[view-opts options] (if (map? options)
+                             [{:language (or (:language options) :javascript)
+                               :code-version (:code-version options)}
+                              (dissoc options :language :code-version)]
+                             [{:language options}])]
+    [{:language (:language (view-transformer (:language view-opts)))
+      :code-version (:code-version view-opts)}
+     `(#'map-leaves ((:compiler (view-transformer ~(:language view-opts))) ~options) '~fns)]))
 
 (defdbop save-design-document
   "Create/update a design document containing functions used for database
    queries/filtering/validation/etc."
-  [db fn-type design-document-name [language view-server-fns]]
+  [db fn-type design-document-name [view-opts view-server-fns]]
   (let [design-doc-id (str "_design/" design-document-name)
-        ddoc {fn-type view-server-fns
-              :language (name language)}]
+        code-version (:code-version view-opts)
+        ddoc- {fn-type view-server-fns
+               :language (name (:language view-opts))}
+        ddoc (if code-version
+               (assoc ddoc- :code-version code-version)
+               ddoc-)]
     (if-let [design-doc (get-document db design-doc-id)]
-      (update-document db design-doc merge ddoc)
+      (if (or (not (:code-version design-doc))
+                (and code-version
+                     (:code-version design-doc)
+                     (> code-version (:code-version design-doc))))
+        (update-document db design-doc merge ddoc)
+        design-doc)
       (put-document db (assoc ddoc :_id design-doc-id)))))
 
 (defdbop save-view
@@ -405,8 +417,8 @@
   "One-off queries (i.e. views you don't want to save in the CouchDB database). Ad-hoc
    views should be used only during development. Also takes an optional map for querying
    options (see: http://wiki.apache.org/couchdb/HTTP_view_API)."
-  [db [language view-server-fns] & [query-params-map]]
-  (get-view* db ["_temp_view"]  query-params-map (into {:language language} view-server-fns)))
+  [db [view-opts view-server-fns] & [query-params-map]]
+  (get-view* db ["_temp_view"]  query-params-map (into {:language (:language view-opts)} view-server-fns)))
 
 (defdbop bulk-update
   "Takes a sequential collection of documents (maps) and inserts or updates (if \"_id\" and \"_rev\" keys

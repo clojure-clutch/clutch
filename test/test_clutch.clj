@@ -269,6 +269,102 @@
                                       {:map #(if (> (:score %) 70) [[nil (:name %)]])}}))]
       (is (map? (-> (get-document (view-document :_id)) :views :names-with-score-over-70))))))
 
+(defdbtest create-a-versioned-design-view
+  (when *clj-view-svr-config*
+    (let [view-document (save-view "users"
+                                   (view-server-fns
+                                     {:language view-server-name
+                                      :code-version 1}
+                                     {:names-with-score-over-70
+                                      {:map #(if (> (:score %) 70) [[nil (:name %)]])}}))
+          test-view (get-document (view-document :_id))]
+      (is (map? (-> test-view :views :names-with-score-over-70)))
+      (is (= 1 (-> test-view :code-version))))))
+
+(defdbtest update-a-versioned-design-view
+  (when *clj-view-svr-config*
+    (let [view-document (save-view "users"
+                                   (view-server-fns
+                                     {:language view-server-name
+                                      :code-version 1}
+                                     {:names-with-score-over-70
+                                      {:map #(if (> (:score %) 70) [[nil (:name %)]])}}))
+          test-view (get-document (view-document :_id))]
+      (is (map? (-> test-view :views :names-with-score-over-70)))
+      (is (= 1 (-> test-view :code-version))))
+    (let [updated-doc (save-view "users"
+                                 (view-server-fns
+                                   {:language view-server-name
+                                    :code-version 2}
+                                   {:names-with-score-over-60
+                                    {:map #(if (> (:score %) 60) [[nil (:name %)]])}}))
+          test-updated (get-document (updated-doc :_id))]
+      (is (map? (-> test-updated :views :names-with-score-over-60)))
+      (is (= 2 (-> test-updated :code-version))))))
+
+(defdbtest change-to-a-versioned-design-view
+  (when *clj-view-svr-config*
+    (let [view-document (save-view "users"
+                                   (view-server-fns
+                                     view-server-name
+                                     {:names-with-score-over-70
+                                      {:map #(if (> (:score %) 70) [[nil (:name %)]])}}))
+          test-view (get-document (view-document :_id))]
+      (is (map? (-> test-view :views :names-with-score-over-70)))
+      (is (not (-> test-view :code-version))))
+    (let [updated-doc (save-view "users"
+                                 (view-server-fns
+                                   {:language view-server-name
+                                    :code-version 1}
+                                   {:names-with-score-over-60
+                                    {:map #(if (> (:score %) 60) [[nil (:name %)]])}}))
+          test-updated (get-document (updated-doc :_id))]
+      (is (map? (-> test-updated :views :names-with-score-over-60)))
+      (is (= 1 (-> test-updated :code-version))))))
+
+(defdbtest fail-to-downdate-a-versioned-design-view
+  (when *clj-view-svr-config*
+    (let [view-document (save-view "users"
+                                   (view-server-fns
+                                     {:language view-server-name
+                                      :code-version 2}
+                                     {:names-with-score-over-70
+                                      {:map #(if (> (:score %) 70) [[nil (:name %)]])}}))
+          test-view (get-document (view-document :_id))]
+      (is (map? (-> test-view :views :names-with-score-over-70)))
+      (is (= 2 (-> test-view :code-version))))
+    (let [updated-doc (save-view "users"
+                                 (view-server-fns
+                                   {:language view-server-name
+                                    :code-version 1}
+                                   {:names-with-score-over-60
+                                    {:map #(if (> (:score %) 60) [[nil (:name %)]])}}))
+          test-updated (get-document (updated-doc :_id))]
+      (is (map? (-> test-updated :views :names-with-score-over-70)))
+      (is (not (-> test-updated :views :names-with-socre-over-60)))
+      (is (= 2 (-> test-updated :code-version))))))
+
+(defdbtest fail-to-unversion-a-versioned-design-view
+  (when *clj-view-svr-config*
+    (let [view-document (save-view "users"
+                                   (view-server-fns
+                                     {:language view-server-name
+                                      :code-version 1}
+                                     {:names-with-score-over-70
+                                      {:map #(if (> (:score %) 70) [[nil (:name %)]])}}))
+          test-view (get-document (view-document :_id))]
+      (is (map? (-> test-view :views :names-with-score-over-70)))
+      (is (= 1 (-> test-view :code-version))))
+    (let [updated-doc (save-view "users"
+                                 (view-server-fns
+                                   view-server-name
+                                   {:names-with-score-over-60
+                                    {:map #(if (> (:score %) 60) [[nil (:name %)]])}}))
+          test-updated (get-document (updated-doc :_id))]
+      (is (map? (-> test-updated :views :names-with-score-over-70)))
+      (is (not (-> test-updated :views :names-with-socre-over-60)))
+      (is (= 1 (-> test-updated :code-version))))))
+
 (defdbtest use-a-design-view-with-spaces-in-key
   (when *clj-view-svr-config*
     (put-document test-document-1)
