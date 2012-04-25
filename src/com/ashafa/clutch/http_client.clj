@@ -118,7 +118,7 @@
         headers   (if-let [creds (#'url/url-creds (:username url) (:password url))]
                     (assoc d-headers
                       "Authorization"
-                      (str "Basic " (org.apache.commons.codec.binary.Base64/encodeBase64String creds)))
+                      (str "Basic " (org.apache.commons.codec.binary.Base64/encodeBase64String (.getBytes creds))))
                     d-headers)]
     (connect (assoc url
                     :headers headers
