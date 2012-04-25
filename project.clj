@@ -9,7 +9,7 @@
                  [com.cemerick/url "0.0.3"]]
   :profiles {:dev {:plugins [[lein-clojars "0.8.0"]]}
              :1.2 {:dependencies [[org.clojure/clojure "1.2.0"]]}
-             :1.4 {:dependencies [[org.clojure/clojure "1.4.0-beta5"]]}}
+             :1.4 {:dependencies [[org.clojure/clojure "1.4.0"]]}}
   :aliases  { "all" ["with-profile" "dev,1.2:dev:dev,1.4"] }
   :min-lein-version "2.0.0"
   :test-selectors {:default (constantly true)
