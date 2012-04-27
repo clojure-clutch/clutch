@@ -7,7 +7,7 @@ Clutch is a [Clojure](http://clojure.org) library for [Apache CouchDB](http://co
 To include Clutch in your project, simply add the following to your `project.clj` dependencies:
 
 ```clojure
-[com.ashafa/clutch "0.3.1-SNAPSHOT"]
+[com.ashafa/clutch "0.3.1"]
 ```
 
 and run...
@@ -22,11 +22,11 @@ Or, if you're using Maven, add this dependency to your `pom.xml`:
 <dependency>
     <groupId>com.ashafa</groupId>
     <artifactId>clutch</artifactId>
-    <version>0.3.1-SNAPSHOT</version>
+    <version>0.3.1</version>
 </dependency>
 ```
 
-Clutch is compatible with Clojure 1.2.0 and 1.3.0.  The most recent release was `0.3.0`; but, be a mensch and use the SNAPSHOT, and report issues to the [Clutch mailing list](http://groups.google.com/group/clojure-clutch).
+Clutch is compatible with Clojure 1.2.0 - 1.4.0, and requires Java 1.5+. Please report any issues to the [Clutch mailing list](http://groups.google.com/group/clojure-clutch).
 
 ### Status
 
@@ -42,10 +42,6 @@ At the moment, you'll have to look at the source or introspect the docs once you
 Clutch does not currently provide any direct support for the various couchapp-related APIs, including update handlers and validation, shows and lists, and so on.
 
 That said, it is very easy to call whatever CouchDB API feature that Clutch doesn't support using the lower-level `com.ashafa.clutch.http-client/couchdb-request` function.
-
-#### Tests / CI
-
-Clutch's test suite is run on every commit thanks to [Travis](http://travis-ci.org/#!/clojure-clutch/clutch/builds).
 
 ### Usage
 
@@ -173,6 +169,21 @@ nil
 => (:result (meta *1))
 {:_rev "1-ac3fe57a7604cfd6dcca06b25204b590", :_id ":foo", :a 6, :b 7}
 ```
+
+### Using ClojureScript to write CouchDB views
+
+This is possible using the [clutch-clojurescript](https://github.com/cemerick/clutch-clojurescript) library, which
+extends Clutch's `save-view` function et al. to support compiling,
+serializing, and optimizing ClojureScript forms to JavaScript suitable
+for use as views in CouchDB.  Depending on the requirements of your view
+functions (e.g. if your views have no specific dependencies on Clojure
+or JVM libraries), then writing your views in ClojureScript can have
+a number of benefits:
+
+1. No need to configure CouchDB instances to use the Clojure/Clutch view
+   server.
+2. Therefore, flexibility to use hosted CouchDB services like
+   [Cloudant](http://cloudant.com), [Iris Couch](http://www.iriscouch.com/), et al.
 
 ### Configuring your CouchDB installation to use the Clutch view server
 
