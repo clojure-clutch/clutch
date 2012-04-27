@@ -5,11 +5,11 @@
             :url "http://www.opensource.org/licenses/BSD-3-Clause"}
   :dependencies [[org.clojure/clojure "1.4.0"]
                  
-                 [clj-http "0.4.1-SNAPSHOT"]
+                 [com.cemerick/clj-http "0.4.1-SNAPSHOT"]
                  [cheshire "4.0.0"]
                  [commons-codec "1.6"]
                  [com.cemerick/url "0.0.5"]]
-  :profiles {:dev {:plugins [[lein-clojars "0.8.0"]]}
+  :profiles {:dev {}
              :1.2.0 {:dependencies [[org.clojure/clojure "1.2.0"]]}
              :1.3.0 {:dependencies [[org.clojure/clojure "1.3.0"]]}}
   :aliases  { "all" ["with-profile" "dev,1.2.0:dev,1.3.0:dev"] }
