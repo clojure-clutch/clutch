@@ -255,6 +255,13 @@ Note that all view access functions (i.e. `get-view`, `all-documents`, etc) retu
 
 ### (Partial) Changelog
 
+##### 0.3.1
+
+* Added the CouchDB "type", providing a higher-level and more
+  Clojuresque abstraction for most CouchDB operations.
+* byte arrays may now be used with `put-attachment` et al.
+* Clutch may now be used with Java 1.5 (in addition to 1.6+)
+
 ##### 0.3.0
 
 Many breaking changes to refine/simplify the API, clean up the implementation, and add additional features:
