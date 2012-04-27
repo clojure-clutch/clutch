@@ -27,7 +27,6 @@
   com.ashafa.clutch.utils
   (:require [clojure.java.io :as io]
             [cemerick.url :as url])
-  (:use clojure.contrib.core)
   (:import java.net.URLEncoder
            java.lang.Class
            [java.io File]))

@@ -29,11 +29,9 @@
   (:require [com.ashafa.clutch [utils :as utils]]
             [cheshire.core :as json]
             [clojure.java.io :as io]
-            [clojure.contrib.http.agent :as h]
             [cemerick.url :as url]
             clojure.string)
-  (:use com.ashafa.clutch.http-client
-        (clojure.contrib core def))
+  (:use com.ashafa.clutch.http-client)
   (:import (java.io File FileInputStream BufferedInputStream InputStream ByteArrayOutputStream)
            (java.net URL))
   (:refer-clojure :exclude (conj! assoc! dissoc!)))
@@ -47,7 +45,7 @@
   ; now officially documented at http://wiki.apache.org/couchdb/View_collation
   wildcard-collation-string (str (char highest-supported-charcode)))
 
-(def ^{:private true} watched-databases (ref {}))
+#_(def ^{:private true} watched-databases (ref {}))
 
 (def ^{:dynamic true :private true} *database* nil)
 
@@ -88,7 +86,8 @@
 
 (defdbop database-info
   [db]
-  (when-let [info (couchdb-request :get db)]
+  (couchdb-request :get db)
+  #_(when-let [info (couchdb-request :get db)]
     (merge info
            (when-let [watchers (@watched-databases (str db))]
              {:watchers (keys watchers)}))))
@@ -118,7 +117,7 @@
     :data {:source (str srcdb)
            :target (str tgtdb)}))
 
-(defn- watch-changes-handler
+#_(defn- watch-changes-handler
   [url-str watch-key uid agnt]
   (if (h/success? agnt)
     (loop [lines (utils/read-lines (h/stream agnt))]
@@ -137,7 +136,7 @@
                              {:exception e :time (java.util.Date.) :data line}))))))))
           (recur (rest lines)))))))
 
-(defdbop watch-changes
+#_(defdbop watch-changes
   "Provided a database (database meta <map>, url <string>, or database name <string>) and a callback, watches
    for changes to the database and executes the given callback (takes one argument) on every change
    to a document in the given database, using the meta of the changed document as the only
@@ -163,7 +162,7 @@
            (alter watched-databases assoc db-url-key {watch-key watcher}))))
       db)))
 
-(defdbop changes-error
+#_(defdbop changes-error
   "If the provided database is being watched for changes (see: 'watch-changes'), returns a map
    containing the last exception, the time (java.util.Date) of the exception, and the argument
    supplied to the callback, if an exception occured during execution of the callback."
@@ -172,7 +171,7 @@
    (if watched-database
      (:last-error  (watched-database watch-key)))))
 
-(defdbop stop-changes
+#_(defdbop stop-changes
   "If the provided database changes are being watched (see: 'watch-changes'), stops the execution
    of the callback on every change to the watched database."
   [db & [watch-key]]
@@ -218,14 +217,9 @@
   (if (= byte-array-class (class input))
     input
     ; make sure streams are closed so we don't hold locks on files on Windows
-    (with-open [^InputStream input input]
-      (let [barr (make-array Byte/TYPE 1024)
-            out (ByteArrayOutputStream.)]
-        (loop []
-          (let [size (.read input barr)]
-            (when (pos? size)
-              (do (.write out barr 0 size)
-                (recur)))))
+    (with-open [^InputStream input (io/input-stream input)]
+      (let [out (ByteArrayOutputStream.)]
+        (io/copy input out)
         (.toByteArray out)))))
 
 (defdbop put-document
@@ -365,7 +359,7 @@
   (apply save-design-document db :views args))
 
 (defdbop save-filter
-  "Create a filter for use with CouchDB change notifications API via 'watch-changes'."
+  "Create a filter for use with CouchDB change notifications API."
   [db & args]
   (apply save-design-document db :filters args))
 
@@ -456,7 +450,7 @@
         attachment-name (if (keyword? attachment-name)
                           (name attachment-name)
                           attachment-name)]
-    (when (-?> doc :_attachments (get (keyword attachment-name)))
+    (when (-> doc :_attachments (get (keyword attachment-name)))
       (couchdb-request :get
                        (-> (document-url db doc)
                          (utils/url attachment-name)

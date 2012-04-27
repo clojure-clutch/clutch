@@ -2,7 +2,6 @@
   :description "A Clojure library for Apache CouchDB."
   :url "http://github.com/ashafa/clutch"
   :dependencies [[org.clojure/clojure "1.3.0"]
-                 [org.clojure/clojure-contrib "1.2.0"]
                  
                  [org.clojure/tools.logging "0.1.2"]
                  
