@@ -25,8 +25,7 @@
 
 (ns ^{:author "Tunde Ashafa"}
   com.ashafa.clutch.utils
-  (:require [clojure.data.json :as json]
-            [clojure.java.io :as io]
+  (:require [clojure.java.io :as io]
             [cemerick.url :as url])
   (:use clojure.contrib.core)
   (:import java.net.URLEncoder

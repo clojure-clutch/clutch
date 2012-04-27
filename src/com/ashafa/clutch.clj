@@ -27,7 +27,7 @@
 (ns ^{:author "Tunde Ashafa"}
   com.ashafa.clutch
   (:require [com.ashafa.clutch [utils :as utils]]
-            [clojure.data.json :as json]
+            [cheshire.core :as json]
             [clojure.java.io :as io]
             [clojure.contrib.http.agent :as h]
             [cemerick.url :as url]
@@ -128,7 +128,7 @@
             (let [line (first lines)]
               (try
                (if (> (count line) 1)
-                 ((:callback (watched-db watch-key)) (json/read-json line true)))
+                 ((:callback (watched-db watch-key)) (json/parse-string line true)))
                (catch Exception e
                  (dosync
                   (if-let [watched-db (@watched-databases url-str)]
@@ -379,7 +379,7 @@
     (assoc (apply utils/url db path-segments)
            :query (into {} (for [[k v] query-params-map]
                              [k (if (#{"key" "keys" "startkey" "endkey"} (name k))
-                                  (json/json-str v)
+                                  (json/generate-string v)
                                   v)])))
     :data (when (seq post-data-map) post-data-map)))
 

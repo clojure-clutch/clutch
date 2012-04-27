@@ -3,8 +3,10 @@
   :url "http://github.com/ashafa/clutch"
   :dependencies [[org.clojure/clojure "1.3.0"]
                  [org.clojure/clojure-contrib "1.2.0"]
-                 [org.clojure/data.json "0.1.2"]
+                 
                  [org.clojure/tools.logging "0.1.2"]
+                 
+                 [cheshire "4.0.0"]
                  [commons-codec "1.6"]
                  [com.cemerick/url "0.0.5"]]
   :profiles {:dev {:plugins [[lein-clojars "0.8.0"]]}

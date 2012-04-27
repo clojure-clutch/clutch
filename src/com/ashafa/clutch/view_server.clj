@@ -26,7 +26,7 @@
  
 (ns ^{:author "Tunde Ashafa"}
   com.ashafa.clutch.view-server
-  (:require [clojure.data.json :as json]))
+  (:require [cheshire.core :as json]))
 
 (defn view-server-exec-string
   "Generates a string that *should* work to configure a clutch view server
@@ -135,17 +135,18 @@
   (try
    (flush)
    (when-let [line (read-line)] ; don't throw an error if we just get EOF
-     (let [input      (json/read-json line true)
+     (let [input      (json/parse-string line true)
            command    (first input)
            handle     (handlers command)
            return-str (if handle
                         (handle (next input))
                         ["error" "unknown_command" (str "No '" command "' command.")])]
-       (println (json/json-str return-str))))
+       (println (json/generate-string return-str))))
    (catch Exception e
-     (println (json/json-str ["fatal" "fatal_error" (let [w (java.io.StringWriter.)]
-                                                      (.printStackTrace e (java.io.PrintWriter. w))
-                                                      (.toString w))]))
+     (println (json/generate-string
+                ["fatal" "fatal_error" (let [w (java.io.StringWriter.)]
+                                         (.printStackTrace e (java.io.PrintWriter. w))
+                                         (.toString w))]))
      (System/exit 1)))
   (recur))
  

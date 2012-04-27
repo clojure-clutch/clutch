@@ -25,8 +25,8 @@
 
 (ns ^{:author "Tunde Ashafa"}
   com.ashafa.clutch.http-client
-  (:require [clojure.data.json :as json]
-            [clojure.contrib.io :as io]
+  (:require [cheshire.core :as json]
+            [clojure.java.io :as io]
             clojure.string
             [com.ashafa.clutch.utils :as utils]
             [cemerick.url :as url]) 
@@ -70,7 +70,7 @@
     (cond (< response-code 400)
           (if read-json-response
             (with-open [input (.getInputStream connection)]
-              (json/read-json (PushbackReader. (InputStreamReader. input "UTF-8")) true))
+              (json/parse-stream (InputStreamReader. input "UTF-8") true))
             (.getInputStream connection))
           (= response-code 404) nil
           :else (throw
@@ -107,7 +107,7 @@
   [method url & {:keys [data data-type headers]}]
   (let [raw-data  data
         data-type (or data-type *default-data-type*)       
-        data      (if (map? raw-data) (json/json-str raw-data) raw-data)
+        data      (if (map? raw-data) (json/generate-string raw-data) raw-data)
         d-headers (merge {"Content-Type" data-type
                           "User-Agent" (str "com.ashafa.clutch.http-client/" version)
                           "Accept" "*/*"}
@@ -134,11 +134,11 @@
         lines (utils/read-lines resp)
         meta (-> (first lines)
                (clojure.string/replace #",?\"rows\":\[\s*$" "}")  ; TODO this is going to break eventually :-/ 
-               json/read-json)]
+               (json/parse-string true))]
     (with-meta (->> (rest lines)
                  (map (fn [^String line]
                         (when (.startsWith line "{")
-                          (json/read-json line))))
+                          (json/parse-string line true))))
                  (remove nil?))
       (dissoc meta :rows))))
 
