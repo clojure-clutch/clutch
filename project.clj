@@ -6,7 +6,7 @@
                  [org.clojure/data.json "0.1.2"]
                  [org.clojure/tools.logging "0.1.2"]
                  [commons-codec "1.6"]
-                 [com.cemerick/url "0.0.3"]]
+                 [com.cemerick/url "0.0.5"]]
   :profiles {:dev {:plugins [[lein-clojars "0.8.0"]]}
              :1.2 {:dependencies [[org.clojure/clojure "1.2.0"]]}
              :1.4 {:dependencies [[org.clojure/clojure "1.4.0"]]}}
