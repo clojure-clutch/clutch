@@ -6,20 +6,23 @@
               [view-server :as view-server])
             [clojure.contrib.str-utils :as str]
             [clojure.contrib.io :as io])
-  (:use clojure.set com.ashafa.clutch 
+  (:use com.ashafa.clutch
+        [cemerick.url :only (url)]
+        clojure.set
         clojure.test)
   (:import (java.io File ByteArrayInputStream FileInputStream)
            (java.net URL))
   (:refer-clojure :exclude (conj! assoc! dissoc!)))
-
-(println "Testing using Clojure" *clojure-version*)
 
 ; Can be e.g.
 ; "https://username:password@account.cloudant.com" or
 ;   (assoc (utils/url "localhost")
 ;     :username "username"
 ;     :password "password")
-(def test-host "http://localhost:5984")
+(def test-host (or (System/getenv "clutch_url") "http://localhost:5984"))
+
+(println "Testing using Clojure" *clojure-version*
+         "=>>" (-> test-host url (merge {:username nil :password nil}) str))
 
 (def resources-path "test")
 
