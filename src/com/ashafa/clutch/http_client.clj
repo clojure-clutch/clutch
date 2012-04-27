@@ -1,103 +1,82 @@
 (ns com.ashafa.clutch.http-client
-  (:require [cheshire.core :as json]
+  (:require [clj-http.client :as http]
+            [cheshire.core :as json]
+            
             [clojure.java.io :as io]
-            clojure.string
-            [com.ashafa.clutch.utils :as utils]
-            [cemerick.url :as url]) 
+            [clojure.string :as str]
+            [com.ashafa.clutch.utils :as utils])
+  (:use [cemerick.url :only (url)]
+        [slingshot.slingshot :only (throw+ try+)])
   (:import  (java.io IOException InputStream InputStreamReader PushbackReader)
             (java.net URL URLConnection HttpURLConnection MalformedURLException)))
 
 
 (def ^{:private true} version "0.3.0")
+(def ^{:private true} user-agent (str "com.ashafa.clutch/" version))
 (def ^{:dynamic true} *default-data-type* "application/json")
-(def ^{:dynamic true} *configuration-defaults* {:read-timeout 0
-                                                :connect-timeout 5000
-                                                :use-caches false
+(def ^{:dynamic true} *configuration-defaults* {:socket-timeout 0
+                                                :conn-timeout 5000
                                                 :follow-redirects true
                                                 :read-json-response true})
 
-(def  ^{:doc "When thread-bound to any value, will be reset! to the HTTP response code of the last couchdb request."
+(def  ^{:doc "When thread-bound to any value, will be reset! to the
+complete HTTP response of the last couchdb request."
         :dynamic true}
-     *response-code* nil)
+     *response* nil)
 
 (defmacro fail-on-404
   [db expr]
   `(let [f# #(let [resp# ~expr]
-               (if (= 404 *response-code*)
+               (if (= 404 (:status *response*))
                  (throw (IllegalStateException. (format "Database %s does not exist" ~db)))
                  resp#))]
-     (if (thread-bound? #'*response-code*)
+     (if (thread-bound? #'*response*)
        (f#)
-       (binding [*response-code* nil] (f#)))))
+       (binding [*response* nil] (f#)))))
 
-(defn- send-body
-  [^URLConnection connection data]
-  (with-open [output (.getOutputStream connection)]
-    (io/copy data output)
-    ; make sure streams are closed so we don't hold locks on files on Windows
-    (when (instance? InputStream data) (.close ^InputStream data))))
-
-(defn- get-response
-  [^HttpURLConnection connection {:keys [read-json-response]}]
-  (let [response-code (.getResponseCode connection)]
-    (when (thread-bound? #'*response-code*) (set! *response-code* response-code))
-    (cond (< response-code 400)
-          (if read-json-response
-            (with-open [input (.getInputStream connection)]
-              (json/parse-stream (InputStreamReader. input "UTF-8") true))
-            (.getInputStream connection))
-          (= response-code 404) nil
-          :else (throw
-                 (IOException.
-                  (str "CouchDB Response Error: " response-code " " (.getResponseMessage connection)))))))
+(defn- set!-*response*
+  [response]
+  (when (thread-bound? #'*response*) (set! *response* response)))
 
 (defn- connect
-  [^com.ashafa.clutch.utils.URL {:as request
-                                 :keys [method data]}]
-  (let [^HttpURLConnection connection (.openConnection (URL. (str request)))
-        configuration (merge *configuration-defaults* request)]
-    ; can't just use .setRequestMethod because it throws an exception on
-    ; any "illegal" [sic] HTTP methods, including couchdb's COPY
-    (if (= "https" (:protocol request))
-      (.setRequestMethod connection method)
-      (utils/set-field HttpURLConnection :method connection method))
-    (doto connection
-      (.setUseCaches (configuration :use-caches))
-      (.setConnectTimeout (configuration :connect-timeout))
-      (.setReadTimeout (configuration :read-timeout))
-      (.setInstanceFollowRedirects (configuration :follow-redirects)))
-    (doseq [[k v] (:headers configuration)]
-      (.setRequestProperty connection k v))
-    (if data
-      (do
-        (.setDoOutput connection true)
-        (send-body connection data))
-      (.connect connection))
-    (get-response connection configuration)))
+  [request]
+  (let [configuration (merge *configuration-defaults* request)
+        data (:data request)]
+    (try+
+      (let [resp (http/request (merge {:method (:method request)
+                                       :url (str request)
+                                       :headers (:headers configuration)
+                                       :follow-redirects (:follow-redirects configuration) 
+                                       :socket-timeout (:socket-timeout configuration)
+                                       :conn-timeout (:conn-timeout configuration)}
+                                      (when data {:body data})
+                                      (when (instance? InputStream data)
+                                        {:length (:data-length request)})
+                                      (if (:read-json-response configuration)
+                                        {:as :json}
+                                        {:as :stream})))]
+        (set!-*response* resp)
+        (:body resp))
+      (catch identity ex
+        (if (map? ex)
+          (do
+            (set!-*response* ex)
+            (when-not (== 404 (:status ex))
+              (throw+ ex)))
+          (throw+ ex))))))
 
 (defn couchdb-request
   "Prepare request for CouchDB server by forming the required url, setting headers, and
    if required, the post/put body and its mime type."
-  [method url & {:keys [data data-type headers]}]
-  (let [raw-data  data
-        data-type (or data-type *default-data-type*)       
-        data      (if (map? raw-data) (json/generate-string raw-data) raw-data)
-        d-headers (merge {"Content-Type" data-type
-                          "User-Agent" (str "com.ashafa.clutch.http-client/" version)
-                          "Accept" "*/*"}
-                    headers)
-        d-headers (if (string? data)
-                    (assoc d-headers "Content-Length" (-> data count str))
-                    d-headers)
-        headers   (if-let [creds (#'url/url-creds (:username url) (:password url))]
-                    (assoc d-headers
-                      "Authorization"
-                      (str "Basic " (org.apache.commons.codec.binary.Base64/encodeBase64String (.getBytes creds))))
-                    d-headers)]
-    (connect (assoc url
-                    :headers headers
-                    :data data
-                    :method (.toUpperCase (name method))))))
+  [method url & {:keys [data data-length content-type headers]}]
+  (connect (assoc url
+             :method method
+             :data (if (map? data) (json/generate-string data) data)
+             :data-length data-length
+             :headers (merge {"Content-Type" (or content-type *default-data-type*)
+                              "User-Agent" user-agent
+                              "Accept" "*/*"}
+                             headers))))
 
 (defn view-request
   "Accepts the same arguments as couchdb-request, but processes the result assuming that the
@@ -107,7 +86,7 @@
   (let [resp (fail-on-404 url (apply couchdb-request method (assoc url :read-json-response false) args)) 
         lines (utils/read-lines resp)
         meta (-> (first lines)
-               (clojure.string/replace #",?\"rows\":\[\s*$" "}")  ; TODO this is going to break eventually :-/ 
+               (str/replace #",?\"rows\":\[\s*$" "}")  ; TODO this is going to break eventually :-/ 
                (json/parse-string true))]
     (with-meta (->> (rest lines)
                  (map (fn [^String line]

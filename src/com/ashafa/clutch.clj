@@ -4,7 +4,7 @@
             [clojure.java.io :as io]
             [cemerick.url :as url]
             clojure.string)
-  (:use com.ashafa.clutch.http-client)
+  (:use [com.ashafa.clutch.http-client :as client])
   (:import (java.io File FileInputStream BufferedInputStream InputStream ByteArrayOutputStream)
            (java.net URL))
   (:refer-clojure :exclude (conj! assoc! dissoc!)))
@@ -161,8 +161,8 @@
 (def ^{:private true} byte-array-class (Class/forName "[B"))
 
 (defn- attachment-info
-  ([{:keys [data filename mime-type]}] (attachment-info data filename mime-type))
-  ([data filename mime-type]
+  ([{:keys [data filename mime-type data-length]}] (attachment-info data data-length filename mime-type))
+  ([data data-length filename mime-type]
     (let [data (if (string? data)
                  (File. ^String data)
                  data)
@@ -173,14 +173,16 @@
       (cond
         (instance? File data)
         [(-> ^File data FileInputStream. BufferedInputStream.)
+         (.length ^File data)
          (or filename (.getName ^File data))
          (or mime-type (utils/get-mime-type data))]
         
         (instance? InputStream data)
-        [data (check :filename filename) (check :mime-type mime-type)]
+        [data (check :data-length data-length) (check :filename filename) (check :mime-type mime-type)]
         
         (= byte-array-class (class data))
-        [(java.io.ByteArrayInputStream. data) (check :filename filename) (check :mime-type mime-type)]
+        [(java.io.ByteArrayInputStream. data) (count data)
+         (check :filename filename) (check :mime-type mime-type)]
         
         :default
         (throw (IllegalArgumentException. (str "Cannot handle attachment data of type " (class data))))))))
@@ -203,7 +205,7 @@
                           (->> attachments
                             (map #(if (map? %) % {:data %}))
                             (map attachment-info)
-                            (reduce (fn [m [data filename mime]]
+                            (reduce (fn [m [data data-length filename mime]]
                                       (assoc m (keyword filename)
                                         {:content_type mime
                                          :data (-> data
@@ -399,14 +401,15 @@
    These are derived from a file path or File if not provided.  (Mime types are derived from 
    filename extensions; see com.ashafa.clutch.utils/get-mime-type for determining mime type
    yourself from a File object.)"
-  [db document data & {:keys [filename mime-type]}]
-  (let [[stream filename mime-type] (attachment-info data filename mime-type)]
+  [db document data & {:keys [filename mime-type data-length]}]
+  (let [[stream data-length filename mime-type] (attachment-info data data-length filename mime-type)]
     (couchdb-request :put
       (-> db
         (document-url document)
         (utils/url (name filename)))
       :data stream
-      :data-type mime-type)))
+      :data-length data-length
+      :content-type mime-type)))
 
 (defdbop delete-attachment
   "Deletes an attachemnt from a document."

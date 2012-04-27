@@ -8,6 +8,7 @@
             [clojure.java.io :as io])
   (:use com.ashafa.clutch
         [cemerick.url :only (url)]
+        [slingshot.slingshot :only (throw+ try+)]
         clojure.set
         clojure.test)
   (:import (java.io File ByteArrayInputStream FileInputStream ByteArrayOutputStream)
@@ -170,11 +171,19 @@
          nil (:newentry created-document) (:newentry fetched-document))
     (is (= 1 (:newentry updated-doc)))))
 
+(defmacro failing-request
+  [expected-status & body]
+  `(binding [http-client/*response* nil]
+    (try+
+      ~@body
+      (assert false)
+      (catch identity ex#
+        (is (== ~expected-status (:status ex#)))
+        (is (map? http-client/*response*))))))
+
 (defdbtest verify-response-code-access
   (put-document test-document-1 :id "some_id")
-  (binding [http-client/*response-code* nil]
-    (is (thrown? java.io.IOException (put-document test-document-1 :id "some_id")))
-    (is (== 409 http-client/*response-code*))))
+  (failing-request 409 (put-document test-document-1 :id "some_id")))
 
 (defdbtest update-a-document
   (let [id (:_id (put-document test-document-4))]
@@ -239,9 +248,7 @@
 (defdbtest copy-document-fail-overwrite
   (put-document test-document-1 :id "src")
   (put-document test-document-2 :id "overwrite")
-  (binding [http-client/*response-code* nil]
-    (is (thrown? java.io.IOException (copy-document "src" "overwrite")))
-    (is (== 409 http-client/*response-code*))))
+  (failing-request 409 (copy-document "src" "overwrite")))
 
 (defdbtest get-all-documents-with-query-parameters
   (put-document test-document-1 :id "a")
@@ -417,8 +424,10 @@
         created-document (put-document test-document-4
                            :attachments [clojure-img-file
                                          {:data (to-byte-array (FileInputStream. couchdb-img-file))
+                                          :data-length (-> couchdb-img-file File. .length)
                                           :filename bytes-filename :mime-type "image/png"}
                                          {:data (FileInputStream. couchdb-img-file)
+                                          :data-length (-> couchdb-img-file File. .length)
                                           :filename couch-filename :mime-type "image/png"}])
         fetched-document (get-document (created-document :_id))]
     (are [attachment-keys] (= #{:clojure.png couch-filename bytes-filename} attachment-keys) 
@@ -442,10 +451,14 @@
         filename-with-space (keyword "couchdb - image2")
         updated-document-meta (put-attachment document path :filename :couchdb-image)
         updated-document-meta (put-attachment (assoc document :_rev (:rev updated-document-meta))
-                                (FileInputStream. path) :filename filename-with-space :mime-type "image/png")
+                                (FileInputStream. path)
+                                :filename filename-with-space
+                                :mime-type "image/png"
+                                :data-length (-> path File. .length))
         updated-document-meta (put-attachment (assoc document :_rev (:rev updated-document-meta))
                                 (to-byte-array (FileInputStream. path))
-                                :filename :bytes-image :mime-type "image/png")
+                                :filename :bytes-image :mime-type "image/png"
+                                :data-length (-> path File. .length))
         document-with-attachments (get-document (updated-document-meta :id) :attachments true)]
     (is (= #{:couchdb-image filename-with-space :bytes-image} (set (keys (:_attachments document-with-attachments)))))
     (is (= "image/png" (-> document-with-attachments :_attachments :couchdb-image :content_type)))

@@ -22,16 +22,6 @@
   [^File file]
   (java.net.URLConnection/guessContentTypeFromName (.getName file)))
 
-;; TODO eliminate when sane http client is integrated
-(defn set-field
-  "Set to private or protected field. field-name is a symbol or keyword.
-   This will presumably be added to clojure.contrib.reflect eventually...?"
-  [^Class klass field-name obj value]
-  (-> klass
-    (.getDeclaredField (name field-name))
-    (doto (.setAccessible true))
-    (.set obj value)))
-
 ;; TODO should be replaced with a java.io.Closeable Seq implementation and used
 ;; in conjunction with with-open on the client side
 (defn read-lines
