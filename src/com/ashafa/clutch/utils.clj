@@ -48,8 +48,7 @@
 
 (defn get-mime-type
   [^File file]
-  (.getContentType
-   (javax.activation.MimetypesFileTypeMap.) file))
+  (java.net.URLConnection/guessContentTypeFromName (.getName file)))
 
 ;; TODO eliminate when sane http client is integrated
 (defn set-field
