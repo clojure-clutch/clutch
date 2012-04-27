@@ -1,6 +1,8 @@
 (defproject com.ashafa/clutch "0.4.0-SNAPSHOT"
   :description "A Clojure library for Apache CouchDB."
-  :url "http://github.com/ashafa/clutch"
+  :url "https://github.com/clojure-clutch/clutch/"
+  :license {:name "BSD"
+            :url "http://www.opensource.org/licenses/BSD-3-Clause"}
   :dependencies [[org.clojure/clojure "1.3.0"]
                  
                  [org.clojure/tools.logging "0.1.2"]

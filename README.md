@@ -297,3 +297,9 @@ Appreciations go out to:
 * [Toni Batchelli](http://tbatchelli.org)
 * [Hugo Duncan](http://github.com/hugoduncan)
 * [Ryan Senior](http://github.com/senior)
+
+### License
+
+BSD.  See the LICENSE file at the root of this repository.
+
+
