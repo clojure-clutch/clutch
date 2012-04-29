@@ -58,14 +58,17 @@
 (use-fixtures
   :once
   #(binding [*clj-view-svr-config* (try
-                                     (configure-view-server (utils/url "http://localhost:5984")
-                                                            (view-server/view-server-exec-string)
-                                                            :language view-server-name)
+                                     (when (re-find #"localhost" test-host)
+                                       (configure-view-server (utils/url test-host)
+                                                              (view-server/view-server-exec-string)
+                                                              :language view-server-name))
                                      (catch java.io.IOException e (.printStackTrace e)))]
      (when-not *clj-view-svr-config*
        (println "Could not autoconfigure clutch view server,"
-                "skipping tests that depend upon it!"
-                (view-server/view-server-exec-string)))
+                "skipping tests that depend upon it!")
+       (println "(This is normal if you're testing against e.g. Cloudant)")
+       (println (view-server/view-server-exec-string))
+       (println))
      (%)))
 
 (defn test-database-name
@@ -379,15 +382,19 @@
             (set (map :value view)))))))
 
 (defdbtest use-ad-hoc-view-with-javascript-view-server
-  (put-document test-document-1)
-  (put-document test-document-2)
-  (put-document test-document-3)
-  (put-document test-document-4)
-  (let [view (ad-hoc-view
-               (view-server-fns :javascript
-                 {:map      "function(doc){if(doc.email.indexOf('test.com')>0)emit(null,doc.email);}"}))]
-    (is (= #{"john.smith@test.com" "jane.thompson@test.com"}
-           (set (map :value view))))))
+  
+  (if (re-find #"cloudant" test-host)
+    (println "skipping ad-hoc view test; not supported by Cloudant")
+    (do
+      (put-document test-document-1)
+      (put-document test-document-2)
+      (put-document test-document-3)
+      (put-document test-document-4)
+      (let [view (ad-hoc-view
+                   (view-server-fns :javascript
+                                    {:map "function(doc){if(doc.email.indexOf('test.com')>0)emit(null,doc.email);}"}))]
+        (is (= #{"john.smith@test.com" "jane.thompson@test.com"}
+               (set (map :value view))))))))
 
 (defdbtest bulk-update-new-documents
   (bulk-update [test-document-1
