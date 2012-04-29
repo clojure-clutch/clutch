@@ -489,20 +489,20 @@
       (is (= (seq data) (-> (get-attachment document-with-attachments :couchdb-image) to-byte-array seq)))))
 
 (deftest replicate-a-database
-  (try
-    (let [source-database (get-database "source_test_db")
-          target-database (get-database "target_test_db")]
-      (with-db source-database
+  (let [source (url test-host "source_test_db")
+        target (url test-host "target_test_db")]
+    (try
+      (with-db (get-database source)
         (bulk-update [test-document-1
                       test-document-2
                       test-document-3
                       test-document-4]))
-      (replicate-database source-database target-database)
-      (with-db target-database
-        (is (= 4 (:total_rows (meta (all-documents)))))))
-    (finally
-      (delete-database "source_test_db")
-      (delete-database "target_test_db"))))
+      (replicate-database source (get-database target))
+      (with-db target
+        (is (= 4 (:total_rows (meta (all-documents))))))
+      (finally
+        (delete-database source)
+        (delete-database target)))))
 
 (defn report-change
   [description & forms]
