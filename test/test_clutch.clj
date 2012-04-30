@@ -461,11 +461,13 @@
   (let [source (url test-host "source_test_db")
         target (url test-host "target_test_db")]
     (try
-      (with-db (get-database source)
-        (bulk-update test-docs))
-      (replicate-database source (get-database target))
-      (with-db target
-        (is (= 4 (:total_rows (meta (all-documents))))))
+      (get-database source)
+      (get-database target)
+      (bulk-update source test-docs)
+      (binding [http-client/*configuration-defaults* (assoc http-client/*configuration-defaults*
+                                                            :debug true)]
+        (replicate-database source target))
+      (is (= 4 (:total_rows (meta (all-documents target)))))
       (finally
         (delete-database source)
         (delete-database target)))))
