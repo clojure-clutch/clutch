@@ -84,4 +84,8 @@
     (bulk-update [{:score 22 :_id "x"} {:score 79 :_id "y"} {:score 27 :_id "z"}])
     (Thread/sleep 1000)
     (is (= 2 (count @updates)))
-    (is (= [{:id "y"} {:id "z"}] (map #(select-keys % [:id]) @updates)))))
+    ;; order-insensitive here because cloudant/bigcouch can yield changes in any order
+    (is (= #{{:id "y"} {:id "z"}}
+           (->> @updates
+             (map #(select-keys % [:id]))
+             set)))))
