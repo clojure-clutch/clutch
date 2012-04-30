@@ -464,9 +464,7 @@
       (get-database source)
       (get-database target)
       (bulk-update source test-docs)
-      (binding [http-client/*configuration-defaults* (assoc http-client/*configuration-defaults*
-                                                            :debug true)]
-        (replicate-database source target))
+      (replicate-database source target)
       (is (= 4 (:total_rows (meta (all-documents target)))))
       (finally
         (delete-database source)
