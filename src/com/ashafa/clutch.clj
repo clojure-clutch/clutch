@@ -22,13 +22,18 @@
 
 (def ^{:dynamic true :private true} *database* nil)
 
+(declare couchdb-class)
+
 (defn- with-db*
   [f]
   (fn [& [maybe-db & rest :as args]]
-    (if (and (thread-bound? #'*database*)
-             (not (identical? maybe-db *database*)))
+    (let [maybe-db (if (instance? couchdb-class maybe-db)
+                     (.url maybe-db)
+                     maybe-db)]
+      (if (and (thread-bound? #'*database*)
+               (not (identical? maybe-db *database*)))
       (apply f *database* args)
-      (apply f (utils/url maybe-db) rest))))
+      (apply f (utils/url maybe-db) rest)))))
 
 (defmacro ^{:private true} defdbop
   "Same as defn, but wraps the defined function in another that transparently
@@ -440,6 +445,7 @@
   `(binding [*database* (utils/url ~database)]
      ~@body))
 
+;;;; CouchDB deftype
 
 (defprotocol CouchOps
   "Defines side-effecting operations on a CouchDB database.
@@ -503,6 +509,8 @@
   (meta [this] meta)
   clojure.lang.IObj
   (withMeta [this meta] (CouchDB. url meta)))
+
+(def ^{:private true} couchdb-class CouchDB)
 
 (defn couch
   "Returns an instance of an implementation of CouchOps.

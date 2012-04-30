@@ -39,3 +39,12 @@
            (dissoc-meta (:foo db))
            (dissoc-meta (db :foo))))))
 
+(deftest use-type-as-db-arg
+  (let [name (get-database (test-database-name "use-type-as-db-arg"))
+        db (couch name)]
+    (try
+      (dotimes [x 100]
+        (put-document db {:a x :_id (str x)}))
+      (bulk-update db (for [x (range 100)] {:_id (str "x" x) :x x}))
+      (is (= 200 (:doc_count (database-info db))))
+      (finally (delete-database name)))))
