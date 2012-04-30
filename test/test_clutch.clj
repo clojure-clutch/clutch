@@ -27,21 +27,18 @@
 
 (def resources-path "test")
 
-(def test-document-1 {:name  "John Smith"
-                      :email "john.smith@test.com"
-                      :score 65})
-
-(def test-document-2 {:name  "Jane Thompson"
-                      :email "jane.thompson@test.com"
-                      :score 98})
-
-(def test-document-3 {:name  "Robert Jones"
-                      :email "robert.jones@example.com"
-                      :score 80})
-
-(def test-document-4 {:name  "Sarah Parker"
-                      :email "sarah.parker@example.com"
-                      :score 59})
+(def test-docs [{:name  "John Smith"
+                 :email "john.smith@test.com"
+                 :score 65}
+                {:name  "Jane Thompson"
+                 :email "jane.thompson@test.com"
+                 :score 98}
+                {:name  "Robert Jones"
+                 :email "robert.jones@example.com"
+                 :score 80}
+                {:name  "Sarah Parker"
+                 :email "sarah.parker@example.com"
+                 :score 59}])
 
 (def ^{:private true} to-byte-array @#'com.ashafa.clutch/to-byte-array)
 
@@ -139,12 +136,12 @@
         (is false (str "Error for " id-desc ": " (.getMessage e)))))))
 
 (defdbtest create-a-document
-  (let [document (put-document test-document-1)]
+  (let [document (put-document (first test-docs))]
     (are [k] (contains? document k)
          :_id :_rev)))
 
 (defdbtest create-a-document-with-id
-  (let [document (put-document test-document-2 :id "my_id")]
+  (let [document (put-document (first test-docs) :id "my_id")]
     (is (= "my_id" (document :_id)))))
 
 (defrecord Foo [a])
@@ -155,7 +152,7 @@
   (is (= "bar" (-> "docid" get-document :a))))
 
 (defdbtest get-a-document
-  (let [created-document (put-document test-document-3)
+  (let [created-document (put-document (nth test-docs 2))
         fetched-document (get-document (created-document :_id))]
     (are [x y z] (= x y z)
          "Robert Jones" (created-document :name) (fetched-document :name)
@@ -163,7 +160,7 @@
          80 (created-document :score) (fetched-document :score))))
 
 (defdbtest get-a-document-revision
-  (let [created-document (put-document test-document-3)
+  (let [created-document (put-document (nth test-docs 2))
         updated-doc (update-document (assoc created-document :newentry 1))
         fetched-document (get-document (:_id created-document)
                                        :rev (:_rev created-document))]
@@ -185,25 +182,25 @@
         (is (map? http-client/*response*))))))
 
 (defdbtest verify-response-code-access
-  (put-document test-document-1 :id "some_id")
-  (failing-request 409 (put-document test-document-1 :id "some_id")))
+  (put-document (first test-docs) :id "some_id")
+  (failing-request 409 (put-document (first test-docs) :id "some_id")))
 
 (defdbtest update-a-document
-  (let [id (:_id (put-document test-document-4))]
+  (let [id (:_id (put-document (nth test-docs 3)))]
     (update-document (get-document id) {:email "test@example.com"})
     (is (= "test@example.com" (:email (get-document id)))))
   (testing "no update map or fn"
-    (let [id (:_id (put-document test-document-4))]
+    (let [id (:_id (put-document (nth test-docs 3)))]
       (update-document (merge (get-document id) {:email "test@example.com"}))
       (is (= "test@example.com" (:email (get-document id)))))))
 
 (defdbtest update-a-document-with-a-function
-  (let [id (:_id (put-document test-document-3))]
+  (let [id (:_id (put-document (nth test-docs 2)))]
     (update-document (get-document id) update-in [:score] + 3)
     (is (= 83 (:score (get-document id))))))
 
 (defdbtest update-with-updated-map
-  (-> test-document-3
+  (-> (nth test-docs 2)
     (put-document :id "docid")
     (assoc :a "bar")
     update-document)
@@ -217,13 +214,13 @@
   (is (= "bar" (-> "docid" get-document :a))))
 
 (defdbtest delete-a-document
-  (put-document test-document-2 :id "my_id")
+  (put-document (second test-docs) :id "my_id")
   (is (get-document "my_id"))
   (is (true? (:ok (delete-document (get-document "my_id")))))
   (is (nil? (get-document "my_id"))))
 
 (defdbtest copy-a-document
-  (let [doc (put-document test-document-1 :id "src")]
+  (let [doc (put-document (first test-docs) :id "src")]
     (copy-document "src" "dst")
     (copy-document doc "dst2")
     (is (= (dissoc-meta doc)
@@ -231,13 +228,13 @@
            (-> "dst2" get-document dissoc-meta)))))
 
 (defdbtest copy-document-overwrite
-  (let [doc (put-document test-document-1 :id "src")
-        overwrite (put-document test-document-2 :id "overwrite")]
+  (let [doc (put-document (first test-docs) :id "src")
+        overwrite (put-document (second test-docs) :id "overwrite")]
     (copy-document doc overwrite)
     (is (= (dissoc-meta doc) (dissoc-meta (get-document "overwrite"))))))
 
 (defdbtest copy-document-attachments
-  (let [doc (put-document test-document-1 :id "src")
+  (let [doc (put-document (first test-docs) :id "src")
         file (File. (str resources-path "/couchdb.png"))
         doc (put-attachment doc file :filename :image)
         doc (-> doc :id get-document)]
@@ -249,28 +246,24 @@
              (-> copied-attachment to-byte-array seq))))))
 
 (defdbtest copy-document-fail-overwrite
-  (put-document test-document-1 :id "src")
-  (put-document test-document-2 :id "overwrite")
+  (put-document (first test-docs) :id "src")
+  (put-document (second test-docs) :id "overwrite")
   (failing-request 409 (copy-document "src" "overwrite")))
 
 (defdbtest get-all-documents-with-query-parameters
-  (put-document test-document-1 :id "a")
-  (put-document test-document-2 :id "b")
-  (put-document test-document-3 :id "c")
+  (bulk-update test-docs)
   (let [all-documents-descending (all-documents {:include_docs true :descending true})
         all-documents-ascending  (all-documents {:include_docs true :descending false})]
-    (are [results] (= 3 (:total_rows (meta results)))
+    (are [results] (= 4 (:total_rows (meta results)))
          all-documents-descending
          all-documents-ascending)
-    (are [name] (= "Robert Jones" name)
+    (are [name] (= "Sarah Parker" name)
          (-> all-documents-descending first :doc :name)
          (-> all-documents-ascending last :doc :name))))
 
 (defdbtest get-all-documents-with-post-keys
-  (put-document test-document-1 :id "1")
-  (put-document test-document-2 :id "2")
-  (put-document test-document-3 :id "3")
-  (put-document test-document-3 :id "4")
+  (doseq [[n x] (keep-indexed vector test-docs)]
+    (put-document x :id (str (inc n))))
   (let [all-documents               (all-documents {:include_docs true} {:keys ["1" "2"]})
         all-documents-matching-keys all-documents]
     (is (= ["John Smith" "Jane Thompson"]
@@ -287,10 +280,7 @@
 
 (defdbtest use-a-design-view-with-spaces-in-key
   (when *clj-view-svr-config*
-    (put-document test-document-1)
-    (put-document test-document-2)
-    (put-document test-document-3)
-    (put-document test-document-4)
+    (bulk-update test-docs)
     (save-view "users"
                (view-server-fns view-server-name
                                 {:names-and-scores
@@ -300,10 +290,7 @@
 
 (defdbtest use-a-design-view-with-map-only
   (when *clj-view-svr-config*
-    (put-document test-document-1)
-    (put-document test-document-2)
-    (put-document test-document-3)
-    (put-document test-document-4)
+    (bulk-update test-docs)
     (save-view "users"
       (view-server-fns view-server-name
         {:names-with-score-over-70-sorted-by-score 
@@ -323,10 +310,7 @@
 
 (defdbtest use-a-design-view-with-post-keys
   (when *clj-view-svr-config*
-    (put-document test-document-1)
-    (put-document test-document-2)
-    (put-document test-document-3)
-    (put-document test-document-4)
+    (bulk-update test-docs)
     (put-document {:name "Test User 1" :score 18})
     (put-document {:name "Test User 2" :score 7})
     (save-view "users"
@@ -342,10 +326,7 @@
 
 (defdbtest use-a-design-view-with-both-map-and-reduce
   (when *clj-view-svr-config*
-    (put-document test-document-1)
-    (put-document test-document-2)
-    (put-document test-document-3)
-    (put-document test-document-4)
+    (bulk-update test-docs)
     (save-view "scores"
       (view-server-fns view-server-name
         {:sum-of-all-scores
@@ -370,10 +351,7 @@
 
 (defdbtest use-ad-hoc-view
   (when *clj-view-svr-config*
-    (put-document test-document-1)
-    (put-document test-document-2)
-    (put-document test-document-3)
-    (put-document test-document-4)
+    (bulk-update test-docs)
     (let [view (ad-hoc-view
                  (view-server-fns view-server-name
                    {:map (fn [doc] (if (re-find #"example\.com$" (:email doc))
@@ -386,10 +364,7 @@
   (if (re-find #"cloudant" test-host)
     (println "skipping ad-hoc view test; not supported by Cloudant")
     (do
-      (put-document test-document-1)
-      (put-document test-document-2)
-      (put-document test-document-3)
-      (put-document test-document-4)
+      (bulk-update test-docs)
       (let [view (ad-hoc-view
                    (view-server-fns :javascript
                                     {:map "function(doc){if(doc.email.indexOf('test.com')>0)emit(null,doc.email);}"}))]
@@ -397,17 +372,11 @@
                (set (map :value view))))))))
 
 (defdbtest bulk-update-new-documents
-  (bulk-update [test-document-1
-                test-document-2
-                test-document-3
-                test-document-4])
+  (bulk-update test-docs)
   (is (= 4 (:total_rows (meta (all-documents))))))
 
 (defdbtest bulk-update-documents
-  (bulk-update [test-document-1
-                test-document-2
-                test-document-3
-                test-document-4])
+  (bulk-update test-docs)
   (bulk-update (->> (all-documents {:include_docs true})
                  (map :doc)
                  (map #(assoc % :updated true))))
@@ -428,7 +397,7 @@
         couchdb-img-file (str resources-path "/couchdb.png")
         couch-filename :couchdb.png
         bytes-filename :couchdbbytes.png
-        created-document (put-document test-document-4
+        created-document (put-document (nth test-docs 3)
                            :attachments [clojure-img-file
                                          {:data (to-byte-array (FileInputStream. couchdb-img-file))
                                           :data-length (-> couchdb-img-file File. .length)
@@ -453,7 +422,7 @@
          couchdb-img-file bytes-filename)))
 
 (defdbtest standalone-attachments
-  (let [document (put-document test-document-1)
+  (let [document (put-document (first test-docs))
         path (str resources-path "/couchdb.png")
         filename-with-space (keyword "couchdb - image2")
         updated-document-meta (put-attachment document path :filename :couchdb-image)
@@ -479,7 +448,7 @@
     (is (thrown? IllegalArgumentException (put-attachment document (ByteArrayInputStream. (make-array Byte/TYPE 0)))))))
 
 (defdbtest stream-attachments
-  (let [document                  (put-document test-document-4)
+  (let [document                  (put-document (nth test-docs 3))
         updated-document-meta     (put-attachment document (str resources-path "/couchdb.png")
                                     :filename :couchdb-image
                                     :mime-type "other/mimetype")
@@ -493,10 +462,7 @@
         target (url test-host "target_test_db")]
     (try
       (with-db (get-database source)
-        (bulk-update [test-document-1
-                      test-document-2
-                      test-document-3
-                      test-document-4]))
+        (bulk-update test-docs))
       (replicate-database source (get-database target))
       (with-db target
         (is (= 4 (:total_rows (meta (all-documents))))))
@@ -528,61 +494,13 @@
      (is (= (:id change-meta) "target-id"))
      (is (= (:seq change-meta) 5)))))
 
-#_(defdbtest watch-for-change
-  (watch-changes :check-id (partial check-id-changes-test "Watch database"))
-  (put-document test-document-2 :id "target-id"))
-
-#_(defdbtest ensure-stop-changes
-  (watch-changes :foo println)
-  (letfn [(tracking-changes? [] (-> @@#'com.ashafa.clutch/watched-databases
-                                  (get (str *test-database*))
-                                  :foo))]
-    (is (tracking-changes?))
-    (stop-changes :foo)
-    (is (not (tracking-changes?)))))
-
-#_(defdbtest multiple-watchers-for-change
-  (watch-changes :check-id (partial check-id-changes-test "Multiple watchers - id"))
-  (watch-changes :check-seq (partial check-seq-changes-test "Multiple watchers - seq"))
-  (is (= #{:check-id :check-seq} (set (:watchers (database-info)))))
-  (put-document test-document-2 :id "target-id"))
-
-#_(defdbtest multiple-changes
-  (watch-changes :check-delete (partial check-delete-changes-test "Multiple changes"))
-  (let [document-1 (put-document test-document-1 :id "not-target-id")
-        document-2 (put-document test-document-2 :id "target-id")
-        document-3 (put-document test-document-3 :id "another-random-id")]
-    (update-document document-1 {:score 0})
-    (delete-document document-2)))
-
-#_(defdbtest changes-filter
-  (save-filter "scores"
-               (view-server-fns view-server-name
-                 {:less-than-50 (fn [document request] (if (< (:score document) 50) true false))}))
-  (watch-changes :check-id (partial check-id-changes-test "Filter")
-                 :filter "scores/less-than-50")
-  (put-document {:name "tester 1" :score 22} :id "target-id")
-  (put-document {:name "tester 2" :score 79} :id "not-target-id"))
-
-#_(defdbtest changes-filter-with-query-params
-  (save-filter "scores"
-               (view-server-fns view-server-name
-                 {:more-than-50-from-a-user (fn [document request]
-                                                     (if (and (> (:score document) 50)
-                                                              (= (:name document) (-> request :query :name)))
-                                                       true false))}))
-  (watch-changes :check-id (partial check-id-changes-test "Filter with query parameters") 
-                 :filter "scores/more-than-50-from-a-user" :name "tester 1")
-  (put-document {:name "tester 1" :score 51} :id "target-id")
-  (put-document {:name "tester 2" :score 48} :id "not-target-id"))
-
 (deftest direct-db-config-usage
   (let [db (test-database-url "direct-db-config-usage")]
     (try
       (create-database db)
-      (let [doc (put-document db test-document-1 :id "foo")]
+      (let [doc (put-document db (first test-docs) :id "foo")]
         (update-document db doc {:a 5})
-        (is (= (assoc test-document-1 :a 5) (dissoc-meta (get-document db "foo")))))
+        (is (= (assoc (first test-docs) :a 5) (dissoc-meta (get-document db "foo")))))
       (finally
         (delete-database db)))))
 
