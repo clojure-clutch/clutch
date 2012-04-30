@@ -23,6 +23,7 @@
 (def test-host (or (System/getenv "clutch_url") "http://localhost:5984"))
 
 (println "Testing using Clojure" *clojure-version*
+         "on Java" (System/getProperty "java.version")
          "=>>" (-> test-host url (assoc :username nil :password nil) str))
 
 (def resources-path "test")
