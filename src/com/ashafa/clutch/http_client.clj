@@ -17,7 +17,8 @@
 (def ^{:dynamic true} *configuration-defaults* {:socket-timeout 0
                                                 :conn-timeout 5000
                                                 :follow-redirects true
-                                                :read-json-response true})
+                                                :save-request? true
+                                                :as :json})
 
 (def  ^{:doc "When thread-bound to any value, will be reset! to the
 complete HTTP response of the last couchdb request."
@@ -36,27 +37,20 @@ complete HTTP response of the last couchdb request."
 
 (defn- set!-*response*
   [response]
-  (when (thread-bound? #'*response*) (set! *response* response)))
+  (when (thread-bound? #'*response*) (set! *response* response))
+  response)
 
 (defn- connect
   [request]
   (let [configuration (merge *configuration-defaults* request)
         data (:data request)]
     (try+
-      (let [resp (http/request (merge {:method (:method request)
-                                       :url (str request)
-                                       :headers (:headers configuration)
-                                       :follow-redirects (:follow-redirects configuration) 
-                                       :socket-timeout (:socket-timeout configuration)
-                                       :conn-timeout (:conn-timeout configuration)}
+      (let [resp (http/request (merge configuration
+                                      {:url (str request)}
                                       (when data {:body data})
                                       (when (instance? InputStream data)
-                                        {:length (:data-length request)})
-                                      (if (:read-json-response configuration)
-                                        {:as :json}
-                                        {:as :stream})))]
-        (set!-*response* resp)
-        (:body resp))
+                                        {:length (:data-length request)})))]
+        (set!-*response* resp))
       (catch identity ex
         (if (map? ex)
           (do
@@ -65,33 +59,48 @@ complete HTTP response of the last couchdb request."
               (throw+ ex)))
           (throw+ ex))))))
 
-(defn couchdb-request
-  "Prepare request for CouchDB server by forming the required url, setting headers, and
-   if required, the post/put body and its mime type."
-  [method url & {:keys [data data-length content-type headers]}]
-  (connect (assoc url
-             :method method
-             :data (if (map? data) (json/generate-string data) data)
-             :data-length data-length
-             :headers (merge {"Content-Type" (or content-type *default-data-type*)
-                              "User-Agent" user-agent
-                              "Accept" "*/*"}
-                             headers))))
+(defn- configure-request
+  [method url {:keys [data data-length content-type headers]}]
+  (assoc url
+    :method method
+    :data (if (map? data) (json/generate-string data) data)
+    :data-length data-length
+    :headers (merge {"Content-Type" (or content-type *default-data-type*)
+                     "User-Agent" user-agent
+                     "Accept" "*/*"}
+                    headers)))
 
-(defn view-request
-  "Accepts the same arguments as couchdb-request, but processes the result assuming that the
-   requested resource is a view.  Returns a lazy sequence of the view result's :rows slot,
-   with other values (:total_rows, :offset, etc) added as metadata to the lazy seq."
-  [method url & args]
-  (let [resp (fail-on-404 url (apply couchdb-request method (assoc url :read-json-response false) args)) 
-        lines (utils/read-lines resp)
-        meta (-> (first lines)
-               (str/replace #",?\"rows\":\[\s*$" "}")  ; TODO this is going to break eventually :-/ 
-               (json/parse-string true))]
-    (with-meta (->> (rest lines)
+(defn couchdb-request*
+  [method url & {:keys [data data-length content-type headers] :as opts}]
+  (connect (configure-request method url opts)))
+
+(defn couchdb-request
+  "Same as couchdb-request*, but returns only the :body of the HTTP response."
+  [& args]
+  (:body (apply couchdb-request* args)))
+
+(defn lazy-view-seq
+  "Given the body of a view result or _changes feed (should be an InputStream),
+   returns a lazy seq of each row of data therein.
+
+   header? should be true
+   when the result is expected to include additional information in an additional
+   header line, e.g. total_rows, offset, etc. — in other words, header? should
+   always be true, unless the response-body is from a continuous _changes feed
+   (which only include data, no header info)."
+  [response-body header?]
+  (let [lines (utils/read-lines response-body)
+        [lines meta] (if header?
+                       [(rest lines)
+                        (-> (first lines)
+                          (str/replace #",?\"(rows|results)\":\[\s*$" "}")  ; TODO this is going to break eventually :-/ 
+                          (json/parse-string true))]
+                       [lines nil])]
+    (with-meta (->> lines
                  (map (fn [^String line]
                         (when (.startsWith line "{")
                           (json/parse-string line true))))
                  (remove nil?))
+      ;; TODO why are we dissoc'ing :rows here?
       (dissoc meta :rows))))
 

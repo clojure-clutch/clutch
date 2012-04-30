@@ -360,7 +360,6 @@
             (set (map :value view)))))))
 
 (defdbtest use-ad-hoc-view-with-javascript-view-server
-  
   (if (re-find #"cloudant" test-host)
     (println "skipping ad-hoc view test; not supported by Cloudant")
     (do

@@ -4,7 +4,7 @@
             [clojure.java.io :as io]
             [cemerick.url :as url]
             clojure.string)
-  (:use [com.ashafa.clutch.http-client :as client])
+  (:use com.ashafa.clutch.http-client)
   (:import (java.io File FileInputStream BufferedInputStream InputStream ByteArrayOutputStream)
            (java.net URL))
   (:refer-clojure :exclude (conj! assoc! dissoc!)))
@@ -17,8 +17,6 @@
   ; discovered experimentally with v0.10 and v0.11 ~March 2010
   ; now officially documented at http://wiki.apache.org/couchdb/View_collation
   wildcard-collation-string (str (char highest-supported-charcode)))
-
-#_(def ^{:private true} watched-databases (ref {}))
 
 (def ^{:dynamic true :private true} *database* nil)
 
@@ -94,74 +92,6 @@
     (url/url tgtdb "/_replicate")
     :data {:source (str srcdb)
            :target (str tgtdb)}))
-
-#_(defn- watch-changes-handler
-  [url-str watch-key uid agnt]
-  (if (h/success? agnt)
-    (loop [lines (utils/read-lines (h/stream agnt))]
-      (if-let [watched-db (@watched-databases url-str)]
-        (when (and (watched-db watch-key) (= uid (:uid (watched-db watch-key))) (not (empty? lines)))
-          (future
-            (let [line (first lines)]
-              (try
-               (if (> (count line) 1)
-                 ((:callback (watched-db watch-key)) (json/parse-string line true)))
-               (catch Exception e
-                 (dosync
-                  (if-let [watched-db (@watched-databases url-str)]
-                    (if (watched-db watch-key)
-                      (alter watched-databases assoc-in [url-str watch-key :last-error]
-                             {:exception e :time (java.util.Date.) :data line}))))))))
-          (recur (rest lines)))))))
-
-#_(defdbop watch-changes
-  "Provided a database (database meta <map>, url <string>, or database name <string>) and a callback, watches
-   for changes to the database and executes the given callback (takes one argument) on every change
-   to a document in the given database, using the meta of the changed document as the only
-   argument of the callback."
-  [db watch-key callback & {:as options}]
-  (let [last-update (:update_seq (database-info db))
-        options (merge {:heartbeat 30000 :feed "continuous"} options)
-        options (if (:since options)
-                  options
-                  (assoc options :since last-update))
-        db-url-key (str db)]
-    (when last-update
-      (dosync
-       (let [uid     (str (java.util.UUID/randomUUID))
-             watcher {:uid        uid
-                      :http-agent (h/http-agent
-                                    (-> (url/url db "_changes") (assoc :query options) str)
-                                    :method "GET"
-                                    :handler (partial watch-changes-handler db-url-key watch-key uid))
-                      :callback   callback}]
-         (if (@watched-databases db-url-key)
-           (alter watched-databases assoc-in [db-url-key watch-key] watcher)
-           (alter watched-databases assoc db-url-key {watch-key watcher}))))
-      db)))
-
-#_(defdbop changes-error
-  "If the provided database is being watched for changes (see: 'watch-changes'), returns a map
-   containing the last exception, the time (java.util.Date) of the exception, and the argument
-   supplied to the callback, if an exception occured during execution of the callback."
- [db watch-key]
- (let [watched-database (@watched-databases (str db))]
-   (if watched-database
-     (:last-error  (watched-database watch-key)))))
-
-#_(defdbop stop-changes
-  "If the provided database changes are being watched (see: 'watch-changes'), stops the execution
-   of the callback on every change to the watched database."
-  [db & [watch-key]]
-  (dosync
-    (let [url-key (str db)]
-      (if watch-key
-        (alter watched-databases #(let [m (update-in % [url-key] dissoc watch-key)]
-                                    (if (seq (m url-key))
-                                      m
-                                      (dissoc m url-key))))
-        (alter watched-databases dissoc url-key))))
-  db)
 
 (def ^{:private true} byte-array-class (Class/forName "[B"))
 
@@ -348,14 +278,19 @@
    for querying options, and a second map of {:key [keys]} to be POSTed.
    (see: http://wiki.apache.org/couchdb/HTTP_view_API)."
   [db path-segments & [query-params-map post-data-map]]
-  (view-request
-    (if (empty? post-data-map) :get :post)
-    (assoc (apply utils/url db path-segments)
-           :query (into {} (for [[k v] query-params-map]
-                             [k (if (#{"key" "keys" "startkey" "endkey"} (name k))
-                                  (json/generate-string v)
-                                  v)])))
-    :data (when (seq post-data-map) post-data-map)))
+  (let [url (assoc (apply utils/url db path-segments)
+                   :query (into {} (for [[k v] query-params-map]
+                                     [k (if (#{"key" "keys" "startkey" "endkey"} (name k))
+                                          (json/generate-string v)
+                                          v)]))
+                   :as :stream)
+        response (couchdb-request*
+                   (if (empty? post-data-map) :get :post)
+                   url
+                   :data (when (seq post-data-map) post-data-map))]
+    (if response
+      (-> response :body (lazy-view-seq true))  
+      (throw (java.io.IOException. (str "No such view: " url))))))
 
 (defdbop get-view
   "Get documents associated with a design document. Also takes an optional map
@@ -435,7 +370,70 @@
       (couchdb-request :get
                        (-> (document-url db doc)
                          (utils/url attachment-name)
-                         (assoc :read-json-response false))))))
+                         (assoc :as :stream))))))
+
+;;;; _changes
+
+(defn- change-agent-config
+  [db options]
+  (merge {:heartbeat 30000 :feed "continuous"}
+         options
+         (when-not (:since options)
+           {:since (:update_seq (database-info db))})
+         {::db db
+          ::state :init
+          ::last-update-seq nil}))
+
+(defdbop change-agent
+  [db & {:as opts}]
+  (agent nil :meta (change-agent-config db opts)))
+
+(defn- run-changes
+  [_]
+  (let [config (meta *agent*)]
+    (case (::state config)
+      :init (let [response (couchdb-request* :get
+                             (assoc (url/url (::db config) "_changes")
+                               :query (into {} (remove (comp namespace key) config))
+                               :as :stream))
+                  continuous? (= "continuous" (-> config :feed name))]
+              ; cannot shut down continuous _changes feeds without aborting this
+              (assert (-> response :request :http-req))
+              (alter-meta! *agent* merge {::seq (-> response :body (lazy-view-seq (not continuous?)))
+                                          ::http-resp response
+                                          ::state :running})
+              (send-off *agent* #'run-changes)
+              nil)
+      :running (let [change-seq (::seq config)
+                     change (first change-seq)
+                     last-change-seq (or (:seq change) (:last_seq change))]
+                 (send-off *agent* #'run-changes)
+                 (when-not (-> *agent* meta ::state (= :stopped))
+                   (do
+                     (alter-meta! *agent* merge
+                                  {::seq (rest change-seq)}
+                                  (when last-change-seq {::last-update-seq last-change-seq})
+                                  (when-not change {::state :stopped}))
+                     change)))
+      :stopped (-> config ::http-resp :request :http-req .abort))))
+
+(defn start-changes
+  [change-agent & {:keys [since]}]
+  (alter-meta! change-agent #(merge %
+                                    {::state :init
+                                     ::last-update-seq nil
+                                     ::seq nil
+                                     :since (if since
+                                              since
+                                              (or (-> change-agent meta ::last-update-seq)
+                                                  (-> change-agent meta :since)))}))
+  (send-off change-agent #'run-changes))
+
+(defn stop-changes
+  [change-agent]
+  (alter-meta! change-agent assoc ::state :stopped)
+  change-agent)
+
 
 (defmacro with-db
   "Takes a URL, database name (useful for localhost only), or an instance of
