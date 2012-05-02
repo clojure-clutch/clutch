@@ -375,6 +375,21 @@
 
 ;;;; _changes
 
+(defdbop changes
+  "Returns a lazy seq of the rows in _changes, as configured by the given options.
+
+   If you want to react to change notifications, you should probably use `change-agent`."
+  [db & {:keys [since limit descending feed heartbeat
+                timeout filter include_docs style] :as opts}]
+  (let [url (url/url db "_changes")
+        response (couchdb-request* :get (assoc url :query opts :as :stream))]
+    (when-not response
+      (throw (IllegalStateException. (str "Database for _changes feed does not exist: " url))))
+    (-> response
+      :body
+      (lazy-view-seq (not= "continuous" feed))
+      (vary-meta assoc ::http-resp response))))
+
 (defn- change-agent-config
   [db options]
   (merge {:heartbeat 30000 :feed "continuous"}
@@ -403,17 +418,12 @@
   (let [config-atom (-> *agent* meta ::changes-config)
         config @config-atom]
     (case (::state config)
-      :init (let [url (assoc (url/url (::db config) "_changes")
-                         :query (into {} (remove (comp namespace key) config))
-                         :as :stream)
-                  response (couchdb-request* :get url)
-                  continuous? (= "continuous" (-> config :feed name))]
-              (when-not response
-                (throw (IllegalStateException. (str "Database for _changes feed does not exist: " url))))
+      :init (let [changes (apply changes (::db config) (flatten (remove (comp namespace key) config)))
+                  http-resp (-> changes meta ::http-resp)]
               ; cannot shut down continuous _changes feeds without aborting this
-              (assert (-> response :request :http-req))
-              (swap! config-atom merge {::seq (-> response :body (lazy-view-seq (not continuous?)))
-                                        ::http-resp response
+              (assert (-> http-resp :request :http-req))
+              (swap! config-atom merge {::seq changes
+                                        ::http-resp http-resp
                                         ::state :running})
               (send-off *agent* #'run-changes)
               nil)

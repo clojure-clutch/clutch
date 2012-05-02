@@ -17,7 +17,7 @@
       (throw (IllegalStateException. desc)))
     wait-condition))
 
-(deftest simple
+(deftest simple-agent
   (let [db (get-database (test-database-name "create-type"))]
     (with-db db
       (try
@@ -37,7 +37,7 @@
         (finally
           (delete-database))))))
 
-(defdbtest can-stop-changes
+(defdbtest can-stop-change-agent
   (let [a (change-agent)
         updates (atom [])]
     (add-watch a :watcher (fn [_ _ _ x] (when x (swap! updates conj x))))
@@ -93,7 +93,7 @@
         (is (not (changes-running? a)))
         (is (instance? Boolean (changes-running? a))))))
 
-(defdbtest changes-filter
+(defdbtest filtered-change-agent
   (save-filter "scores"
                (view-server-fns :javascript
                  {:more-than-50 "function (doc, req) { return doc['score'] > 50; }"}))
@@ -108,7 +108,7 @@
                        first
                        (select-keys [:id]))))))
 
-(defdbtest changes-filter-with-params
+(defdbtest parameterized-filtered-change-agent
   (save-filter "scores"
                (view-server-fns :javascript
                  {:more-than-x "function (doc, req) { return doc['score'] > req.query.score; }"}))
