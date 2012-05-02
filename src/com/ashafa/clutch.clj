@@ -385,6 +385,15 @@
           ::last-update-seq nil}))
 
 (defdbop change-agent
+  "Returns an agent whose state will very to contain events
+   emitted by the _changes feed of the specified database.
+
+   Users are expected to attach functions to the agent using
+   `add-watch` in order to be notified of changes.  The
+   returned change agent is entirely 'managed', with
+   `start-changes` and `stop-changes` controlling its operation
+   and sent actions.  If you send actions to a change agent, 
+   bad things will likely happen."
   [db & {:as opts}]
   (agent nil :meta (change-agent-config db opts)))
 
@@ -420,6 +429,10 @@
       :stopped (-> config ::http-resp :request :http-req .abort))))
 
 (defn start-changes
+  "Starts the flow of changes through the given change-agent.
+   All of the options provided to `change-agent` are used to
+   configure the underlying _changes feed; optionally, :since
+   can be specified to update that _changes parameter."
   [change-agent & {:keys [since]}]
   (alter-meta! change-agent #(merge %
                                     {::state :init
@@ -432,6 +445,8 @@
   (send-off change-agent #'run-changes))
 
 (defn stop-changes
+  "Stops the flow of changes through the given change-agent.
+   Change agents can be restarted with `start-changes`."
   [change-agent]
   (alter-meta! change-agent assoc ::state :stopped)
   change-agent)

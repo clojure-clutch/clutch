@@ -7,7 +7,7 @@ Clutch is a [Clojure](http://clojure.org) library for [Apache CouchDB](http://co
 To include Clutch in your project, simply add the following to your `project.clj` dependencies:
 
 ```clojure
-[com.ashafa/clutch "0.3.1"]
+[com.ashafa/clutch "0.4.0-SNAPSHOT"]
 ```
 
 and run...
@@ -22,12 +22,15 @@ Or, if you're using Maven, add this dependency to your `pom.xml`:
 <dependency>
     <groupId>com.ashafa</groupId>
     <artifactId>clutch</artifactId>
-    <version>0.3.1</version>
+    <version>0.4.0-SNAPSHOT</version>
 </dependency>
 ```
 
-Clutch is compatible with Clojure 1.2.0 - 1.4.0, and requires Java 1.5+. Please report any issues to the [Clutch mailing list](http://groups.google.com/group/clojure-clutch).
+The latest stable version of Clutch is `0.3.2`.  But be a mench: use
+the SNAPSHOTs when you can, and report feedback and issues to
+the [Clutch mailing list](http://groups.google.com/group/clojure-clutch).
 
+Clutch is compatible with Clojure 1.2.0 - 1.4.0, and requires Java 1.5+.
 ### Status
 
 Although it's in an early stage of development (Clutch API subject to change), Clutch supports most of the Apache CouchDB API:
@@ -254,6 +257,20 @@ Note that all view access functions (i.e. `get-view`, `all-documents`, etc) retu
 ```
 
 ### (Partial) Changelog
+
+##### 0.4.0 (in development)
+
+* **API change**: `watch-changes`, `stop-changes`, and `changes-error`
+  have been removed.  See the usage section on changes above.
+  The `_changes` API support now consists of:
+  * `changes` to obtain a single, non-continuous/longpoll view of
+    changes since a given `seq`.
+  * `change-agent`, `start-changes`, and `stop-changes` for creating and
+    then controlling the activity of a Clojure agent whose state
+    reflects the latest row from a continuous or longpoll view of
+    `_changes`.
+* [cheshire](https://github.com/dakrone/cheshire) is now being used for all JSON operations.
+* [clj-http](https://github.com/dakrone/clj-http) is now being used for all HTTP operations.
 
 ##### 0.3.1
 
