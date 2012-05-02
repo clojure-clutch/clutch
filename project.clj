@@ -5,7 +5,7 @@
             :url "http://www.opensource.org/licenses/BSD-3-Clause"}
   :dependencies [[org.clojure/clojure "1.4.0"]
                  
-                 [com.cemerick/clj-http "0.4.1-SNAPSHOT"]
+                 [clj-http "0.4.1-SNAPSHOT"]
                  [cheshire "4.0.0"]
                  [commons-codec "1.6"]
                  [com.cemerick/url "0.0.5"]]
