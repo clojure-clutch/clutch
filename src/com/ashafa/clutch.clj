@@ -392,11 +392,13 @@
   [_]
   (let [config (meta *agent*)]
     (case (::state config)
-      :init (let [response (couchdb-request* :get
-                             (assoc (url/url (::db config) "_changes")
-                               :query (into {} (remove (comp namespace key) config))
-                               :as :stream))
+      :init (let [url (assoc (url/url (::db config) "_changes")
+                         :query (into {} (remove (comp namespace key) config))
+                         :as :stream)
+                  response (couchdb-request* :get url)
                   continuous? (= "continuous" (-> config :feed name))]
+              (when-not response
+                (throw (IllegalStateException. (str "Database for _changes feed does not exist: " url))))
               ; cannot shut down continuous _changes feeds without aborting this
               (assert (-> response :request :http-req))
               (alter-meta! *agent* merge {::seq (-> response :body (lazy-view-seq (not continuous?)))
