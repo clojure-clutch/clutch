@@ -4,7 +4,8 @@
             [clojure.java.io :as io]
             [cemerick.url :as url]
             clojure.string)
-  (:use com.ashafa.clutch.http-client)
+  (:use com.ashafa.clutch.http-client
+        [clojure.core.incubator :only (-?>)])
   (:import (java.io File FileInputStream BufferedInputStream InputStream ByteArrayOutputStream)
            (java.net URL))
   (:refer-clojure :exclude (conj! assoc! dissoc!)))
@@ -395,11 +396,12 @@
    and sent actions.  If you send actions to a change agent, 
    bad things will likely happen."
   [db & {:as opts}]
-  (agent nil :meta (change-agent-config db opts)))
+  (agent nil :meta {::changes-config (atom (change-agent-config db opts))}))
 
 (defn- run-changes
   [_]
-  (let [config (meta *agent*)]
+  (let [config-atom (-> *agent* meta ::changes-config)
+        config @config-atom]
     (case (::state config)
       :init (let [url (assoc (url/url (::db config) "_changes")
                          :query (into {} (remove (comp namespace key) config))
@@ -410,45 +412,42 @@
                 (throw (IllegalStateException. (str "Database for _changes feed does not exist: " url))))
               ; cannot shut down continuous _changes feeds without aborting this
               (assert (-> response :request :http-req))
-              (alter-meta! *agent* merge {::seq (-> response :body (lazy-view-seq (not continuous?)))
-                                          ::http-resp response
-                                          ::state :running})
+              (swap! config-atom merge {::seq (-> response :body (lazy-view-seq (not continuous?)))
+                                        ::http-resp response
+                                        ::state :running})
               (send-off *agent* #'run-changes)
               nil)
       :running (let [change-seq (::seq config)
                      change (first change-seq)
                      last-change-seq (or (:seq change) (:last_seq change))]
                  (send-off *agent* #'run-changes)
-                 (when-not (-> *agent* meta ::state (= :stopped))
-                   (do
-                     (alter-meta! *agent* merge
-                                  {::seq (rest change-seq)}
-                                  (when last-change-seq {::last-update-seq last-change-seq})
-                                  (when-not change {::state :stopped}))
-                     change)))
+                 (when-not (= :stopped (::state @config-atom))
+                   (swap! config-atom merge
+                          {::seq (rest change-seq)}
+                          (when last-change-seq {::last-update-seq last-change-seq})
+                          (when-not change {::state :stopped}))
+                   change))
       :stopped (-> config ::http-resp :request :http-req .abort))))
+
+(defn changes-running?
+  "Returns true only if the given change agent has been started
+   (using `start-changes`) and is delivering changes to
+   attached watches."
+  [^clojure.lang.Agent change-agent]
+  (boolean (-> change-agent meta ::state #{:init :running})))
 
 (defn start-changes
   "Starts the flow of changes through the given change-agent.
    All of the options provided to `change-agent` are used to
-   configure the underlying _changes feed; optionally, :since
-   can be specified to update that _changes parameter."
-  [change-agent & {:keys [since]}]
-  (alter-meta! change-agent #(merge %
-                                    {::state :init
-                                     ::last-update-seq nil
-                                     ::seq nil
-                                     :since (if since
-                                              since
-                                              (or (-> change-agent meta ::last-update-seq)
-                                                  (-> change-agent meta :since)))}))
+   configure the underlying _changes feed."
+  [change-agent]
   (send-off change-agent #'run-changes))
 
 (defn stop-changes
   "Stops the flow of changes through the given change-agent.
    Change agents can be restarted with `start-changes`."
   [change-agent]
-  (alter-meta! change-agent assoc ::state :stopped)
+  (swap! (-> change-agent meta ::changes-config) assoc ::state :stopped)
   change-agent)
 
 

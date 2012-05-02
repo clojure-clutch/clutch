@@ -9,7 +9,7 @@
   (let [wait-condition (loop [waiting 0]
                          (cond
                            (f) true
-                           (>= waiting 20) false
+                           (>= waiting 10) false
                            :else (do
                                    (Thread/sleep 1000)
                                    (recur (inc waiting)))))]
@@ -37,14 +37,26 @@
         (finally
           (delete-database))))))
 
-(defdbtest restarting-changes
+(defdbtest can-stop-changes
+  (let [a (change-agent)
+        updates (atom [])]
+    (add-watch a :watcher (fn [_ _ _ x] (when x (swap! updates conj x))))
+    (start-changes a)
+    (bulk-update (take 3 test-docs))
+    (wait-for-condition #(= 3 (count @updates)) "3 updates not received")
+    (stop-changes a)
+    (put-document (last test-docs))
+    (Thread/sleep 2000)
+    (is (= 3 (count @updates)))))
+
+#_(defdbtest restarting-changes
   (let [a (change-agent)
           updates (atom [])
-          docs (map #(hash-map :_id (str %)) (range 8))]
-      (add-watch a :watcher (fn [_ _ _ x] (when x (swap! updates conj x))))
+          docs (map #(hash-map :_id (str %)) (range))]
+      (add-watch a :watcher (fn [_ _ _ x] (println "f" x) (when x (swap! updates conj x))))
       (start-changes a)
       (bulk-update (take 4 docs))
-      (wait-for-condition #(= 4 (count @updates)) "Updates not received")
+      (wait-for-condition #(= 4 (count @updates)) "4 updates not received")
       (stop-changes a)
       
       (put-document (nth docs 4))
@@ -52,11 +64,34 @@
       (is (= 4 (count @updates)))
       
       (start-changes a)
-      (wait-for-condition #(= 5 (count @updates)) "Updates not received")
+      (wait-for-condition #(= 5 (count @updates)) "1 update not received")
       
-      (bulk-update (drop 5 docs))
-      (wait-for-condition #(= 8 (count @updates)) "Updates not received")
-      (is (= 8 (count @updates)))))
+      (bulk-update (->> docs (drop 5) (take 3)))
+      (wait-for-condition #(= 8 (count @updates)) "3 updates not received")
+      (is (= 8 (count @updates)))
+      
+      (testing "start-changes with :since option"
+            (println (.getQueueCount a) (-> a meta :com.ashafa.clutch/state))
+        (stop-changes a)
+        (reset! updates [])
+            (println (.getQueueCount a) (-> a meta :com.ashafa.clutch/state))
+        (start-changes a :since 0)
+        (put-document (->> docs (drop 8) first))
+        (Thread/sleep 10000)
+            (println (.getQueueCount a) (-> a meta :com.ashafa.clutch/state))
+        (wait-for-condition
+          #(do (println (count @updates) (map :seq @updates)) (= 9 (count @updates)))
+          "change agent probably not stopped straight away, still waiting for a change to restart with new params")
+        (bulk-update (->> docs (drop 9) (take 7)))
+        (wait-for-condition #(= 16 (count @updates)) "7 updates not received")
+        (is (= 16 (count @updates))))
+      
+      (testing "changes-running? predicate"
+        (is (changes-running? a))
+        (is (instance? Boolean (changes-running? a)))
+        (stop-changes a)
+        (is (not (changes-running? a)))
+        (is (instance? Boolean (changes-running? a))))))
 
 (defdbtest changes-filter
   (save-filter "scores"
