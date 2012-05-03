@@ -20,7 +20,7 @@ Or, if you're using Maven, add this dependency to your `pom.xml`:
 </dependency>
 ```
 
-The latest stable version of Clutch is `0.3.2`.  But be a mench: use
+The latest stable version of Clutch is `0.3.1`.  But be a mench: use
 the SNAPSHOTs when you can, and report feedback and issues to
 the [Clutch mailing list](http://groups.google.com/group/clojure-clutch).
 
