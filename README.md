@@ -2,7 +2,7 @@
 
 Clutch is a [Clojure](http://clojure.org) library for [Apache CouchDB](http://couchdb.apache.org/).
 
-### "Installation"
+## "Installation"
 
 To include Clutch in your project, simply add the following to your `project.clj` dependencies:
 
@@ -32,7 +32,7 @@ the [Clutch mailing list](http://groups.google.com/group/clojure-clutch).
 
 Clutch is compatible with Clojure 1.2.0 - 1.4.0, and requires Java 1.5+.
 
-### Status
+## Status
 
 Although it's in an early stage of development (Clutch API subject to change), Clutch supports most of the Apache CouchDB API:
 
@@ -47,9 +47,9 @@ Clutch does not currently provide any direct support for the various couchapp-re
 
 That said, it is very easy to call whatever CouchDB API feature that Clutch doesn't support using the lower-level `com.ashafa.clutch.http-client/couchdb-request` function.
 
-### Usage
+## Usage
 
-First, a random REPL interaction:
+First, a basic REPL interaction:
 
 ```clojure
 => (get-database "clutch_example")  ;; creates database if it's not available yet
@@ -258,7 +258,68 @@ Note that all view access functions (i.e. `get-view`, `all-documents`, etc) retu
 {:total_rows 20000, :offset 0}
 ```
 
-### (Partial) Changelog
+### `_changes` support
+
+Clutch provides comprehensive support for CouchDB's `_changes` feature.
+There is a `com.ashafa.clutch/changes` function that provides direct
+access to it, but most uses of `_changes` will benefit from using the
+`change-agent` feature.  This configures a Clojure agent to receive
+updates from the `_changes` feed; its state will be updated to be the
+latest event (change notification), and so it is easy to hook up however
+many functions as necessary to the agent as watches (a.k.a. callbacks).
+
+Here's a REPL interaction demonstrating this functionality:
+
+```clojure
+=> (require '[com.ashafa.clutch :as couch])
+nil
+=> (couch/create-database "demo")
+#cemerick.url.URL{:protocol "http", :username nil, :password nil,
+                  :host "localhost", :port 5984, :path "/demo",
+                  :query nil, :anchor nil}
+=> (def a (couch/change-agent "demo"))
+#'user/a
+
+   ;; `start-changes` hooks the agent up to the database's `_changes` feed
+=> (couch/start-changes a)
+#<Agent@693a1324: nil>
+=> (couch/put-document "demo" {:name "Chas"})
+{:_id "259239233e2c2d06f3e311ce5f5271c1", :_rev "1-24ccfd9600c215e32ceefdd06b25f62d", :name "Chas"}
+
+   ;; each change becomes a new state within the agent:
+=> @a
+{:seq 1, :id "259239233e2c2d06f3e311ce5f5271c1", :changes [{:rev "1-24ccfd9600c215e32ceefdd06b25f62d"}]}
+
+   ;; use Clojure's watch facility to have functions called on each change
+=> (add-watch a :echo (fn [key agent previous-change change]
+                        (println "change received:" change)))
+#<Agent@693a1324: {:seq 1, :id "259239233e2c2d06f3e311ce5f5271c1", :changes [{:rev "1-24ccfd9600c215e32ceefdd06b25f62d"}]}>
+=> (couch/put-document "demo" {:name "Roger"})
+{:_id "259239233e2c2d06f3e311ce5f527a9d", :_rev "1-0c3db91854f26486d1c3922f1a651d86", :name "Roger"}
+change received: {:seq 2, :id 259239233e2c2d06f3e311ce5f527a9d, :changes [{:rev 1-0c3db91854f26486d1c3922f1a651d86}]}
+=> (couch/bulk-update "demo" [{:x 1} {:y 2} {:z 3 :_id "some-id"}])
+[{:id "259239233e2c2d06f3e311ce5f527cd4", :rev "1-0785e9eb543380151003dc452c3a001a"} {:id "259239233e2c2d06f3e311ce5f527fa6", :rev "1-ef91d626f27dc5d224fd534e7b47da82"} {:id "some-id", :rev "1-178dbe6c7346ffc3af8811327d1336ff"}]
+change received: {:seq 3, :id 259239233e2c2d06f3e311ce5f527cd4, :changes [{:rev 1-0785e9eb543380151003dc452c3a001a}]}
+change received: {:seq 4, :id 259239233e2c2d06f3e311ce5f527fa6, :changes [{:rev 1-ef91d626f27dc5d224fd534e7b47da82}]}
+change received: {:seq 5, :id some-id, :changes [{:rev 1-178dbe6c7346ffc3af8811327d1336ff}]}
+=> (couch/delete-document "demo" (couch/get-document "demo" "some-id"))
+{:ok true, :id "some-id", :rev "2-7a128852666329025f1fba1114628251"}
+change received: {:seq 6, :id some-id,
+                  :changes [{:rev 2-7a128852666329025f1fba1114628251}], :deleted true}
+
+   ;; if you want to stop the flow of changes through the agent, use
+   ;; `stop-changes`
+=> (couch/stop-changes a)
+#<Agent@693a1324: {:seq 6, :id "some-id", :changes [{:rev "2-7a128852666329025f1fba1114628251"}], :deleted true}>
+```
+
+`changes` and `change-agent` pass along all of the parameters accepted
+by `_changes`, so you can get changes since a given point in time,
+filter changes based on a view server function, get the full content of
+changed documents included in the feed, etc.  See the official [CouchDB
+API documentation for `_changes`](http://wiki.apache.org/couchdb/HTTP_database_API#Changes) for details.
+
+## (Partial) Changelog
 
 ##### 0.4.0 (in development)
 
@@ -303,7 +364,7 @@ View-related API:
 * A `view-transformer` multimethod is now available, which opens up clutch to dynamically support additional view server languages. 
 * Moved `view-server-exec-string` to `com.ashafa.clutch.view-server` namespace
 
-### Contributors
+## Contributors
 
 Appreciations go out to:
 
@@ -316,7 +377,7 @@ Appreciations go out to:
 * [Hugo Duncan](http://github.com/hugoduncan)
 * [Ryan Senior](http://github.com/senior)
 
-### License
+## License
 
 BSD.  See the LICENSE file at the root of this repository.
 
