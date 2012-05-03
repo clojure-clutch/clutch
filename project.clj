@@ -14,5 +14,5 @@
              :1.3.0 {:dependencies [[org.clojure/clojure "1.3.0"]]}}
   :aliases  { "all" ["with-profile" "dev,1.2.0:dev,1.3.0:dev"] }
   :min-lein-version "2.0.0"
-  :test-selectors {:default (constantly true)
-                   :no-encoding #(not= 'test-docid-encoding (:name %))})
+  :test-selectors {:default #(not= 'test-docid-encoding (:name %))
+                   :include-encoding (constantly true)})
