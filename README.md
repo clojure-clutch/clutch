@@ -10,12 +10,6 @@ To include Clutch in your project, simply add the following to your `project.clj
 [com.ashafa/clutch "0.4.0-SNAPSHOT"]
 ```
 
-and run...
-
-```
-lein deps
-```
-
 Or, if you're using Maven, add this dependency to your `pom.xml`:
 
 ```
