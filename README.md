@@ -31,13 +31,14 @@ the SNAPSHOTs when you can, and report feedback and issues to
 the [Clutch mailing list](http://groups.google.com/group/clojure-clutch).
 
 Clutch is compatible with Clojure 1.2.0 - 1.4.0, and requires Java 1.5+.
+
 ### Status
 
 Although it's in an early stage of development (Clutch API subject to change), Clutch supports most of the Apache CouchDB API:
 
 * Essentially all of the [core document API](http://wiki.apache.org/couchdb/HTTP_Document_API)
 * [Bulk document APIs](http://wiki.apache.org/couchdb/HTTP_Bulk_Document_API)
-* Most of the [Database API](http://wiki.apache.org/couchdb/HTTP_database_API), including `_changes` (implemented using watches)
+* Most of the [Database API](http://wiki.apache.org/couchdb/HTTP_database_API), including `_changes` and a way to easily monitor/react to `_changes` events using Clojure's familiar watch mechanism
 * [Views](http://wiki.apache.org/couchdb/HTTP_view_API), including access, update, and a Clojure view server implementation
 
 At the moment, you'll have to look at the source or introspect the docs once you've loaded Clutch up to get around the API.  Proper API documentation (via autodoc or marginalia) coming soon.
@@ -48,9 +49,11 @@ That said, it is very easy to call whatever CouchDB API feature that Clutch does
 
 ### Usage
 
+First, a random REPL interaction:
+
 ```clojure
 => (get-database "clutch_example")  ;; creates database if it's not available yet
-#com.ashafa.clutch.utils.URL{:protocol "http", :username nil, :password nil, :host "localhost", :port -1,
+#cemerick.url.URL{:protocol "http", :username nil, :password nil, :host "localhost", :port -1,
 :path "clutch_example", :query nil, :disk_format_version 5, :db_name "clutch_example", :doc_del_count 0,
 :committed_update_seq 0, :disk_size 79, :update_seq 0, :purge_seq 0, :compact_running false,
 :instance_start_time "1323701753566374", :doc_count 0}
@@ -65,37 +68,35 @@ That said, it is very easy to call whatever CouchDB API feature that Clutch does
 {:_id "foo", :_rev "1-8a15da0db077cd05b45ec93b3a207d09", :test-grade 10}
 ```
 
-All Clutch functions accept a first argument indicating the database API endpoint for that operation.
-This argument can be a string URL, or, if the string is provided without a protocol, etc., it is assumed to be
-the name of a database on localhost:5984 as above:
+All Clutch functions accept a first argument indicating the database
+endpoint for that operation.  This argument can be:
 
-```clojure
-=> (put-document "https://username:password`XXX.cloudant.com/databasename/" {:a 5 :b 6})
-{:_id "36b807aacf227f921aa256b06ab094e5", :_rev "1-d4d04a5b59bcd73893a84de2d9595c4c", :a 5, :b 6}
-```
-
-Alternatively, Clutch defines its own record type for URLs:
-
-```clojure
-=> (com.ashafa.clutch.utils/url "databasename")
-#com.ashafa.clutch.utils.URL{:protocol "http", :username nil, :password nil,
-:host "localhost", :port -1, :path "databasename", :query nil}
-```
+* a `cemerick.url.URL` record instance (from the
+  [url](http://github.com/cemerick/url) library)
+* a string URL
+* the name of the database to target on `http://localhost:5984`
 
 You can `assoc` in whatever you like to a `URL` record, which is handy for keeping database URLs and
 credentials separate:
 
 ```clojure
-=> (def db (assoc (utils/url "https://XXX.cloudant.com/")
-                  :username "username"
-                  :password "password"
-                  :path "databasename"))
+=> (def db (assoc (cemerick.url/url "https://XXX.cloudant.com/")
+                    :username "username"
+                    :password "password"
+                    :path "databasename"))
 #'test-clutch/db
 => (put-document db {:a 5 :b [0 6]})
 {:_id "17e55bcc31e33dd30c3313cc2e6e5bb4", :_rev "1-a3517724e42612f9fbd350091a96593c", :a 5, :b [0 6]}
 ```
 
-You can optionally provide configuration using dynamic scope via `with-db`:
+Of course, you can use a string containing inline credentials as well:
+
+```clojure
+=> (put-document "https://username:password@XXX.cloudant.com/databasename/" {:a 5 :b 6})
+{:_id "36b807aacf227f921aa256b06ab094e5", :_rev "1-d4d04a5b59bcd73893a84de2d9595c4c", :a 5, :b 6}
+```
+
+Finally, you can optionally provide configuration using dynamic scope via `with-db`:
 
 ```clojure
 => (with-db "clutch_example"
@@ -122,11 +123,12 @@ at that lower level).
 Would like to eventually add:
 
 * support for views (aside from `_all_docs` via `seq`)
-* support for `_changes` (via a `seque`?), maybe a more natural place than the (free-for-all) pool of watches in Clutch's current API
+* support for `_changes` (via a `seque`?), maybe a more natural place
+  than the (free-for-all) pool of watches in Clutch's current API
 * support for bulk update, maybe via `IReduce`?
-* Other CouchDB types:
-** to provide specialized query interfaces e.g. cloudant indexes
-** to return custom map and vector types to support e.g.
+* Other CouchDB types: ** to provide specialized query interfaces e.g.
+  cloudant indexes ** to return custom map and vector types to support
+  e.g.
 
 ```clojure
 (assoc-in! db ["ID" :key :key array-index] x)
@@ -263,8 +265,7 @@ Note that all view access functions (i.e. `get-view`, `all-documents`, etc) retu
 * **API change**: `watch-changes`, `stop-changes`, and `changes-error`
   have been removed.  See the usage section on changes above.
   The `_changes` API support now consists of:
-  * `changes` to obtain a single, non-continuous/longpoll view of
-    changes since a given `seq`.
+  * `changes` to obtain a lazy seq of updates from `_changes` directly
   * `change-agent`, `start-changes`, and `stop-changes` for creating and
     then controlling the activity of a Clojure agent whose state
     reflects the latest row from a continuous or longpoll view of
