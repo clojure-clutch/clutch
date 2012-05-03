@@ -280,18 +280,14 @@
    (see: http://wiki.apache.org/couchdb/HTTP_view_API)."
   [db path-segments & [query-params-map post-data-map]]
   (let [url (assoc (apply utils/url db path-segments)
-                   :query (into {} (for [[k v] query-params-map]
-                                     [k (if (#{"key" "keys" "startkey" "endkey"} (name k))
-                                          (json/generate-string v)
-                                          v)]))
-                   :as :stream)
-        response (couchdb-request*
-                   (if (empty? post-data-map) :get :post)
-                   url
-                   :data (when (seq post-data-map) post-data-map))]
-    (if response
-      (-> response :body (lazy-view-seq true))  
-      (throw (java.io.IOException. (str "No such view: " url))))))
+              :query (into {} (for [[k v] query-params-map]
+                                [k (if (#{"key" "keys" "startkey" "endkey"} (name k))
+                                     (json/generate-string v)
+                                     v)])))]
+    (view-request
+      (if (empty? post-data-map) :get :post)
+      url
+      :data (when (seq post-data-map) post-data-map))))
 
 (defdbop get-view
   "Get documents associated with a design document. Also takes an optional map

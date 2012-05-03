@@ -87,7 +87,8 @@ complete HTTP response of the last couchdb request."
    when the result is expected to include additional information in an additional
    header line, e.g. total_rows, offset, etc. — in other words, header? should
    always be true, unless the response-body is from a continuous _changes feed
-   (which only include data, no header info)."
+   (which only include data, no header info).  This header info is added as
+   metadata to the returned lazy seq."
   [response-body header?]
   (let [lines (utils/read-lines response-body)
         [lines meta] (if header?
@@ -104,3 +105,10 @@ complete HTTP response of the last couchdb request."
       ;; TODO why are we dissoc'ing :rows here?
       (dissoc meta :rows))))
 
+(defn view-request
+  "Accepts the same arguments as couchdb-request*, but processes the result assuming that the
+   requested resource is a view (using lazy-view-seq)."
+  [method url & opts]
+  (if-let [response (apply couchdb-request method (assoc url :as :stream) opts)]
+    (lazy-view-seq response true)
+    (throw (java.io.IOException. (str "No such view: " url)))))
