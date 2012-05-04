@@ -325,6 +325,10 @@ API documentation for `_changes`](http://wiki.apache.org/couchdb/HTTP_database_A
     then controlling the activity of a Clojure agent whose state
     reflects the latest row from a continuous or longpoll view of
     `_changes`.
+* **API change**: `com.ashafa.clutch.http-client/*response-code*` has
+  been replaced by `*response*`. Rather than just being optionally bound
+  to the response code provided by CouchDB, this var is `set!`ed to its
+  complete clj-http response.
 * [cheshire](https://github.com/dakrone/cheshire) is now being used for all JSON operations.
 * [clj-http](https://github.com/dakrone/clj-http) is now being used for all HTTP operations.
 
