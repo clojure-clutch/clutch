@@ -9,9 +9,9 @@
    the goog stuff if a namespace is not specified, and advanced gClosure
    optimization drops top-level anonymous fns."
   [fnbody]
-  (assert (and (seq fnbody)
-               ('#{fn fn*} (first fnbody)))
-          "Simple ClojureScript views must be an anonymous fn, e.g. (fn [doc] …) or #(...)")
+  (when-not (and (seq fnbody)
+                 ('#{fn fn*} (first fnbody)))
+    (throw (IllegalArgumentException. "Simple ClojureScript views must be an anonymous fn, e.g. (fn [doc] …) or #(...)")))
   (let [namespace (gensym)
         name (with-meta (gensym) {:export true})]
     [{:main (symbol (str namespace) (str name))}
@@ -26,7 +26,8 @@
         options (merge {:optimizations :advanced :pretty-print false}
                        options'
                        options)]
-    (assert (:main options) "Must specify a fully-qualified entry point fn via :main option")
+    (when-not (:main options)
+      (throw (IllegalArgumentException. "Must specify a fully-qualified entry point fn via :main option")))
     (str (closure/build body options)
          "return " (-> options :main namespace) \. (-> options :main name))))
 
