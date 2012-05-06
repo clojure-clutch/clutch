@@ -255,7 +255,7 @@
     (view-transformer language)
     (catch Exception e
       (throw (UnsupportedOperationException.
-               "Could not load com.ashafa.clutch.cljs-views; perhaps ClojureScript and its dependencies are not available?" e)))))
+               "Could not load com.ashafa.clutch.cljs-views; ensure ClojureScript and its dependencies are available, and that you're using Clojure >= 1.3.0." e)))))
 
 (defmacro view-server-fns
   [options fns]
