@@ -1,4 +1,4 @@
-(ns clutch.changes
+(ns clutch.test.changes
   (:use com.ashafa.clutch
         [test-clutch :only (defdbtest test-docs test-database-name)]
         clojure.test)

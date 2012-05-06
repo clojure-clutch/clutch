@@ -1,4 +1,4 @@
-(ns clutch.test-type
+(ns clutch.test.type
   (:use clojure.test
         com.ashafa.clutch
         [test-clutch :only (defdbtest test-database-name test-database-url *test-database*)])
