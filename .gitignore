@@ -17,6 +17,8 @@ target
 lib
 classes
 autodoc
+# cljs temporary output directory
+out
 
 # clojars
 pom.xml
