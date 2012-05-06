@@ -102,7 +102,7 @@
     (add-watch a :watcher (fn [_ _ _ x] (when x (swap! updates conj x))))
     (start-changes a)
     (bulk-update [{:score 22 :_id "x"} {:score 79 :_id "y"}])
-    (Thread/sleep 1000)
+    (wait-for-condition #(= 1 (count @updates)) "1 update not received")
     (is (= 1 (count @updates)))
     (is (= {:id "y"} (-> @updates
                        first
@@ -117,7 +117,7 @@
     (add-watch a :watcher (fn [_ _ _ x] (when x (swap! updates conj x))))
     (start-changes a)
     (bulk-update [{:score 22 :_id "x"} {:score 79 :_id "y"} {:score 27 :_id "z"}])
-    (Thread/sleep 1000)
+    (wait-for-condition #(= 2 (count @updates)) "2 update not received")
     (is (= 2 (count @updates)))
     ;; order-insensitive here because cloudant/bigcouch can yield changes in any order
     (is (= #{{:id "y"} {:id "z"}}
