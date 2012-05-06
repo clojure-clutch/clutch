@@ -240,10 +240,22 @@
   [_]
   {:language :clojure
    :compiler (fn [options] pr-str)})
+
 (defmethod view-transformer :default
   [language]
   {:language language
    :compiler (fn [options] str)})
+
+(defmethod view-transformer :cljs
+  [language]
+  (try
+    (require 'com.ashafa.clutch.cljs-views)
+    ; com.ashafa.clutch.cljs-views defines a method for :cljs, so this
+    ; call will land in it
+    (view-transformer language)
+    (catch Exception e
+      (throw (UnsupportedOperationException.
+               "Could not load com.ashafa.clutch.cljs-views; perhaps ClojureScript and its dependencies are not available?" e)))))
 
 (defmacro view-server-fns
   [options fns]
