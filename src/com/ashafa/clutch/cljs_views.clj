@@ -10,8 +10,8 @@
    optimization drops top-level anonymous fns."
   [fnbody]
   (assert (and (seq fnbody)
-               (= 'fn (first fnbody)))
-          "Simple ClojureScript views must be an anonymous fn, e.g. (fn [doc] …)")
+               ('#{fn fn*} (first fnbody)))
+          "Simple ClojureScript views must be an anonymous fn, e.g. (fn [doc] …) or #(...)")
   (let [namespace (gensym)
         name (with-meta (gensym) {:export true})]
     [{:main (symbol (str namespace) (str name))}
@@ -20,7 +20,7 @@
 
 (defn- view*
   [options body]
-  (let [[options' body] (if (and (list? body) (= 'fn (first body)))
+  (let [[options' body] (if (and (list? body) ('#{fn fn*} (first body)))
                           (expand-anon-fn body)
                           [nil (vec body)])
         options (merge {:optimizations :advanced :pretty-print false}
