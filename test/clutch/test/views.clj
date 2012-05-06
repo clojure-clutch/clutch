@@ -143,14 +143,15 @@
         (is (= #{"john.smith@test.com" "jane.thompson@test.com"}
                (set (map :value view))))))))
 
-
+;; TODO this sucks; can we get leiningen to just not test certain namespaces, and keep the
+;; cljs view tests there to avoid this conditional and the eval junk?!
 (if (neg? (compare (clojure-version) "1.3.0"))
   (deftest no-cljs-error
-    (is (thrown-with-msg? Exception #"Could not load com.ashafa.clutch.cljs-views"
-          (save-view "cljs-views"
-            (view-server-fns :cljs
-              {:enumeration {:map #()}})))))
-  (do
+    (is (thrown-with-msg? UnsupportedOperationException #"Could not load com.ashafa.clutch.cljs-views"
+          (view-transformer :cljs))))
+  ;; need the eval to work around view-server-fns macroexpansion in 1.2, which will end
+  ;; up calling (view-transformer :cljs)
+  (eval '(do
     (defdbtest cljs-simple
       (bulk-update [{:_id "x" :count 2}
                     {:_id "y" :count 3}])
@@ -184,5 +185,5 @@
                 {:id y, :key [y 0], :value 1}
                 {:id y, :key [y 1], :value 2}
                 {:id y, :key [y 2], :value 3}})
-          (get-view "namespaced-cljs-views" :enumeration)))))
+          (get-view "namespaced-cljs-views" :enumeration))))))
 
