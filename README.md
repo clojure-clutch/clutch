@@ -169,7 +169,7 @@ nil
 {:_rev "1-ac3fe57a7604cfd6dcca06b25204b590", :_id ":foo", :a 6, :b 7}
 ```
 
-### Using ClojureScript to write CouchDB views
+### Using ClojureScript to write CouchDB views <a name="cljsviews"/>
 
 This is possible using the [clutch-clojurescript](https://github.com/cemerick/clutch-clojurescript) library, which
 extends Clutch's `save-view` function et al. to support compiling,
@@ -184,7 +184,145 @@ a number of benefits:
 2. Therefore, flexibility to use hosted CouchDB services like
    [Cloudant](http://cloudant.com), [Iris Couch](http://www.iriscouch.com/), et al.
 
+You can write your views/filters/validators in Clojure(Script), and run the results in CouchDB or Cloudant — avoiding the use of any special view server, special configuration, and JavaScript!
+
+#### "Installation"
+
+Clutch provides everything necessary to use ClojureScript to define
+CouchDB views, but it does not declare a specific ClojureScript
+dependency.  This allows you to bring your own revision of ClojureScript
+into your project, and manage it without worrying about dependency
+management conflicts and such.
+
+You can always look at Clutch's `project.clj` to see which version of
+ClojureScript it is currently using to test its view support (
+`[org.clojure/clojurescript "0.0-1011"]` as of this writing).
+
+**Note that while Clutch itself only requires Clojure >= 1.2.0 ClojureScript
+requires Clojure >= 1.3.0.**
+
+The above requirement applies only if you are _saving_ ClojureScript
+views.  A Clutch client using Clojure 1.2.0 can _access_ views written
+in ClojureScript (i.e. via `get-view`) without any dependence on
+ClojureScript at all.
+
+If you attempt to save a ClojureScript view but ClojureScript is not
+available (or you are using Clojure 1.2.x), an error will result.
+
+#### Usage
+
+Use Clutch's `save-view` per usual, but instead of providing a string of
+JavaScript (and specifying the language to be `:javascript`), provide a
+snippet of ClojureScript (specifying the language to be `:cljs`):
+
+```clojure
+(with-db "your_database"
+  (save-view "design_document_name"
+    (view-server-fns :cljs
+      {:your-view-name {:map (fn [doc]
+                               (js/emit (aget doc "_id") nil))}})))
+```
+
+(Note that `view-server-fns` is a macro, so you do not need to quote
+your ClojureScript forms.)
+
+That's an example of a silly view, but should demonstrate the general
+pattern.  Note the `js/emit` function; after ClojureScript compilation,
+this results in a call to the `emit` function defined by the standard
+CouchDB Javascript view server for emitting an entry into the view
+result.  Follow the same conventions for reduce functions, filter
+functions, validator functions, etc.
+
+Your views can utilize larger codebases; just include your "top-level"
+ClojureScript forms in a vector:
+
+```clojure
+(with-db "your_database"
+  (save-view "design_document_name"
+    (view-server-fns {:language :cljs
+                      :main 'couchview/main}
+      {:your-view-name {:map [(ns couchview)
+                              (defn concat
+                                [id rev]
+                                (str id rev))
+                              (defn ^:export main
+                                [doc]
+                                (js/emit (concat (aget doc "_id") (aget doc "_rev")) nil))]}})))
+```
+
+The `ns` form here can require other ClojureScript files on your
+classpath, refer to macros, etc.  When using this longer form, remember
+to do three things:
+
+1. You must provide a map of options to `view-server-fns`; `:cljs`
+   becomes the `:language` value here.
+2. Specify the "entry point" for the view function via the `:main` slot,
+   `'couchview/main` here.  This must correspond to an exported, defined
+function loaded by some ClojureScript, either in your vector literal of
+in-line ClojureScript, or in some ClojureScript loaded via a `:require`.
+3. Ensure that your "entry point" function is exported; here, `main` is
+   our entry point, exported via the `^:export` metadata.
+
+These last two points are required because of the default ClojureScript
+compilation option of `:advanced` optimizations.
+
+#### Compilation options
+
+The `view-server-fns` macro provided by Clutch takes as its first
+argument some options to pass along to the view transformer specified in
+that options map's `:language` slot.  The `:cljs` transformer passes
+this options map along to the ClojureScript/Google Closure compiler,
+with defaults of:
+
+```clojure
+{:optimizations :advanced
+ :pretty-print false}
+```
+
+So you can e.g. disable `:advanced` optimizations and turn on
+pretty-printing by passing this options map to `view-server-fns`:
+
+```clojure
+{:optimizations :simple
+ :pretty-print true
+ :language :cljs}
+```
+
+#### Internals
+
+If you really want to see what Javascript ClojureScript is generating
+for your view function(s), call `com.ashafa.clutch.cljs-views/view` with
+an options map as described above (`nil` to accept the defaults) and
+either an anonymous function body or vector of ClojureScript top-level
+forms. 
+
+#### Caveats
+
+* ClojureScript / Google Closure produces a _very_ large code footprint,
+  even for the simplest of view functions.  This is apparently an item
+of active development in ClojureScript.
+  ** In any case, the code size of a view function string should have
+little to no impact on runtime performance of that view.  The only
+penalty to be paid should be in view server initialization, which should
+be relatively infrequent.  Further, the vast majority of view runtime is
+dominated by IO and actual document processing, not the loading of a
+handful of JavaScript functions.
+* If you are familiar with writing CouchDB views in JavaScript, you must
+  keep a close eye on your ClojureScript/JavaScript interop.  e.g.
+`(js/emit [1 2] true)` will do _nothing_, because `[1 2]` is a
+ClojureScript vector, not a JavaScript array.  Similarly, the values
+passed to view functions are JavaScript objects and arrays, not
+ClojureScript maps and vectors.  A later release of Clutch will likely
+include a set of ClojureScript helper functions and macros that will
+make the necessary conversions automatic.
+
 ### Configuring your CouchDB installation to use the Clutch view server
+
+_This section is only germane if you are going to use Clutch's
+**Clojure** (i.e. JVM Clojure) view server.  If the views you need to
+write can be expressed using ClojureScript — i.e. they have no JVM or
+Clojure library dependencies — using Clutch's ClojureScript support to
+write views is generally recommended._
 
 CouchDB needs to know how to exec Clutch's view server.  Getting this command string together can be tricky, especially given potential classpath complexity.  You can either (a) produce an uberjar of your project, in which case the exec string will be something like:
 
@@ -329,8 +467,13 @@ API documentation for `_changes`](http://wiki.apache.org/couchdb/HTTP_database_A
   been replaced by `*response*`. Rather than just being optionally bound
   to the response code provided by CouchDB, this var is `set!`ed to its
   complete clj-http response.
-* [cheshire](https://github.com/dakrone/cheshire) is now being used for all JSON operations.
-* [clj-http](https://github.com/dakrone/clj-http) is now being used for all HTTP operations.
+* Write CouchDB views in ClojureScript! All of the functionality of
+  [clutch-clojurescript](https://github.com/clojure-clutch/clutch-clojurescript)
+  has been merged into Clutch proper.
+* [cheshire](https://github.com/dakrone/cheshire) is now being used for
+  all JSON operations.
+* [clj-http](https://github.com/dakrone/clj-http) is now being used for
+  all HTTP operations.
 
 ##### 0.3.1
 
