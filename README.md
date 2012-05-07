@@ -171,20 +171,19 @@ nil
 
 ### Using ClojureScript to write CouchDB views <a name="cljsviews"/>
 
-This is possible using the [clutch-clojurescript](https://github.com/cemerick/clutch-clojurescript) library, which
-extends Clutch's `save-view` function et al. to support compiling,
-serializing, and optimizing ClojureScript forms to JavaScript suitable
-for use as views in CouchDB.  Depending on the requirements of your view
-functions (e.g. if your views have no specific dependencies on Clojure
-or JVM libraries), then writing your views in ClojureScript can have
-a number of benefits:
+You can write your views/filters/validators in Clojure(Script) —
+avoiding the use of any special view server, special configuration, or
+JavaScript!
+
+Depending on the requirements of your view functions (e.g. if your views
+have no specific dependencies on Clojure or JVM libraries), then writing
+your views in ClojureScript can have a number of benefits:
 
 1. No need to configure CouchDB instances to use the Clojure/Clutch view
    server.
 2. Therefore, flexibility to use hosted CouchDB services like
    [Cloudant](http://cloudant.com), [Iris Couch](http://www.iriscouch.com/), et al.
-
-You can write your views/filters/validators in Clojure(Script), and run the results in CouchDB or Cloudant — avoiding the use of any special view server, special configuration, and JavaScript!
+3. Did we say 'no JavaScript'? Yup, no JavaScript. :-)
 
 #### "Installation"
 
