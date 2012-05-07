@@ -306,6 +306,13 @@ penalty to be paid should be in view server initialization, which should
 be relatively infrequent.  Further, the vast majority of view runtime is
 dominated by IO and actual document processing, not the loading of a
 handful of JavaScript functions.
+* The version of Spidermonkey that is used by CouchDB (and Cloudant at
+  the moment) does not treat regular expression literals properly — they
+work fine as arguments, e.g. `string.match(/foo/)`, but e.g.
+`/foo/.exec("string")` fails.  Using the `RegExp()` function with a
+string argument _does_ work.  [This is reportedly fixed in CouchDB
+1.2.0](https://issues.apache.org/jira/browse/COUCHDB-577), though I
+haven't verified that.
 * If you are familiar with writing CouchDB views in JavaScript, you must
   keep a close eye on your ClojureScript/JavaScript interop.  e.g.
 `(js/emit [1 2] true)` will do _nothing_, because `[1 2]` is a
