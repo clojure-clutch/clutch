@@ -182,4 +182,19 @@
                                    (js/emit (view-key doc x) (inc x))))]}}))
       (is (= cljs-view-result
              (get-view "namespaced-cljs-views" :enumeration))))
+    
+    (defdbtest cljs-require
+      (bulk-update [{:_id "x" :count 2}
+                    {:_id "y" :count 3}])
+      (save-view "cljs-views-require"
+        (view-server-fns {:language :cljs
+                          :main 'inline.namespace.couchview/main}
+          {:enumeration {:map [(ns inline.namespace.couchview
+                                 (:require [clutch.test.views.util :as util]))
+                               (defn ^:export main
+                                 [doc]
+                                 (doseq [key (util/enumerate-count doc)]
+                                   (js/emit (to-array key) true)))]}}))
+      (is (= (map #(assoc % :value true) cljs-view-result)
+             (get-view "cljs-views-require" :enumeration)))))))
 
