@@ -10,7 +10,13 @@
                  [commons-codec "1.6"]
                  [com.cemerick/url "0.0.5"]
                  
-                 [org.clojure/clojurescript "0.0-1011" :optional true]]
+                 [org.clojure/clojurescript "0.0-1011" :optional true
+                  :exclusions [com.google.code.findbugs/jsr305
+                               com.googlecode.jarjar/jarjar
+                               junit
+                               org.apache.ant/ant
+                               org.json/json
+                               org.mozilla/rhino]]]
   :profiles {:dev {}
              :1.2.0 {:dependencies [[org.clojure/clojure "1.2.0"]]}
              :1.3.0 {:dependencies [[org.clojure/clojure "1.3.0"]]}}
