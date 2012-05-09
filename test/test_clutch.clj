@@ -302,12 +302,15 @@
                                 :filename :bytes-image :mime-type "image/png"
                                 :data-length (-> path File. .length))
         
-        _ (prn "standalone" (slurp (com.ashafa.clutch.http-client/couchdb-request :get
+        _ (.println System/out (pr-str (String.
+                              (com.ashafa.clutch.http-client/couchdb-request :get
                         (-> (cemerick.url/url *test-database* (updated-document-meta :id))
                           (assoc :query {:attachments true}
-                                 :as :stream)))))
-        document-with-attachments (get-document (updated-document-meta :id) :attachments true)]
-    (is (= #{:couchdb-image filename-with-space :bytes-image} (set (keys (:_attachments document-with-attachments)))))
+                                 :as :byte-array)))
+                              "UTF-8")))
+        _ (do (flush) (Thread/sleep 5000))
+        #_#_document-with-attachments (get-document (updated-document-meta :id) :attachments true)]
+    #_((is (= #{:couchdb-image filename-with-space :bytes-image} (set (keys (:_attachments document-with-attachments)))))
     (is (= "image/png" (-> document-with-attachments :_attachments :couchdb-image :content_type)))
     (is (contains? (-> document-with-attachments :_attachments :couchdb-image) :data))
     
@@ -316,17 +319,13 @@
            (-> document-with-attachments :_attachments :bytes-image (select-keys [:data :content_type :length]))))
     
     (is (thrown? IllegalArgumentException (put-attachment document (Object.))))
-    (is (thrown? IllegalArgumentException (put-attachment document (ByteArrayInputStream. (make-array Byte/TYPE 0)))))))
+    (is (thrown? IllegalArgumentException (put-attachment document (ByteArrayInputStream. (make-array Byte/TYPE 0))))))))
 
 (defdbtest stream-attachments
   (let [document                  (put-document (nth test-docs 3))
         updated-document-meta     (put-attachment document (str resources-path "/couchdb.png")
                                     :filename :couchdb-image
                                     :mime-type "other/mimetype")
-        #_#__ (prn "stream" (slurp (com.ashafa.clutch.http-client/couchdb-request :get
-                        (-> (cemerick.url/url *test-database* (updated-document-meta :id))
-                          (assoc :query {:attachments true}
-                                 :as :stream)))))
         document-with-attachments (get-document (updated-document-meta :id))
         data (to-byte-array (java.io.File. (str resources-path "/couchdb.png")))]
       (is (= "other/mimetype" (-> document-with-attachments :_attachments :couchdb-image :content_type)))
