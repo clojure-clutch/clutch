@@ -287,7 +287,7 @@
          couchdb-img-file couch-filename
          couchdb-img-file bytes-filename)))
 
-(defdbtest standalone-attachments
+#_(defdbtest standalone-attachments
   (let [document (put-document (first test-docs))
         path (str resources-path "/couchdb.png")
         filename-with-space (keyword "couchdb - image2")
@@ -301,6 +301,11 @@
                                 (to-byte-array (FileInputStream. path))
                                 :filename :bytes-image :mime-type "image/png"
                                 :data-length (-> path File. .length))
+        
+        _ (prn "standalone" (slurp (com.ashafa.clutch.http-client/couchdb-request :get
+                        (-> (cemerick.url/url *test-database* (updated-document-meta :id))
+                          (assoc :query {:attachments true}
+                                 :as :stream)))))
         document-with-attachments (get-document (updated-document-meta :id) :attachments true)]
     (is (= #{:couchdb-image filename-with-space :bytes-image} (set (keys (:_attachments document-with-attachments)))))
     (is (= "image/png" (-> document-with-attachments :_attachments :couchdb-image :content_type)))
@@ -318,7 +323,11 @@
         updated-document-meta     (put-attachment document (str resources-path "/couchdb.png")
                                     :filename :couchdb-image
                                     :mime-type "other/mimetype")
-        document-with-attachments (get-document (updated-document-meta :id) :attachments true)
+        #_#__ (prn "stream" (slurp (com.ashafa.clutch.http-client/couchdb-request :get
+                        (-> (cemerick.url/url *test-database* (updated-document-meta :id))
+                          (assoc :query {:attachments true}
+                                 :as :stream)))))
+        document-with-attachments (get-document (updated-document-meta :id))
         data (to-byte-array (java.io.File. (str resources-path "/couchdb.png")))]
       (is (= "other/mimetype" (-> document-with-attachments :_attachments :couchdb-image :content_type)))
       (is (= (seq data) (-> (get-attachment document-with-attachments :couchdb-image) to-byte-array seq)))))
