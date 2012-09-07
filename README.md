@@ -106,7 +106,7 @@ Finally, you can optionally provide configuration using dynamic scope via `with-
 
 Clutch provides a pretty comprehensive API, but 95% of database
 interactions require using something other than the typical Clojure vocabulary of
-`assoc`, `conj, `dissoc`, `get`, `seq`, `reduce`, etc, even though those semantics are entirely appropriate
+`assoc`, `conj`, `dissoc`, `get`, `seq`, `reduce`, etc, even though those semantics are entirely appropriate
 (modulo the whole stateful database thing).
 
 This is (the start of) an attempt to create a type to provide most of the
