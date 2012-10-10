@@ -21,10 +21,10 @@ Or, if you're using Maven, add this dependency to your `pom.xml`:
 ```
 
 The latest stable version of Clutch is `0.3.1`.  But be a mench: use
-the SNAPSHOTs when you can, and report feedback and issues to
+the release candidates when you can, and report feedback and issues to
 the [Clutch mailing list](http://groups.google.com/group/clojure-clutch).
 
-Clutch is compatible with Clojure 1.2.0 - 1.4.0, and requires Java 1.5+.
+Clutch is compatible with Clojure 1.2.0 - 1.5.0, and requires Java 1.5+.
 
 ## Status
 
@@ -74,10 +74,9 @@ You can `assoc` in whatever you like to a `URL` record, which is handy for keepi
 credentials separate:
 
 ```clojure
-=> (def db (assoc (cemerick.url/url "https://XXX.cloudant.com/")
+=> (def db (assoc (cemerick.url/url "https://XXX.cloudant.com/" "databasename")
                     :username "username"
-                    :password "password"
-                    :path "databasename"))
+                    :password "password"))
 #'test-clutch/db
 => (put-document db {:a 5 :b [0 6]})
 {:_id "17e55bcc31e33dd30c3313cc2e6e5bb4", :_rev "1-a3517724e42612f9fbd350091a96593c", :a 5, :b [0 6]}
@@ -198,7 +197,7 @@ ClojureScript it is currently using to test its view support (
 `[org.clojure/clojurescript "0.0-1011"]` as of this writing).
 
 **Note that while Clutch itself only requires Clojure >= 1.2.0 ClojureScript
-requires Clojure >= 1.3.0.**
+requires Clojure >= 1.4.0.**
 
 The above requirement applies only if you are _saving_ ClojureScript
 views.  A Clutch client using Clojure 1.2.0 can _access_ views written
@@ -473,6 +472,9 @@ API documentation for `_changes`](http://wiki.apache.org/couchdb/HTTP_database_A
   been replaced by `*response*`. Rather than just being optionally bound
   to the response code provided by CouchDB, this var is `set!`ed to its
   complete clj-http response.
+* Added `document-exists?` function; same as `(boolean (get-document db "key"))`,
+  but uses a `HEAD` request instead of a `GET` (handy for checking for the
+  existence of very large documents).
 * Write CouchDB views in ClojureScript! All of the functionality of
   [clutch-clojurescript](https://github.com/clojure-clutch/clutch-clojurescript)
   has been merged into Clutch proper.
