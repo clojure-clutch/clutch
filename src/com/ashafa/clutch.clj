@@ -166,9 +166,11 @@
   "Returns the document identified by the given id. Optional CouchDB document API query parameters
    (rev, attachments, may be provided as keyword arguments."
   [db id & {:as get-params}]
-  (couchdb-request :get
-    (-> (utils/url db id)
-      (assoc :query get-params))))
+  ;; TODO a nil or empty key should probably just throw an exception
+  (when (seq id)
+    (couchdb-request :get
+      (-> (utils/url db id)
+        (assoc :query get-params)))))
 
 (defn- document?
   [x]
