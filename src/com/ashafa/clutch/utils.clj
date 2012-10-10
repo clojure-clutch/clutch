@@ -7,7 +7,8 @@
 
 (defn url
   "Thin layer on top of cemerick.url/url that defaults otherwise unqualified
-   database urls to use `http://localhost:5984`."
+   database urls to use `http://localhost:5984` and url-encodes each URL part
+   provided."
   [& [base & parts :as args]]
   (try
     (apply url/url base (map (comp url/url-encode str) parts))

@@ -109,6 +109,10 @@
                 id-desc (str x " " id)]]
     (try
       (is (= id (:_id (put-document {} :id id :request-params {:batch "ok"}))) id-desc)
+      (let [doc (get-document id)]
+        (is (= {} (dissoc-meta doc)))
+        (delete-document doc)
+        (is (nil? (get-document id))))
       (catch Exception e
         (is false (str "Error for " id-desc ": " (.getMessage e)))))))
 

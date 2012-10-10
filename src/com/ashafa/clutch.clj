@@ -167,7 +167,7 @@
    (rev, attachments, may be provided as keyword arguments."
   [db id & {:as get-params}]
   (couchdb-request :get
-    (-> (url/url db id)
+    (-> (utils/url db id)
       (assoc :query get-params))))
 
 (defn- document?
