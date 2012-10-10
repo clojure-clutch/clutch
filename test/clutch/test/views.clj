@@ -145,7 +145,7 @@
 
 ;; TODO this sucks; can we get leiningen to just not test certain namespaces, and keep the
 ;; cljs view tests there to avoid this conditional and the eval junk?!
-(if (neg? (compare (clojure-version) "1.3.0"))
+(if (neg? (compare (clojure-version) "1.4.0"))
   (deftest no-cljs-error
     (is (thrown-with-msg? UnsupportedOperationException #"Could not load com.ashafa.clutch.cljs-views"
           (view-transformer :cljs))))
