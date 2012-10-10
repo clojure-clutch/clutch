@@ -108,7 +108,7 @@
           :let [id (str "a" (char x)) ; doc ids can't start with _, so prefix everything
                 id-desc (str x " " id)]]
     (try
-      (is (= id (:_id (put-document {} :id id :request-params {:batch "ok"}))) id-desc)
+      (is (= id (:_id (put-document {:_id id}))) id-desc)
       (let [doc (get-document id)]
         (is (= {} (dissoc-meta doc)))
         (delete-document doc)
