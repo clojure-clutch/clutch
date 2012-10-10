@@ -172,6 +172,13 @@
       (-> (utils/url db id)
         (assoc :query get-params)))))
 
+(defdbop document-exists?
+  "Returns true if a document with the given key exists in the database."
+  [db id]
+  ;; TODO a nil or empty key should probably just throw an exception
+  (when (seq (str id))
+    (= 200 (:status (couchdb-request* :head (utils/url db id))))))
+
 (defn- document?
   [x]
   (and (map? x) (:_id x) (:_rev x)))

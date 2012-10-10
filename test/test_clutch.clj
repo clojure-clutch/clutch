@@ -125,6 +125,11 @@
   (let [document (put-document (first test-docs) :id "my_id")]
     (is (= "my_id" (document :_id)))))
 
+(defdbtest test-exists
+  (put-document {:_id "foo" :a 5})
+  (is (not (document-exists? "bar")))
+  (is (document-exists? "foo")))
+
 (defrecord Foo [a])
 
 (defdbtest create-with-record
