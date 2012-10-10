@@ -167,7 +167,7 @@
    (rev, attachments, may be provided as keyword arguments."
   [db id & {:as get-params}]
   ;; TODO a nil or empty key should probably just throw an exception
-  (when (seq id)
+  (when (seq (str id))
     (couchdb-request :get
       (-> (utils/url db id)
         (assoc :query get-params)))))
