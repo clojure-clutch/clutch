@@ -48,6 +48,8 @@ complete HTTP response of the last couchdb request."
       (let [resp (http/request (merge configuration
                                       {:url (str request)}
                                       (when data {:body data})
+                                      (when (and (:username request) (:password request))
+                                        {:basic-auth (str (:username request) ":" (:password request))})
                                       (when (instance? InputStream data)
                                         {:length (:data-length request)})))]
         (set!-*response* resp))
