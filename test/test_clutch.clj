@@ -171,6 +171,10 @@
   (put-document (first test-docs) :id "some_id")
   (failing-request 409 (put-document (first test-docs) :id "some_id")))
 
+(defdbtest get-two-uuids
+  (let [resp (uuids 2)]
+    (is (= 2 (count (:uuids resp))))))
+
 (defdbtest update-a-document
   (let [id (:_id (put-document (nth test-docs 3)))]
     (update-document (get-document id) {:email "test@example.com"})
