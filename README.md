@@ -28,14 +28,12 @@ Clutch is compatible with Clojure 1.2.0 - 1.5.0, and requires Java 1.5+.
 
 ## Status
 
-Although it's in an early stage of development (Clutch API subject to change), Clutch supports most of the Apache CouchDB API:
+Clutch supports most of the Apache CouchDB API:
 
 * Essentially all of the [core document API](http://wiki.apache.org/couchdb/HTTP_Document_API)
 * [Bulk document APIs](http://wiki.apache.org/couchdb/HTTP_Bulk_Document_API)
 * Most of the [Database API](http://wiki.apache.org/couchdb/HTTP_database_API), including `_changes` and a way to easily monitor/react to `_changes` events using Clojure's familiar watch mechanism
 * [Views](http://wiki.apache.org/couchdb/HTTP_view_API), including access, update, and a Clojure view server implementation
-
-At the moment, you'll have to look at the source or introspect the docs once you've loaded Clutch up to get around the API.  Proper API documentation (via autodoc or marginalia) coming soon.
 
 Clutch does not currently provide any direct support for the various couchapp-related APIs, including update handlers and validation, shows and lists, and so on.
 
@@ -46,20 +44,35 @@ That said, it is very easy to call whatever CouchDB API feature that Clutch does
 First, a basic REPL interaction:
 
 ```clojure
-=> (get-database "clutch_example")  ;; creates database if it's not available yet
-#cemerick.url.URL{:protocol "http", :username nil, :password nil, :host "localhost", :port -1,
-:path "clutch_example", :query nil, :disk_format_version 5, :db_name "clutch_example", :doc_del_count 0,
-:committed_update_seq 0, :disk_size 79, :update_seq 0, :purge_seq 0, :compact_running false,
-:instance_start_time "1323701753566374", :doc_count 0}
+(require '[com.ashafa.clutch :as cl])
+;nil
+(def db "clutch-example")
 
-=> (bulk-update "clutch_example" [{:test-grade 10 :_id "foo"}
-                                  {:test-grade 20}
-                                  {:test-grade 30}])
-[{:id "foo", :rev "1-8a15da0db077cd05b45ec93b3a207d09"}
- {:id "0896fbf57128d7f1a1b238a52b0ec372", :rev "1-796ebf042b42fa3585332c3aa4a6f706"}
- {:id "0896fbf57128d7f1a1b238a52b0ecda8", :rev "1-01f063c5aeb1b63992c90c72c7a515ed"}]
-=> (get-document "clutch_example" "foo")
-{:_id "foo", :_rev "1-8a15da0db077cd05b45ec93b3a207d09", :test-grade 10}
+(cl/get-database db)   ; create database if it does not exist
+; #cemerick.url.URL{:protocol "http", :username nil, :password nil, :host "localhost", :port 5984, :path "/clutch-example", :query nil, :anchor nil, :disk_format_version 6, :db_name "clutch-example", :doc_del_count 0, :committed_update_seq 0, :disk_size 79, :update_seq 0, :purge_seq 0, :data_size 0, :compact_running false, :instance_start_time "1359232547571231", :doc_count 0}
+
+(cl/put-document "clutch-example" {:name "Granny Smith" :_id "123"})
+;{:_rev "1-6d3591f3c5b089371419b88ca986945a", :name "Granny Smith", :_id "123"}
+
+(cl/get-document db "123")
+;{:_rev "1-6d3591f3c5b089371419b88ca986945a", :name "Granny Smith", :_id "123"}
+
+(cl/delete-document "clutch-example" (cl/get-document "123"))
+;{:ok true, :id "123", :rev "1-6d3591f3c5b089371419b88ca986945a"}
+
+; alternatively
+(cl/put-document db {:name "Boscop" :_id "222"})
+;{:_rev "3-bee6b684ce0d0f7dbb9f3e9e1987ab64", :name "Boscop, :_id "123"}
+(cl/delete-document db {:_id "222" :_rev "3-bee6b684ce0d0f7dbb9f3e9e1987ab64"})
+;{:ok true, :id "222", :rev "4-d0cf0cf52c2f62ede2ebc8991c61a36f"}
+
+
+(cl/bulk-update db [{:name "Granny Smith"}{:name "Boscop"} {:name "Renette"}])
+;[{:ok true, :id "1a39ecf005fb19f170d54f55eb0035c0", :rev "1-6d3591f3c5b089371419b88ca986945a"} {:ok true, :id "1a39ecf005fb19f170d54f55eb0035f0", :rev "1-7dbfb572b13f723e1205e815a5389d5f"} {:ok true, :id "1a39ecf005fb19f170d54f55eb004042", :rev "1-76f6f3bcd55564fdff764d6d023a7056"}]
+
+(cl/ad-hoc-view db (cl/view-server-fns :javascript {:map "function(doc) emit (doc.name)"}))
+;({:id "1a39ecf005fb19f170d54f55eb0035f0", :key "Boscop", :value nil} {:id "1a39ecf005fb19f170d54f55eb002498", :key "Granny Smith", :value nil} {:id "1a39ecf005fb19f170d54f55eb0033af", :key "Granny Smith", :value nil} {:id "1a39ecf005fb19f170d54f55eb0035c0", :key "Granny Smith", :value nil} {:id "1a39ecf005fb19f170d54f55eb004042", :key "Renette", :value nil})
+
 ```
 
 All Clutch functions accept a first argument indicating the database
