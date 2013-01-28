@@ -421,19 +421,19 @@ many functions as necessary to the agent as watches (a.k.a. callbacks).
 Here's a REPL interaction demonstrating this functionality:
 
 ```clojure
-=> (require '[com.ashafa.clutch :as couch])
+=> (require '[com.ashafa.clutch :as cl])
 nil
-=> (couch/create-database "demo")
+=> (cl/create-database "demo")
 #cemerick.url.URL{:protocol "http", :username nil, :password nil,
                   :host "localhost", :port 5984, :path "/demo",
                   :query nil, :anchor nil}
-=> (def a (couch/change-agent "demo"))
+=> (def a (cl/change-agent "demo"))
 #'user/a
 
    ;; `start-changes` hooks the agent up to the database's `_changes` feed
-=> (couch/start-changes a)
+=> (cl/start-changes a)
 #<Agent@693a1324: nil>
-=> (couch/put-document "demo" {:name "Chas"})
+=> (cl/put-document "demo" {:name "Chas"})
 {:_id "259239233e2c2d06f3e311ce5f5271c1", :_rev "1-24ccfd9600c215e32ceefdd06b25f62d", :name "Chas"}
 
    ;; each change becomes a new state within the agent:
@@ -444,22 +444,22 @@ nil
 => (add-watch a :echo (fn [key agent previous-change change]
                         (println "change received:" change)))
 #<Agent@693a1324: {:seq 1, :id "259239233e2c2d06f3e311ce5f5271c1", :changes [{:rev "1-24ccfd9600c215e32ceefdd06b25f62d"}]}>
-=> (couch/put-document "demo" {:name "Roger"})
+=> (cl/put-document "demo" {:name "Roger"})
 {:_id "259239233e2c2d06f3e311ce5f527a9d", :_rev "1-0c3db91854f26486d1c3922f1a651d86", :name "Roger"}
 change received: {:seq 2, :id 259239233e2c2d06f3e311ce5f527a9d, :changes [{:rev 1-0c3db91854f26486d1c3922f1a651d86}]}
-=> (couch/bulk-update "demo" [{:x 1} {:y 2} {:z 3 :_id "some-id"}])
+=> (cl/bulk-update "demo" [{:x 1} {:y 2} {:z 3 :_id "some-id"}])
 [{:id "259239233e2c2d06f3e311ce5f527cd4", :rev "1-0785e9eb543380151003dc452c3a001a"} {:id "259239233e2c2d06f3e311ce5f527fa6", :rev "1-ef91d626f27dc5d224fd534e7b47da82"} {:id "some-id", :rev "1-178dbe6c7346ffc3af8811327d1336ff"}]
 change received: {:seq 3, :id 259239233e2c2d06f3e311ce5f527cd4, :changes [{:rev 1-0785e9eb543380151003dc452c3a001a}]}
 change received: {:seq 4, :id 259239233e2c2d06f3e311ce5f527fa6, :changes [{:rev 1-ef91d626f27dc5d224fd534e7b47da82}]}
 change received: {:seq 5, :id some-id, :changes [{:rev 1-178dbe6c7346ffc3af8811327d1336ff}]}
-=> (couch/delete-document "demo" (couch/get-document "demo" "some-id"))
+=> (cl/delete-document "demo" (cl/get-document "demo" "some-id"))
 {:ok true, :id "some-id", :rev "2-7a128852666329025f1fba1114628251"}
 change received: {:seq 6, :id some-id,
                   :changes [{:rev 2-7a128852666329025f1fba1114628251}], :deleted true}
 
    ;; if you want to stop the flow of changes through the agent, use
    ;; `stop-changes`
-=> (couch/stop-changes a)
+=> (cl/stop-changes a)
 #<Agent@693a1324: {:seq 6, :id "some-id", :changes [{:rev "2-7a128852666329025f1fba1114628251"}], :deleted true}>
 ```
 
