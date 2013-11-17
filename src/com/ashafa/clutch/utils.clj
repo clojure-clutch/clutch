@@ -37,13 +37,13 @@
 
 (defn map-to-query-str
   ([m]
-     (map-to-query-str m true))
-  ([m json-str-params?]
+     (map-to-query-str m (constantly true)))
+  ([m params-not-encoded-fn?]
      (when-let [kws (keys m)]
        (reduce 
         (fn [q kw]
           (let [k (if (keyword? kw) (name kw) kw)
-                v (if json-str-params? (json/json-str (m kw)) (str (m kw)))
+                v (if (params-not-encoded-fn? kw)(json/json-str (m kw)) (str (m kw)))
                 a (if (not (= (last kws) kw)) "&")]
             (str q (uri-encode k) "=" (uri-encode v) a)))
         "?" kws))))
