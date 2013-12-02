@@ -17,25 +17,20 @@
       (throw (IllegalStateException. desc)))
     wait-condition))
 
-(deftest simple-agent
-  (let [db (get-database (test-database-name "create-type"))]
-    (with-db db
-      (try
-        (let [a (change-agent)
-              updates (atom [])]
-          (add-watch a :watcher (fn [_ _ _ x] (when x (swap! updates conj x))))
-          (start-changes a)
-          (bulk-update (map #(hash-map :_id (str %)) (range 4)))
-          (delete-document (get-document "2"))
-          (update-document (assoc (get-document "1") :assoc :a 5))
-          (delete-database)
-          (wait-for-condition #(-> @updates last :last_seq) "Updates not received")
-          (is (= [{:id "0"} {:id "1"} {:id "2"} {:id "3"} {:id "2" :deleted true} {:id "1"}]
-                 (->> @updates
-                   drop-last
-                   (map #(dissoc % :changes :seq))))))
-        (finally
-          (delete-database))))))
+(defdbtest simple-agent
+  (let [a (change-agent)
+        updates (atom [])]
+    (add-watch a :watcher (fn [_ _ _ x] (when x (swap! updates conj x))))
+    (start-changes a)
+    (bulk-update (map #(hash-map :_id (str %)) (range 4)))
+    (delete-document (get-document "2"))
+    (update-document (assoc (get-document "1") :a 5))
+    (delete-database)
+    (wait-for-condition #(-> @updates last :last_seq) "Updates not received")
+    (is (= [{:id "0"} {:id "1"} {:id "2"} {:id "3"} {:id "2" :deleted true} {:id "1"}]
+           (->> @updates
+                drop-last
+                (map #(dissoc % :changes :seq)))))))
 
 (defdbtest can-stop-change-agent
   (let [a (change-agent)
@@ -58,18 +53,18 @@
       (bulk-update (take 4 docs))
       (wait-for-condition #(= 4 (count @updates)) "4 updates not received")
       (stop-changes a)
-      
+
       (put-document (nth docs 4))
       (Thread/sleep 1000)
       (is (= 4 (count @updates)))
-      
+
       (start-changes a)
       (wait-for-condition #(= 5 (count @updates)) "1 update not received")
-      
+
       (bulk-update (->> docs (drop 5) (take 3)))
       (wait-for-condition #(= 8 (count @updates)) "3 updates not received")
       (is (= 8 (count @updates)))
-      
+
       (testing "start-changes with :since option"
             (println (.getQueueCount a) (-> a meta :com.ashafa.clutch/state))
         (stop-changes a)
@@ -85,7 +80,7 @@
         (bulk-update (->> docs (drop 9) (take 7)))
         (wait-for-condition #(= 16 (count @updates)) "7 updates not received")
         (is (= 16 (count @updates))))
-      
+
       (testing "changes-running? predicate"
         (is (changes-running? a))
         (is (instance? Boolean (changes-running? a)))
