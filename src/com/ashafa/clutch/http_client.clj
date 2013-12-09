@@ -1,7 +1,7 @@
 (ns com.ashafa.clutch.http-client
   (:require [clj-http.client :as http]
             [cheshire.core :as json]
-            
+
             [clojure.java.io :as io]
             [clojure.string :as str]
             [com.ashafa.clutch.utils :as utils])
@@ -23,7 +23,7 @@
 (def  ^{:doc "When thread-bound to any value, will be reset! to the
 complete HTTP response of the last couchdb request."
         :dynamic true}
-     *response* nil)
+  *response* nil)
 
 (defmacro fail-on-404
   [db expr]
@@ -94,7 +94,7 @@ complete HTTP response of the last couchdb request."
         [lines meta] (if header?
                        [(rest lines)
                         (-> (first lines)
-                          (str/replace #",?\"(rows|results)\":\[\s*$" "}")  ; TODO this is going to break eventually :-/ 
+                          (str/replace #",?\"(rows|results)\":\[\s*$" "}")  ; TODO this is going to break eventually :-/
                           (json/parse-string true))]
                        [lines nil])]
     (with-meta (->> lines

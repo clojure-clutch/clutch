@@ -1,8 +1,7 @@
 (ns ^{:author "Tunde Ashafa"}
   test-clutch
-  (:require (com.ashafa.clutch
-              [http-client :as http-client]
-              [utils :as utils])
+  (:require (com.ashafa.clutch [http-client :as http-client]
+                               [utils :as utils])
             [clojure.string :as str]
             [clojure.java.io :as io])
   (:use com.ashafa.clutch
@@ -73,7 +72,7 @@
     (is (= name (:db_name (database-info url))))
     (is (:ok (delete-database url)))
     (is (nil? ((set (all-databases url)) name)))))
- 
+
 (deftest database-name-escaping
   (let [name (test-database-name "foo_$()+-/bar")
         url (test-database-url name)]
@@ -99,7 +98,7 @@
 
 ; create a document containing each of the 65K chars in unicode BMP.
 ; this ensures that utils/id-encode is doing what it should and that we aren't screwing up
-; encoding issues generally (which are easy regressions to introduce) 
+; encoding issues generally (which are easy regressions to introduce)
 (defdbtest test-docid-encoding
   ; doing a lot of requests here -- the test is crazy-slow if delayed_commit=false,
   ; so let's use the iron we've got
@@ -281,7 +280,7 @@
                                           :data-length (-> couchdb-img-file File. .length)
                                           :filename couch-filename :mime-type "image/png"}])
         fetched-document (get-document (created-document :_id))]
-    (are [attachment-keys] (= #{:clojure.png couch-filename bytes-filename} attachment-keys) 
+    (are [attachment-keys] (= #{:clojure.png couch-filename bytes-filename} attachment-keys)
          (set (keys (created-document :_attachments)))
          (set (keys (fetched-document :_attachments))))
     (are [doc file-key] (= "image/png" (-> doc :_attachments file-key :content_type))
@@ -310,7 +309,7 @@
                                 (to-byte-array (FileInputStream. path))
                                 :filename :bytes-image :mime-type "image/png"
                                 :data-length (-> path File. .length))
-        
+
         _ (.println System/out (pr-str (String.
                               (com.ashafa.clutch.http-client/couchdb-request :get
                         (-> (cemerick.url/url *test-database* (updated-document-meta :id))
@@ -322,11 +321,11 @@
     #_((is (= #{:couchdb-image filename-with-space :bytes-image} (set (keys (:_attachments document-with-attachments)))))
     (is (= "image/png" (-> document-with-attachments :_attachments :couchdb-image :content_type)))
     (is (contains? (-> document-with-attachments :_attachments :couchdb-image) :data))
-    
+
     (is (= (-> document-with-attachments :_attachments :couchdb-image (select-keys [:data :content_type :length]))
            (-> document-with-attachments :_attachments filename-with-space (select-keys [:data :content_type :length]))
            (-> document-with-attachments :_attachments :bytes-image (select-keys [:data :content_type :length]))))
-    
+
     (is (thrown? IllegalArgumentException (put-attachment document (Object.))))
     (is (thrown? IllegalArgumentException (put-attachment document (ByteArrayInputStream. (make-array Byte/TYPE 0))))))))
 
