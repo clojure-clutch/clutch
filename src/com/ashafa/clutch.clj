@@ -4,8 +4,7 @@
             [clojure.java.io :as io]
             [cemerick.url :as url]
             clojure.string)
-  (:use com.ashafa.clutch.http-client
-        [clojure.core.incubator :only (-?>)])
+  (:use com.ashafa.clutch.http-client)
   (:import (java.io File FileInputStream BufferedInputStream InputStream ByteArrayOutputStream)
            (java.net URL))
   (:refer-clojure :exclude (conj! assoc! dissoc!)))
@@ -73,7 +72,7 @@
   "Returns a database meta information if it already exists else creates a new database and returns
    the meta information for the new database."
   [db]
-  (merge db 
+  (merge db
          (or (database-info db)
              (and (create-database db)
                   (database-info db)))))
@@ -112,14 +111,14 @@
          (.length ^File data)
          (or filename (.getName ^File data))
          (or mime-type (utils/get-mime-type data))]
-        
+
         (instance? InputStream data)
         [data (check :data-length data-length) (check :filename filename) (check :mime-type mime-type)]
-        
+
         (= byte-array-class (class data))
         [(java.io.ByteArrayInputStream. data) (count data)
          (check :filename filename) (check :mime-type mime-type)]
-        
+
         :default
         (throw (IllegalArgumentException. (str "Cannot handle attachment data of type " (class data))))))))
 
@@ -349,14 +348,14 @@
 (defdbop put-attachment
   "Updates (or creates) the attachment for the given document.  `data` can be a string path
    to a file, a java.io.File, a byte array, or an InputStream.
-   
+
    If `data` is a byte array or InputStream, you _must_ include the following otherwise-optional
    kwargs:
 
        :filename — name to be given to the attachment in the document
        :mime-type — type of attachment data
 
-   These are derived from a file path or File if not provided.  (Mime types are derived from 
+   These are derived from a file path or File if not provided.  (Mime types are derived from
    filename extensions; see com.ashafa.clutch.utils/get-mime-type for determining mime type
    yourself from a File object.)"
   [db document data & {:keys [filename mime-type data-length]}]
@@ -425,7 +424,7 @@
    `add-watch` in order to be notified of changes.  The
    returned change agent is entirely 'managed', with
    `start-changes` and `stop-changes` controlling its operation
-   and sent actions.  If you send actions to a change agent, 
+   and sent actions.  If you send actions to a change agent,
    bad things will likely happen."
   [db & {:as opts}]
   (agent nil :meta {::changes-config (atom (change-agent-config db opts))}))
@@ -504,7 +503,7 @@
           "PUTs a document into CouchDB. Equivalent to (conj! couch [id document]).")
   (dissoc! [this id-or-doc]
            "DELETEs a document from CouchDB. Uses a given document map's :_id and :_rev
-            if provided; alternatively, if passed a string, will blindly attempt to 
+            if provided; alternatively, if passed a string, will blindly attempt to
             delete the current revision of the corresponding document."))
 
 (defn- with-result-meta
@@ -528,24 +527,24 @@
                    (this id))]
       (with-result-meta this (delete-document url d))
       (with-result-meta this nil)))
-  
+
   clojure.lang.ILookup
   (valAt [this k] (get-document url k))
   (valAt [this k default] (or (.valAt this k) default))
-  
+
   clojure.lang.Counted
   (count [this] (->> (database-info url) (fail-on-404 url) :doc_count))
-  
+
   clojure.lang.Seqable
   (seq [this]
     (->> (all-documents url {:include_docs true})
       (map :doc)
       (map #(clojure.lang.MapEntry. (:_id %) %))))
-  
+
   clojure.lang.IFn
   (invoke [this key] (.valAt this key))
   (invoke [this key default] (.valAt this key default))
-  
+
   clojure.lang.IMeta
   (meta [this] meta)
   clojure.lang.IObj

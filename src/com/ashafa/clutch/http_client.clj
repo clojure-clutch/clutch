@@ -1,35 +1,37 @@
 (ns com.ashafa.clutch.http-client
   (:require [clj-http.client :as http]
             [cheshire.core :as json]
-            
             [clojure.java.io :as io]
             [clojure.string :as str]
             [com.ashafa.clutch.utils :as utils])
   (:use [cemerick.url :only (url)]
         [slingshot.slingshot :only (throw+ try+)])
-  (:import  (java.io IOException InputStream InputStreamReader PushbackReader)
-            (java.net URL URLConnection HttpURLConnection MalformedURLException)))
+  (:import (java.io IOException InputStream InputStreamReader PushbackReader)
+           (java.net URL URLConnection HttpURLConnection
+                     MalformedURLException)))
 
+(def ^:private version "0.4.0")
+(def ^:private user-agent (str "com.ashafa.clutch/" version))
+(def ^:dynamic *default-data-type* "application/json")
+(def ^:dynamic *configuration-defaults*
+  {:socket-timeout 0
+   :conn-timeout 5000
+   :follow-redirects true
+   :save-request? true
+   :as :json})
 
-(def ^{:private true} version "0.3.0")
-(def ^{:private true} user-agent (str "com.ashafa.clutch/" version))
-(def ^{:dynamic true} *default-data-type* "application/json")
-(def ^{:dynamic true} *configuration-defaults* {:socket-timeout 0
-                                                :conn-timeout 5000
-                                                :follow-redirects true
-                                                :save-request? true
-                                                :as :json})
-
-(def  ^{:doc "When thread-bound to any value, will be reset! to the
+(def ^:dynamic
+  *response*
+  "When thread-bound to any value, will be reset! to the
 complete HTTP response of the last couchdb request."
-        :dynamic true}
-     *response* nil)
+  nil)
 
 (defmacro fail-on-404
   [db expr]
   `(let [f# #(let [resp# ~expr]
                (if (= 404 (:status *response*))
-                 (throw (IllegalStateException. (format "Database %s does not exist" ~db)))
+                 (throw (IllegalStateException.
+                         (format "Database %s does not exist" ~db)))
                  resp#))]
      (if (thread-bound? #'*response*)
        (f#)
@@ -45,19 +47,19 @@ complete HTTP response of the last couchdb request."
   (let [configuration (merge *configuration-defaults* request)
         data (:data request)]
     (try+
-      (let [resp (http/request (merge configuration
-                                      {:url (str request)}
-                                      (when data {:body data})
-                                      (when (instance? InputStream data)
-                                        {:length (:data-length request)})))]
-        (set!-*response* resp))
-      (catch identity ex
-        (if (map? ex)
-          (do
-            (set!-*response* ex)
-            (when-not (== 404 (:status ex))
-              (throw+ ex)))
-          (throw+ ex))))))
+     (let [resp (http/request (merge configuration
+                                     {:url (str request)}
+                                     (when data {:body data})
+                                     (when (instance? InputStream data)
+                                       {:length (:data-length request)})))]
+       (set!-*response* resp))
+     (catch identity ex
+       (if (map? ex)
+         (do
+           (set!-*response* ex)
+           (when-not (== 404 (:status ex))
+             (throw+ ex)))
+         (throw+ ex))))))
 
 (defn- configure-request
   [method url {:keys [data data-length content-type headers]}]
@@ -87,27 +89,30 @@ complete HTTP response of the last couchdb request."
    when the result is expected to include additional information in an additional
    header line, e.g. total_rows, offset, etc. — in other words, header? should
    always be true, unless the response-body is from a continuous _changes feed
-   (which only include data, no header info).  This header info is added as
-   metadata to the returned lazy seq."
+   (which only include data, no header info). This header info is
+   added as metadata to the returned lazy seq."
   [response-body header?]
   (let [lines (utils/read-lines response-body)
         [lines meta] (if header?
                        [(rest lines)
                         (-> (first lines)
-                          (str/replace #",?\"(rows|results)\":\[\s*$" "}")  ; TODO this is going to break eventually :-/ 
-                          (json/parse-string true))]
+                            ;; TODO this is going to break eventually
+                            ;; :-/
+                            (str/replace #",?\"(rows|results)\":\[\s*$" "}")
+                            (json/parse-string true))]
                        [lines nil])]
     (with-meta (->> lines
-                 (map (fn [^String line]
-                        (when (.startsWith line "{")
-                          (json/parse-string line true))))
-                 (remove nil?))
+                    (map (fn [^String line]
+                           (when (.startsWith line "{")
+                             (json/parse-string line true))))
+                    (remove nil?))
       ;; TODO why are we dissoc'ing :rows here?
       (dissoc meta :rows))))
 
 (defn view-request
-  "Accepts the same arguments as couchdb-request*, but processes the result assuming that the
-   requested resource is a view (using lazy-view-seq)."
+  "Accepts the same arguments as couchdb-request*, but processes the
+   result assuming that the requested resource is a view (using
+   lazy-view-seq)."
   [method url & opts]
   (if-let [response (apply couchdb-request method (assoc url :as :stream) opts)]
     (lazy-view-seq response true)

@@ -4,15 +4,11 @@
         [test-clutch :only (defdbtest test-database-name test-database-url *test-database*)])
   (:refer-clojure :exclude (conj! assoc! dissoc!)))
 
-(deftest create
-  (let [name (test-database-url (test-database-name "create-type"))
-        db (couch name)]
-    (try
-      ; :update_seq can change anytime, esp. in cloudant
-      (is (= (-> db create! meta :result (dissoc :update_seq))
-             (dissoc (get-database name) :update_seq)))
-      (finally
-        (delete-database name)))))
+(defdbtest create-type
+  (let [db (couch *test-database*)]
+    ;; :update_seq can change anytime, esp. in cloudant
+    (is (= (-> db create! meta :result (dissoc :update_seq))
+           (dissoc *test-database* :update_seq)))))
 
 (defdbtest simple
   (let [db (couch *test-database*)]
@@ -39,12 +35,9 @@
            (dissoc-meta (:foo db))
            (dissoc-meta (db :foo))))))
 
-(deftest use-type-as-db-arg
-  (let [name (get-database (test-database-name "use-type-as-db-arg"))
-        db (couch name)]
-    (try
-      (dotimes [x 100]
-        (put-document db {:a x :_id (str x)}))
-      (bulk-update db (for [x (range 100)] {:_id (str "x" x) :x x}))
-      (is (= 200 (:doc_count (database-info db))))
-      (finally (delete-database name)))))
+(defdbtest use-type-as-db-arg
+  (let [db (couch *test-database*)]
+    (dotimes [x 100]
+      (put-document db {:a x :_id (str x)}))
+    (bulk-update db (for [x (range 100)] {:_id (str "x" x) :x x}))
+    (is (= 200 (:doc_count (database-info db))))))

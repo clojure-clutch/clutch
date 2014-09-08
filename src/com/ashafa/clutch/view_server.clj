@@ -17,12 +17,12 @@
 (defn log
   [message]
   ["log" message])
- 
+
 (defn reset
   [_]
   (dosync (ref-set functions []))
   true)
- 
+
 (defn add-function
   [[function-string]]
   (let [function (load-string function-string)]
@@ -30,14 +30,14 @@
       (dosync
        (alter functions conj function) true)
       ["error" "map_compilation_error" "Argument did not evaluate to a function."])))
- 
+
 (defn map-document
   [[document]]
   (for [f @functions]
     (let [results (try (f document)
                        (catch Exception error nil))]
       (vec results))))
- 
+
 (defn reduce-values
   ([[function-string & arguments-array :as entire-command]]
      (reduce-values entire-command false))
@@ -54,7 +54,7 @@
         [true (reduce #(conj %1 (%2 keys values rereduce?)) [] reduce-functions)])
       (catch Exception error
         ["error" "reduce_compilation_error" (.getMessage error)]))))
- 
+
 (defn rereduce-values
   [command]
   (reduce-values command true))
@@ -103,7 +103,7 @@
                "reduce"   reduce-values
                "rereduce" rereduce-values})
 
-(defn run 
+(defn run
   []
   (try
    (flush)
@@ -122,7 +122,7 @@
                                          (.toString w))]))
      (System/exit 1)))
   (recur))
- 
+
 
 (defn -main
   [& args]

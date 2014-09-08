@@ -2,29 +2,33 @@
 
 Clutch is a [Clojure](http://clojure.org) library for [Apache CouchDB](http://couchdb.apache.org/).
 
+## Running the Tests
+
+Run the tests with the following command:
+
+```sh
+export clutch_url=http://local:localpass@localhost:5984; lein test
+```
+
 ## "Installation"
 
 To include Clutch in your project, simply add the following to your `project.clj` dependencies:
 
 ```clojure
-[com.ashafa/clutch "0.4.0-RC1"]
+[paddleguru/clutch "0.5.0"]
 ```
 
 Or, if you're using Maven, add this dependency to your `pom.xml`:
 
 ```
 <dependency>
-    <groupId>com.ashafa</groupId>
+    <groupId>paddleguru</groupId>
     <artifactId>clutch</artifactId>
-    <version>0.4.0-RC1</version>
+    <version>0.5.0</version>
 </dependency>
 ```
 
-The latest stable version of Clutch is `0.3.1`.  But be a mench: use
-the release candidates when you can, and report feedback and issues to
-the [Clutch mailing list](http://groups.google.com/group/clojure-clutch).
-
-Clutch is compatible with Clojure 1.2.0 - 1.5.0, and requires Java 1.5+.
+This fork of Clutch is tested against Clojure 1.7.0, and requires Java 1.6+.
 
 ## Status
 
@@ -292,7 +296,7 @@ If you really want to see what Javascript ClojureScript is generating
 for your view function(s), call `com.ashafa.clutch.cljs-views/view` with
 an options map as described above (`nil` to accept the defaults) and
 either an anonymous function body or vector of ClojureScript top-level
-forms. 
+forms.
 
 #### Caveats
 
@@ -388,7 +392,7 @@ In the end, both of these methods add the exec string you provide it to the `loc
 (20 30 10)
 ```
 
-Note that all view access functions (i.e. `get-view`, `all-documents`, etc) return a lazy seq of their results (corresponding to the `:rows` slot in the data that couchdb returns in its view data).  Other values (e.g. `total_rows`, `offset`, etc) are added to the returned lazy seq as metadata. 
+Note that all view access functions (i.e. `get-view`, `all-documents`, etc) return a lazy seq of their results (corresponding to the `:rows` slot in the data that couchdb returns in its view data).  Other values (e.g. `total_rows`, `offset`, etc) are added to the returned lazy seq as metadata.
 
 ```clojure
 => (meta (all-documents "databasename"))
@@ -510,7 +514,7 @@ View-related API:
 * elimination of inconsistency between APIs between `save-view` and `save-filter`.  The names of individual views and filters are now part of the map provided to these functions, instead of sometimes being provided separately.
 * `:language` has been eliminated as part of the dynamically-bound configuration map
 * `with-clj-view-server` has been replaced by the more generic `view-server-fns` macro, which takes a `:language` keyword or map of options that includes a `:language` slot (e.g. `:clojure`, `:javascript`, etc), and a map of view/filter/validator names => functions.
-* A `view-transformer` multimethod is now available, which opens up clutch to dynamically support additional view server languages. 
+* A `view-transformer` multimethod is now available, which opens up clutch to dynamically support additional view server languages.
 * Moved `view-server-exec-string` to `com.ashafa.clutch.view-server` namespace
 
 ## Contributors
@@ -529,5 +533,3 @@ Appreciations go out to:
 ## License
 
 BSD.  See the LICENSE file at the root of this repository.
-
-

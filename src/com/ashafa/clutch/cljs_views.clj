@@ -66,7 +66,7 @@
 
    If using clutch, you should never have to touch this function.  It is registered with clutch
    as a view-transformer; just use the view-server-fns macro, indicating a view server language of
-   :cljs. 
+   :cljs.
 
    You can also include ClojureScript/Google Closure compiler options in the options map, e.g.
    :optimizations, :pretty-print, etc.  These options default to :advanced compilation, no
