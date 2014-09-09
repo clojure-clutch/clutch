@@ -7,7 +7,7 @@ Clutch is a [Clojure](http://clojure.org) library for [Apache CouchDB](http://co
 To include Clutch in your project, simply add the following to your `project.clj` dependencies:
 
 ```clojure
-[com.ashafa/clutch "0.4.0-RC1"]
+[com.ashafa/clutch "0.4.0"]
 ```
 
 Or, if you're using Maven, add this dependency to your `pom.xml`:
@@ -16,15 +16,11 @@ Or, if you're using Maven, add this dependency to your `pom.xml`:
 <dependency>
     <groupId>com.ashafa</groupId>
     <artifactId>clutch</artifactId>
-    <version>0.4.0-RC1</version>
+    <version>0.4.0</version>
 </dependency>
 ```
 
-The latest stable version of Clutch is `0.3.1`.  But be a mench: use
-the release candidates when you can, and report feedback and issues to
-the [Clutch mailing list](http://groups.google.com/group/clojure-clutch).
-
-Clutch is compatible with Clojure 1.2.0 - 1.5.0, and requires Java 1.5+.
+Clutch is compatible with Clojure 1.2.0+, and requires Java 1.5+.
 
 ## Status
 
@@ -458,7 +454,7 @@ API documentation for `_changes`](http://wiki.apache.org/couchdb/HTTP_database_A
 
 ## (Partial) Changelog
 
-##### 0.4.0 (in development)
+##### 0.4.0
 
 * **API change**: `watch-changes`, `stop-changes`, and `changes-error`
   have been removed.  See the usage section on changes above.
