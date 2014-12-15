@@ -4,8 +4,7 @@
             [clojure.java.io :as io]
             [cemerick.url :as url]
             clojure.string)
-  (:use com.ashafa.clutch.http-client
-        [clojure.core.incubator :only (-?>)])
+  (:use com.ashafa.clutch.http-client)
   (:import (java.io File FileInputStream BufferedInputStream InputStream ByteArrayOutputStream)
            (java.net URL))
   (:refer-clojure :exclude (conj! assoc! dissoc!)))
