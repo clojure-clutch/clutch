@@ -24,14 +24,12 @@ Clutch is compatible with Clojure 1.2.0+, and requires Java 1.5+.
 
 ## Status
 
-Although it's in an early stage of development (Clutch API subject to change), Clutch supports most of the Apache CouchDB API:
+Clutch supports most of the Apache CouchDB API:
 
 * Essentially all of the [core document API](http://wiki.apache.org/couchdb/HTTP_Document_API)
 * [Bulk document APIs](http://wiki.apache.org/couchdb/HTTP_Bulk_Document_API)
 * Most of the [Database API](http://wiki.apache.org/couchdb/HTTP_database_API), including `_changes` and a way to easily monitor/react to `_changes` events using Clojure's familiar watch mechanism
 * [Views](http://wiki.apache.org/couchdb/HTTP_view_API), including access, update, and a Clojure view server implementation
-
-At the moment, you'll have to look at the source or introspect the docs once you've loaded Clutch up to get around the API.  Proper API documentation (via autodoc or marginalia) coming soon.
 
 Clutch does not currently provide any direct support for the various couchapp-related APIs, including update handlers and validation, shows and lists, and so on.
 
@@ -42,20 +40,35 @@ That said, it is very easy to call whatever CouchDB API feature that Clutch does
 First, a basic REPL interaction:
 
 ```clojure
-=> (get-database "clutch_example")  ;; creates database if it's not available yet
-#cemerick.url.URL{:protocol "http", :username nil, :password nil, :host "localhost", :port -1,
-:path "clutch_example", :query nil, :disk_format_version 5, :db_name "clutch_example", :doc_del_count 0,
-:committed_update_seq 0, :disk_size 79, :update_seq 0, :purge_seq 0, :compact_running false,
-:instance_start_time "1323701753566374", :doc_count 0}
+(require '[com.ashafa.clutch :as cl])
 
-=> (bulk-update "clutch_example" [{:test-grade 10 :_id "foo"}
-                                  {:test-grade 20}
-                                  {:test-grade 30}])
-[{:id "foo", :rev "1-8a15da0db077cd05b45ec93b3a207d09"}
- {:id "0896fbf57128d7f1a1b238a52b0ec372", :rev "1-796ebf042b42fa3585332c3aa4a6f706"}
- {:id "0896fbf57128d7f1a1b238a52b0ecda8", :rev "1-01f063c5aeb1b63992c90c72c7a515ed"}]
-=> (get-document "clutch_example" "foo")
-{:_id "foo", :_rev "1-8a15da0db077cd05b45ec93b3a207d09", :test-grade 10}
+(def db "clutch-example")
+
+(cl/get-database db)   ; create database if it does not exist
+; #cemerick.url.URL{:protocol "http", :username nil, :password nil, :host "localhost", :port 5984, :path "/clutch-example", :query nil, :anchor nil, :disk_format_version 6, :db_name "clutch-example", :doc_del_count 0, :committed_update_seq 0, :disk_size 79, :update_seq 0, :purge_seq 0, :data_size 0, :compact_running false, :instance_start_time "1359232547571231", :doc_count 0}
+
+(cl/put-document "clutch-example" {:name "Granny Smith" :_id "123"})
+;{:_rev "1-6d3591f3c5b089371419b88ca986945a", :name "Granny Smith", :_id "123"}
+
+(cl/get-document db "123")
+;{:_rev "1-6d3591f3c5b089371419b88ca986945a", :name "Granny Smith", :_id "123"}
+
+(cl/delete-document "clutch-example" (cl/get-document "123"))
+;{:ok true, :id "123", :rev "1-6d3591f3c5b089371419b88ca986945a"}
+
+; alternatively
+(cl/put-document db {:name "Boscop" :_id "222"})
+;{:_rev "3-bee6b684ce0d0f7dbb9f3e9e1987ab64", :name "Boscop, :_id "123"}
+(cl/delete-document db {:_id "222" :_rev "3-bee6b684ce0d0f7dbb9f3e9e1987ab64"})
+;{:ok true, :id "222", :rev "4-d0cf0cf52c2f62ede2ebc8991c61a36f"}
+
+
+(cl/bulk-update db [{:name "Granny Smith"}{:name "Boscop"} {:name "Renette"}])
+;[{:ok true, :id "1a39ecf005fb19f170d54f55eb0035c0", :rev "1-6d3591f3c5b089371419b88ca986945a"} {:ok true, :id "1a39ecf005fb19f170d54f55eb0035f0", :rev "1-7dbfb572b13f723e1205e815a5389d5f"} {:ok true, :id "1a39ecf005fb19f170d54f55eb004042", :rev "1-76f6f3bcd55564fdff764d6d023a7056"}]
+
+(cl/ad-hoc-view db (cl/view-server-fns :javascript {:map "function(doc) emit (doc.name)"}))
+;({:id "1a39ecf005fb19f170d54f55eb0035f0", :key "Boscop", :value nil} {:id "1a39ecf005fb19f170d54f55eb002498", :key "Granny Smith", :value nil} {:id "1a39ecf005fb19f170d54f55eb0033af", :key "Granny Smith", :value nil} {:id "1a39ecf005fb19f170d54f55eb0035c0", :key "Granny Smith", :value nil} {:id "1a39ecf005fb19f170d54f55eb004042", :key "Renette", :value nil})
+
 ```
 
 All Clutch functions accept a first argument indicating the database
@@ -70,31 +83,31 @@ You can `assoc` in whatever you like to a `URL` record, which is handy for keepi
 credentials separate:
 
 ```clojure
-=> (def db (assoc (cemerick.url/url "https://XXX.cloudant.com/" "databasename")
+(def db (assoc (cemerick.url/url "https://XXX.cloudant.com/" "databasename")
                     :username "username"
                     :password "password"))
 #'test-clutch/db
-=> (put-document db {:a 5 :b [0 6]})
-{:_id "17e55bcc31e33dd30c3313cc2e6e5bb4", :_rev "1-a3517724e42612f9fbd350091a96593c", :a 5, :b [0 6]}
+(cl/put-document db {:a 5 :b [0 6]})
+;{:_id "17e55bcc31e33dd30c3313cc2e6e5bb4", :_rev "1-a3517724e42612f9fbd350091a96593c", :a 5, :b [0 6]}
 ```
 
 Of course, you can use a string containing inline credentials as well:
 
 ```clojure
-=> (put-document "https://username:password@XXX.cloudant.com/databasename/" {:a 5 :b 6})
-{:_id "36b807aacf227f921aa256b06ab094e5", :_rev "1-d4d04a5b59bcd73893a84de2d9595c4c", :a 5, :b 6}
+(cl/put-document "https://username:password@XXX.cloudant.com/databasename/" {:a 5 :b 6})
+;{:_id "36b807aacf227f921aa256b06ab094e5", :_rev "1-d4d04a5b59bcd73893a84de2d9595c4c", :a 5, :b 6}
 ```
 
 Finally, you can optionally provide configuration using dynamic scope via `with-db`:
 
 ```clojure
-=> (with-db "clutch_example"
-     (put-document {:_id "a" :a 5})
-     (put-document {:_id "b" :b 6})
-     (-> (get-document "a")
-       (merge (get-document "b"))
+(cl/with-db "clutch_example"
+     (cl/put-document {:_id "a" :a 5})
+     (cl/put-document {:_id "b" :b 6})
+     (-> (cl/get-document "a")
+       (merge (cl/get-document "b"))
        (dissoc-meta)))
-{:b 6, :a 5}
+;{:b 6, :a 5}
 ```
 
 ### Experimental: a Clojure-idiomatic CouchDB type
@@ -120,8 +133,8 @@ Would like to eventually add:
   e.g.
 
 ```clojure
-(assoc-in! db ["ID" :key :key array-index] x)
-(update-in! db ["ID" :key :key array-index] assoc :key y)
+(cl/assoc-in! db ["ID" :key :key array-index] x)
+(cl/update-in! db ["ID" :key :key array-index] assoc :key y)
 ```
 
 Feedback wanted on the mailing list: http://groups.google.com/group/clojure-clutch
@@ -129,39 +142,39 @@ Feedback wanted on the mailing list: http://groups.google.com/group/clojure-clut
 This part of the API is subject to change at any time, so no detailed examples.  For now, just a REPL interaction will do:
 
 ```clojure
-=> (use 'com.ashafa.clutch)     ;; My apologies for the bare `use`!
-nil
-=> (def db (couch "test"))
-#'user/db
-=> (create! db)
-#<CouchDB user.CouchDB@3f460a4a>
-=> (:result (meta *1))
-#com.ashafa.clutch.utils.URL{:protocol "http", :username nil, :password nil,
-:host "localhost", :port -1, :path "test", :query nil, :disk_format_version 5,
-:db_name "test", :doc_del_count 0, :committed_update_seq 0, :disk_size 79,
-:update_seq 0, :purge_seq 0, :compact_running false, :instance_start_time
-"1324037686108297", :doc_count 0}
-=> (reduce conj! db (for [x (range 5000)]
+(require '[com.ashafa.clutch :as cl])
+;nil
+(def db (cl/couch "test"))
+;#'user/db
+(cl/create! db)
+; #<CouchDB user.CouchDB@3f460a4a>
+(:result (meta *1))
+; #com.ashafa.clutch.utils.URL{:protocol "http", :username nil, :password nil,
+;:host "localhost", :port -1, :path "test", :query nil, :disk_format_version 5,
+;:db_name "test", :doc_del_count 0, :committed_update_seq 0, :disk_size 79,
+;:update_seq 0, :purge_seq 0, :compact_running false, :instance_start_time
+;"1324037686108297", :doc_count 0}
+(reduce cl/conj! db (for [x (range 5000)]
                       {:_id (str x) :a [1 2 x]}))
-#<CouchDB user.CouchDB@71d1be4e>
-=> (count db)
-5000
-=> (get-in db ["68" :a 2])
-68
-=> (def copy (into {} db))
-#'user/copy
-=> (get-in copy ["68" :a 2])
-68
-=> (first db)
-["0" {:_id "0", :_rev "1-79fe783154bff972172bc30732783a68", :a [1 2 0]}]
-=> (dissoc! db "68")
-#<CouchDB user.CouchDB@48f50903>
-=> (get db "68")
-nil
-=> (assoc! db :foo {:a 6 :b 7})
-#<CouchDB user.CouchDB@79d7999e>
-=> (:result (meta *1))
-{:_rev "1-ac3fe57a7604cfd6dcca06b25204b590", :_id ":foo", :a 6, :b 7}
+;#<CouchDB user.CouchDB@71d1be4e>
+(count db)
+;5000
+(get-in db ["68" :a 2])
+;68
+(def copy (into {} db))
+;#'user/copy
+(get-in copy ["68" :a 2])
+;68
+(first db)
+;["0" {:_id "0", :_rev "1-79fe783154bff972172bc30732783a68", :a [1 2 0]}]
+(cl/dissoc! db "68")
+;#<CouchDB user.CouchDB@48f50903>
+(get db "68")
+;nil
+(cl/assoc! db :foo {:a 6 :b 7})
+;#<CouchDB user.CouchDB@79d7999e>
+(:result (meta *1))
+;{:_rev "1-ac3fe57a7604cfd6dcca06b25204b590", :_id ":foo", :a 6, :b 7}
 ```
 
 ### Using ClojureScript to write CouchDB views <a name="cljsviews"/>
@@ -210,9 +223,9 @@ JavaScript (and specifying the language to be `:javascript`), provide a
 snippet of ClojureScript (specifying the language to be `:cljs`):
 
 ```clojure
-(with-db "your_database"
-  (save-view "design_document_name"
-    (view-server-fns :cljs
+(cl/with-db "your_database"
+  (cl/save-view "design_document_name"
+    (cl/view-server-fns :cljs
       {:your-view-name {:map (fn [doc]
                                (js/emit (aget doc "_id") nil))}})))
 ```
@@ -231,9 +244,9 @@ Your views can utilize larger codebases; just include your "top-level"
 ClojureScript forms in a vector:
 
 ```clojure
-(with-db "your_database"
-  (save-view "design_document_name"
-    (view-server-fns {:language :cljs
+(cl/with-db "your_database"
+  (cl/save-view "design_document_name"
+    (cl/view-server-fns {:language :cljs
                       :main 'couchview/main}
       {:your-view-name {:map [(ns couchview)
                               (defn concat
@@ -404,19 +417,19 @@ many functions as necessary to the agent as watches (a.k.a. callbacks).
 Here's a REPL interaction demonstrating this functionality:
 
 ```clojure
-=> (require '[com.ashafa.clutch :as couch])
+=> (require '[com.ashafa.clutch :as cl])
 nil
-=> (couch/create-database "demo")
+=> (cl/create-database "demo")
 #cemerick.url.URL{:protocol "http", :username nil, :password nil,
                   :host "localhost", :port 5984, :path "/demo",
                   :query nil, :anchor nil}
-=> (def a (couch/change-agent "demo"))
+=> (def a (cl/change-agent "demo"))
 #'user/a
 
    ;; `start-changes` hooks the agent up to the database's `_changes` feed
-=> (couch/start-changes a)
+=> (cl/start-changes a)
 #<Agent@693a1324: nil>
-=> (couch/put-document "demo" {:name "Chas"})
+=> (cl/put-document "demo" {:name "Chas"})
 {:_id "259239233e2c2d06f3e311ce5f5271c1", :_rev "1-24ccfd9600c215e32ceefdd06b25f62d", :name "Chas"}
 
    ;; each change becomes a new state within the agent:
@@ -427,22 +440,22 @@ nil
 => (add-watch a :echo (fn [key agent previous-change change]
                         (println "change received:" change)))
 #<Agent@693a1324: {:seq 1, :id "259239233e2c2d06f3e311ce5f5271c1", :changes [{:rev "1-24ccfd9600c215e32ceefdd06b25f62d"}]}>
-=> (couch/put-document "demo" {:name "Roger"})
+=> (cl/put-document "demo" {:name "Roger"})
 {:_id "259239233e2c2d06f3e311ce5f527a9d", :_rev "1-0c3db91854f26486d1c3922f1a651d86", :name "Roger"}
 change received: {:seq 2, :id 259239233e2c2d06f3e311ce5f527a9d, :changes [{:rev 1-0c3db91854f26486d1c3922f1a651d86}]}
-=> (couch/bulk-update "demo" [{:x 1} {:y 2} {:z 3 :_id "some-id"}])
+=> (cl/bulk-update "demo" [{:x 1} {:y 2} {:z 3 :_id "some-id"}])
 [{:id "259239233e2c2d06f3e311ce5f527cd4", :rev "1-0785e9eb543380151003dc452c3a001a"} {:id "259239233e2c2d06f3e311ce5f527fa6", :rev "1-ef91d626f27dc5d224fd534e7b47da82"} {:id "some-id", :rev "1-178dbe6c7346ffc3af8811327d1336ff"}]
 change received: {:seq 3, :id 259239233e2c2d06f3e311ce5f527cd4, :changes [{:rev 1-0785e9eb543380151003dc452c3a001a}]}
 change received: {:seq 4, :id 259239233e2c2d06f3e311ce5f527fa6, :changes [{:rev 1-ef91d626f27dc5d224fd534e7b47da82}]}
 change received: {:seq 5, :id some-id, :changes [{:rev 1-178dbe6c7346ffc3af8811327d1336ff}]}
-=> (couch/delete-document "demo" (couch/get-document "demo" "some-id"))
+=> (cl/delete-document "demo" (cl/get-document "demo" "some-id"))
 {:ok true, :id "some-id", :rev "2-7a128852666329025f1fba1114628251"}
 change received: {:seq 6, :id some-id,
                   :changes [{:rev 2-7a128852666329025f1fba1114628251}], :deleted true}
 
    ;; if you want to stop the flow of changes through the agent, use
    ;; `stop-changes`
-=> (couch/stop-changes a)
+=> (cl/stop-changes a)
 #<Agent@693a1324: {:seq 6, :id "some-id", :changes [{:rev "2-7a128852666329025f1fba1114628251"}], :deleted true}>
 ```
 
