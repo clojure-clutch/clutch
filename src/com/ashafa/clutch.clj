@@ -389,6 +389,13 @@
                          (utils/url attachment-name)
                          (assoc :as :stream))))))
 
+(defdbop run-update-fn
+  "Runs a CouchDB update function."
+  [db design-document update-function-name body & {:keys [id]}]
+  (couchdb-request (if id :put :post)
+                   (utils/url db "_design" (name design-document) "_update" (name update-function-name) id)
+                   :data body))
+
 ;;;; _changes
 
 (defdbop changes

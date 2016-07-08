@@ -7,7 +7,7 @@ Clutch is a [Clojure](http://clojure.org) library for [Apache CouchDB](http://co
 To include Clutch in your project, simply add the following to your `project.clj` dependencies:
 
 ```clojure
-[com.ashafa/clutch "0.4.0"]
+[com.ashafa/clutch "0.4.1"]
 ```
 
 Or, if you're using Maven, add this dependency to your `pom.xml`:
