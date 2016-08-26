@@ -3,14 +3,14 @@
   :url "https://github.com/clojure-clutch/clutch/"
   :license {:name "BSD"
             :url "http://www.opensource.org/licenses/BSD-3-Clause"}
-  :dependencies [[org.clojure/clojure "1.4.0"]
+  :dependencies [[org.clojure/clojure "1.8.0"]
                  
-                 [clj-http "0.5.5"]
-                 [cheshire "4.0.0"]
+                 [clj-http "3.1.0"]
+                 [cheshire "5.6.3"]
                  [commons-codec "1.6"]
-                 [com.cemerick/url "0.0.6"]
+                 [com.cemerick/url "0.1.1"]
                  
-                 [org.clojure/clojurescript "0.0-1450" :optional true
+                 [org.clojure/clojurescript "1.8.40" :optional true
                   :exclusions [com.google.code.findbugs/jsr305
                                com.googlecode.jarjar/jarjar
                                junit
