@@ -3,8 +3,8 @@
             [cheshire.core :as json]
             [clojure.java.io :as io]
             [cemerick.url :as url]
+            [com.ashafa.clutch.http-client :refer :all]
             clojure.string)
-  (:use com.ashafa.clutch.http-client)
   (:import (java.io File FileInputStream BufferedInputStream InputStream ByteArrayOutputStream)
            (java.net URL))
   (:refer-clojure :exclude (conj! assoc! dissoc!)))
@@ -396,6 +396,15 @@
                    (utils/url db "_design" (name design-document) "_update" (name update-function-name) id)
                    :data body))
 
+(defdbop get-list
+  "Get list views associated with a design document.
+   Also takes an optional map for querying options.
+
+   No support for views in design documents other than the one containing the list view."
+  [db design-document list-key view-key & [query-params-map]]
+  (let [url (assoc (utils/url db "_design" (name design-document) "_list" (name list-key) (name view-key))
+                   :query query-params-map)]
+    (couchdb-request :get url)))
 ;;;; _changes
 
 (defdbop changes
