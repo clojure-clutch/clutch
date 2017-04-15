@@ -271,7 +271,7 @@
                              [(or (:language options) :javascript) (dissoc options :language)]
                              [options])]
     [(:language (view-transformer language))
-     `(#'map-leaves ((:compiler (view-transformer ~language)) ~options) '~fns)]))
+     `(#'map-leaves ((:compiler (view-transformer ~language)) ~options) ~fns)]))
 
 (defdbop save-design-document
   "Create/update a design document containing functions used for database
