@@ -44,3 +44,4 @@ Now we can write code like this:
 (with-db (couch/get-document "blogs"))
 ```
 
+Next: [Getting documents](get-doc.md)
