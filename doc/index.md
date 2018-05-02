@@ -6,7 +6,7 @@ These documents guide you through using Clutch in a Clojure app created in Leini
 
 ## Index:
 
-* (Connecting to the database)[connecting.md]
+* [Connecting to the database](connecting.md)
 * Getting documents
 * Putting documents
 * Views
