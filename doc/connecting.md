@@ -9,7 +9,7 @@ All Clutch functions accept a first argument indicating the database endpoint, f
 (couch/get-document "http://localhost:5984/wiki" "blogs")
 ```
 
-However, putting a connection string in every call to Clutch is a lot of typing and it's not good practice to include these kinds of details in your code. So let's improve this by using an environment variable:
+However, putting a connection string in every call to Clutch is a lot of typing and it's not good practice to include these kinds of details in your code. So let's improve this by using an environment variable.
 
 First define an environment variable in your `profiles.clj` file:
 
@@ -29,9 +29,9 @@ Now you can use this for the connection string:
 
 You can find out more about using environment variables here: https://github.com/weavejester/environ
 
-We can go one step further and use a simple macro to factor out the `db` parameter:
+We can go one step further and use a simple macro to factor out the `db` parameter altogether:
 
-```
+```clojure
 (defmacro with-db
   [& body]
   `(couch/with-db (env :database-url)
@@ -40,7 +40,7 @@ We can go one step further and use a simple macro to factor out the `db` paramet
 
 Now we can write code like this:
 
-```
+```clojure
 (with-db (couch/get-document "blogs"))
 ```
 
