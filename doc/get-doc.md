@@ -65,7 +65,7 @@ Did you notice that this threw an error? Specifying revision IDs is not as simpl
 
 ## Error reporting
 
-In Emacs with Cider (and other environments?), errors generate a 400 error from the CouchDB server. There's a lot of detail and it's difficult to see the cause, but look in the body and you'll see reason, in this case: `bad_request` and `Invalid rev format`:
+In Emacs with Cider (and other environments?), errors generate a 400 response from the CouchDB server. There's a lot of detail and it's difficult to see the cause, but look in the body and you'll see reason, in this case: `bad_request` and `Invalid rev format`:
 
 ```clojure
 2. Unhandled clojure.lang.ExceptionInfo
@@ -75,11 +75,18 @@ In Emacs with Cider (and other environments?), errors generate a 400 error from 
    {:status 400, :headers {"server" "CouchDB/1.6.1 (Erlang OTP/19)", "date" "Wed, 02 May 2018 13:12:37 GMT", "content-type" "text/plain; charset=utf-8", "content-length" "54", "cache-control" "must-revalidate"}, :body "{\"error\":\"bad_request\",\"reason\":\"Invalid rev format\"}\n", :request {:path "/wiki/ideal-wiki", :user-info nil, :follow-redirects true, :body-type nil, :protocol "http", :password nil, :conn-timeout 5000, :as :json, :username nil, :http-req #object[clj_http.core.proxy$org.apache.http.client.methods.HttpEntityEnclosingRequestBase$ff19274a 0x313052b1 "GET http://localhost:5984/wiki/ideal-wiki?rev=fcb4d3cc5a8e683cc35eb64d8d1f8ba2 HTTP/1.1"], ...}}
 ```
 
-You can print the body within the data of the last exception like this, which is a bit easier than searching through the exception output:
+You can get the `body` within the `data` of the last exception like this, which is a bit easier than searching through the exception output:
 
 ```clojure
-(:body (.data *e))
+> (:body (.data *e))
+"{\"error\":\"bad_request\",\"reason\":\"Invalid rev format\"}\n"
 ```
 
 ## Back to document revisions
 
+So to retrieve a revision, you must specify the version index and the revision number. In the previous example the index starts at 7, and descends through the revision list as (7 6 5 4 3 2 1). Here's the fixed code:
+
+```clojure
+> (with-db (couch/get-document "ideal-wiki"
+                               :rev "6-fcb4d3cc5a8e683cc35eb64d8d1f8ba2"))
+```
