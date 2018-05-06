@@ -31,7 +31,7 @@ To get a sequence of all documents in the database use `all-documents`. With no 
  )
 ```
 
-[//] # (Add info about include more, eg. include_docs)
+[//]: # (Add info about include more, eg. include_docs)
 
 ## Getting a single document
 
