@@ -31,7 +31,7 @@ Although it's in an early stage of development (Clutch API subject to change), C
 * Most of the [Database API](http://wiki.apache.org/couchdb/HTTP_database_API), including `_changes` and a way to easily monitor/react to `_changes` events using Clojure's familiar watch mechanism
 * [Views](http://wiki.apache.org/couchdb/HTTP_view_API), including access, update, and a Clojure view server implementation
 
-At the moment, you'll have to look at the source or introspect the docs once you've loaded Clutch up to get around the API.  Proper API documentation (via autodoc or marginalia) coming soon.
+Read the [documentation](doc/index.md) to learn the basics of Clutch. You can also look at the source or introspect the docs once you've loaded Clutch in your REPL.  
 
 Clutch does not currently provide any direct support for the various couchapp-related APIs, including update handlers and validation, shows and lists, and so on.
 
