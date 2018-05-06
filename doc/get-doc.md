@@ -2,6 +2,37 @@
 
 Following on from [connecting to the database](connecting.md) let's look at how we can retrieve documents from CouchDB.
 
+## All documents
+
+To get a sequence of all documents in the database use `all-documents`. With no parameters this returns just the document `id`, `key` and latest revision.
+
+```clojure
+> (with-db (couch/all-documents))
+({:id "_design/page_graph",
+  :key "_design/page_graph",
+  :value {:rev "9-78833b3c2b993ab70729fe09416b787d"}}
+ {:id "_design/pages",
+  :key "_design/pages",
+  :value {:rev "17-04590ec8d06f0af6dc37a8f209e6edd2"}}
+ {:id "about",
+  :key "about",
+  :value {:rev "10-4379c9bff126a5854779d177b48c8d2f"}}
+ {:id "about-wikis",
+  :key "about-wikis",
+  :value {:rev "7-b7a842842bbf0059b421f522851afeaf"}}
+ {:id "blogs",
+  :key "blogs",
+  :value {:rev "5-a3bdf7a1d156acae6ae69530394acff9"}}
+ {:id "ideal-wiki",
+  :key "ideal-wiki",
+  :value {:rev "7-9b321eca6d2aab8e934b089684662342"}}
+
+ ;; ...
+ )
+```
+
+## Getting a single document
+
 The simplest form is `get-document` with a document id:
 
 ```clojure
