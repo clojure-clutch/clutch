@@ -1,6 +1,6 @@
 # Finding documents with views
 
-Use views to index or summarise your data so that you can find what you need. The CouchDB database has a [good guide to views](http://guide.couchdb.org/draft/views.html), read that first then follow the rest of this document to see how to use them from Clojure.
+Use views to index or summarise your data so that you can find what you need. The CouchDB database has a good [guide to views](http://guide.couchdb.org/draft/views.html), read that first then follow the rest of this document to see how to use them from Clojure.
 
 ## Create your views
 
@@ -20,7 +20,7 @@ function(doc) {
 }
 ```
 
-Make sure you naming and save your temporary view. As a guide, the design document can be named by the entity (in this case 'pages') and the view by the key (in this case 'by_tag').
+Make sure you name and save your temporary view. As a guide, the design document can be named by the entity (in this case 'pages') and the view by the key (in this case 'by_tag').
 
 ## Calling views from your code
 
