@@ -16,7 +16,35 @@ To see what immutable means, run that command again:
 
 ```clojure
 > ;;; repeat command above
-> > (:body (.data *e))
+ExceptionInfo clj-http: status 409  slingshot.support/stack-trace (support.clj:201)
+> (:body (.data *e))
 "{\"error\":\"conflict\",\"reason\":\"Document update conflict.\"}\n"
 ```
 
+## Updating a document
+
+To update a document you put a new revision, so first list the revisions:
+
+```clojure
+> (with-db (couch/get-document "a-new-page" :revs true))
+{:_id "a-new-page",
+ :_rev "1-0d1b7dedd3123e3d349748f2acce65d5",
+ :content "lorem ipsum",
+ :tags ["tag1" "tag2"],
+ :_revisions {:start 1, :ids ["0d1b7dedd3123e3d349748f2acce65d5"]}}
+```
+
+Now we can use the latest revision to create a new version -- make sure you use the `_rev` value from your own output:
+
+```clojure
+(with-db (couch/put-document {:_id "a-new-page"
+                              :_rev "1-0d1b7dedd3123e3d349748f2acce65d5"
+                               :content "Some new content"
+                               :tags (list "tag1" "tag2" "tag3")}))
+```
+
+The `put-document` command outputs the document written:
+
+```clojure
+{:_id "a-new-page", :_rev "2-baef2d1090628e045129c9f0513ce782", :content "Some new content", :tags ("tag1" "tag2" "tag3")}
+```
