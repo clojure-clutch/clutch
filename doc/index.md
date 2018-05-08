@@ -9,6 +9,6 @@ These documents guide you through using Clutch in a Clojure app created in Leini
 * [Connecting to the database](connecting.md)
 * [Getting documents](get-doc.md)
 * [Putting documents](put-doc.md)
-* [Views](views.md)
+* Finding documents with [views](views.md)
 
 
