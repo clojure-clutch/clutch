@@ -47,3 +47,5 @@ The `put-document` command outputs the document written:
 ```clojure
 {:_id "a-new-page", :_rev "2-baef2d1090628e045129c9f0513ce782", :content "Some new content", :tags ("tag1" "tag2" "tag3")}
 ```
+
+Next: Finding documents with [views](views.md)

@@ -123,3 +123,5 @@ So to retrieve a revision, you must specify the version index and the revision n
 > (with-db (couch/get-document "ideal-wiki"
                                :rev "6-fcb4d3cc5a8e683cc35eb64d8d1f8ba2"))
 ```
+
+Next: [Putting documents](put-doc.md)
