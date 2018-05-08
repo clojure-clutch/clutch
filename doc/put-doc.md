@@ -8,8 +8,8 @@ Use the `put-document` function to put a new document - notice how you specify t
 
 ```clojure
 (with-db (couch/put-document {:_id "a-new-page"
-                               :content "lorem ipsum"
-                               :tags (list "tag1" "tag2")}))
+                              :content "lorem ipsum"
+                              :tags (list "tag1" "tag2")}))
 ```
 
 To see what immutable means, run that command again:
@@ -23,24 +23,23 @@ ExceptionInfo clj-http: status 409  slingshot.support/stack-trace (support.clj:2
 
 ## Updating a document
 
-To update a document you put a new revision, so first list the revisions:
+To update a document you put a new revision, so first find the current revision with `get-document`:
 
 ```clojure
-> (with-db (couch/get-document "a-new-page" :revs true))
+> (with-db (couch/get-document "a-new-page"))
 {:_id "a-new-page",
  :_rev "1-0d1b7dedd3123e3d349748f2acce65d5",
  :content "lorem ipsum",
- :tags ["tag1" "tag2"],
- :_revisions {:start 1, :ids ["0d1b7dedd3123e3d349748f2acce65d5"]}}
+ :tags ["tag1" "tag2"]}
 ```
 
-Now we can use the latest revision to create a new version -- make sure you use the `_rev` value from your own output:
+Now we can use this info to create a new version -- make sure you use the `_rev` value from your own output (not from the output above):
 
 ```clojure
 (with-db (couch/put-document {:_id "a-new-page"
                               :_rev "1-0d1b7dedd3123e3d349748f2acce65d5"
-                               :content "Some new content"
-                               :tags (list "tag1" "tag2" "tag3")}))
+                              :content "Some new content"
+                              :tags (list "tag1" "tag2" "tag3")}))
 ```
 
 The `put-document` command outputs the document written:
