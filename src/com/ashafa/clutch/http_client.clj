@@ -1,7 +1,7 @@
 (ns com.ashafa.clutch.http-client
   (:require [clj-http.client :as http]
             [cheshire.core :as json]
-            
+
             [clojure.java.io :as io]
             [clojure.string :as str]
             [com.ashafa.clutch.utils :as utils])
@@ -79,6 +79,34 @@ complete HTTP response of the last couchdb request."
   [& args]
   (:body (apply couchdb-request* args)))
 
+(defn response-handle-if-parsed*
+  "Was the response already parsed as JSON? send that. Otherwise,
+  parse the line as JSON."
+  [line]
+  (if (and (string? line) (.startsWith line "{"))
+    (json/parse-string line true)
+    (if (not (string? line))
+      line)
+    ))
+
+(defn response-parse*
+  "Separate rows|results from the headers"
+  [s]
+  (json/parse-string (str/replace s #",?\"(rows|results)\":\[\s*$" "}") true))  ; TODO this is going to break eventually :-/
+
+(defn response-with-header*
+  "Handle sorting out what is the response."
+  [lines]
+  [(if (empty? (rest lines)) (:rows (response-parse* (first lines))) (rest lines))
+   (-> (first lines)
+       (response-parse*))]
+  )
+
+(defn response-no-header*
+  "No header? Just send back lines."
+  [lines]
+  [lines nil])
+
 (defn lazy-view-seq
   "Given the body of a view result or _changes feed (should be an InputStream),
    returns a lazy seq of each row of data therein.
@@ -92,18 +120,14 @@ complete HTTP response of the last couchdb request."
   [response-body header?]
   (let [lines (utils/read-lines response-body)
         [lines meta] (if header?
-                       [(rest lines)
-                        (-> (first lines)
-                          (str/replace #",?\"(rows|results)\":\[\s*$" "}")  ; TODO this is going to break eventually :-/ 
-                          (json/parse-string true))]
-                       [lines nil])]
+                        (response-with-header* lines)
+                        (response-no-header* lines))]
     (with-meta (->> lines
-                 (map (fn [^String line]
-                        (when (.startsWith line "{")
-                          (json/parse-string line true))))
-                 (remove nil?))
-      ;; TODO why are we dissoc'ing :rows here?
-      (dissoc meta :rows))))
+                     (map (fn [^String line]
+                            (response-handle-if-parsed* line)))
+                     (remove nil?))
+          ;; TODO why are we dissoc'ing :rows here?
+          (dissoc meta :rows))))
 
 (defn view-request
   "Accepts the same arguments as couchdb-request*, but processes the result assuming that the
