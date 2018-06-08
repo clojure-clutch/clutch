@@ -93,6 +93,17 @@
     :data {:source (str srcdb)
            :target (str tgtdb)}))
 
+(defdbop uuids
+  "Returns a list of n fresh UUID's from the server for use as id in future calls
+   to put-document. For the rationale behind preferring PUT requests with
+   pre-generated ids to POST requests when saving new documents, see
+   http://wiki.apache.org/couchdb/HTTP_Document_API."
+  [db n]
+  (couchdb-request :get
+                   (->
+                    (url/url db "/_uuids")
+                    (assoc :query {:count n}))))
+
 (def ^{:private true} byte-array-class (Class/forName "[B"))
 
 (defn- attachment-info
